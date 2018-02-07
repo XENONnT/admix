@@ -5,10 +5,13 @@ import logging
 import argparse
 import time
 import os
+
+
+
 """Main module section"""
+from admix import __version__
 from admix.runDB import xenon_runDB as XenonRunDatabase
 from admix.tasks import tester as TestaDMIX
-#from admix.tasks import uploader as uploader
 from admix.tasks import helper
 from admix.tasks import tasker
 
@@ -37,6 +40,8 @@ def server():
                         help="Load your host configuration")
     parser.add_argument('--once', dest='once', action='store_true',
                         help="Run the server only once an exits")
+    parser.add_argument('--no-update', dest='no_update', action='store_false',
+                        help="Add this option to prevent aDMIX updating the Xenon database")
 
     parser.add_argument('--run', dest='run', type=str,
                         help="Xenon1T run number")
@@ -47,6 +52,7 @@ def server():
     
     args = parser.parse_args()
     helper.make_global("admix_config", os.path.abspath(args.admix_config))
+    helper.make_global("no_db_update", args.no_update)
     _run          = helper.run_number_converter(args.run)
     _name         = helper.run_name_converter(args.name)
     _timestamp    = helper.run_timestampe_converter(args.timestamp)
@@ -60,45 +66,44 @@ def server():
         print("You are at % " % helper.get_hostname() )
         exit()
     
+    ##Setup the log file (like in cax):
+    admix_version = 'admix_v%s - ' % __version__
+    logging.basicConfig(filename=helper.get_hostconfig()['log_path'],
+                        level=logging.INFO,
+                        format=admix_version + '%(asctime)s [%(levelname)s] '
+                                             '%(message)s')
+    logging.info('aDMIX is starting')
+
+    # define a Handler which writes INFO messages or higher to the sys.stderr
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+    # tell the handler to use this format
+    console.setFormatter(formatter)
+    # add the handler to the root logger
+    logging.getLogger('').addHandler(console)
+    logging.getLogger("requests").setLevel(logging.ERROR)
+    
     # Ping rucio
-    
+      #todo ?
     # Ping Xenon Database
-    
+      #todo ?
     #Finish pre tests
     
-    #Load the database
-    #xrd = XenonRunDatabase.XenonRunDatabase()
+
     
     while True: # yeah yeah
-        print("Load the database")
-        #xrd.LoadCollection()
-    
-    
-        #xrd.QueryByTimestamp(_timestamp)
-        #xrd.QueryByRunnumber(_run)
-        #xrd.QueryByRunname(_name)
-        #xrd.CreateQuery()
         
-        #cursor = xrd.GetCursor()
-        #print("load:", len(cursor))
-        
-        #Fill in download routines:
         task_m = tasker.Tasker()
         
         task_m.LoadCollection()    
         task_m.QueryByTimestamp(_timestamp)
         task_m.QueryByRunnumber(_run)
         task_m.QueryByRunname(_name)
-        
-        #tasker.SetDataSelection(cursor)
-        task_m.ExecuteTask()
-        #tasker.GetTypeList()
-        #if helper.executer():
-            #continue
-        
+        task_m.ExecuteTask()    
         
         if _once:
             break
         else:
-            print('Sleeping. (5s)')
+            logging.info('Sleeping. (5s)')
         time.sleep(5)

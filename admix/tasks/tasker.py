@@ -27,19 +27,13 @@ class Tasker(xenon_runDB.XenonRunDatabase):
         
         #Create the query:
         self.CreateQuery()
-        #self.tasker_xrd.CreateQuery()
-        #q = self.tasker_xrd.GetQuery()
-        #print("q:", q)
-        #Ask for the db cursor
-        cursordb = self.GetCursor()
-        
-        print("loaded:", len(cursordb))
 
         self.GetTaskList()
         
         if self.run_task == 'upload':
             print("Run an upload session")
-            uploader.Uploader(db_curser=self.GetCursor(),
+            uploader.Uploader(db_collection=self.GetCollection(),
+                              db_curser=self.GetCursor(),
                               task_list=self.GetTaskList(),
                               type_list=self.GetTypeList(),
                               detk_list=self.GetDetectorList()
@@ -52,9 +46,9 @@ class Tasker(xenon_runDB.XenonRunDatabase):
             print("Run the rule server")
             
         if self.run_task == 'rule-updater-1t':
-            print("Run a specific Xenon1T rule updater")
-            print("n")
-            rule_updater.RuleUpdater(db_curser=self.GetCursor(),
+            logging.info("Run a specific Xenon1T rule updater")
+            rule_updater.RuleUpdater(db_collection=self.GetCollection(),
+                                     db_curser=self.GetCursor(),
                                      task_list=self.GetTaskList(),
                                      type_list=self.GetTypeList(),
                                      dest_list=self.GetDestinationList(),

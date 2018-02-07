@@ -38,7 +38,3 @@ class Uploader(object):
                 i_data_host     = i_data['host']
                 i_data_location = i_data['location']
                 print(i_data_host, i_data_location, i_data_type)
-            
-
-#1) Extract database information
-#2) Verify data

@@ -111,19 +111,3 @@ class XenonRunDatabase(object):
                                                 sort=sort_key))
         
         return self.cursor
-    
-    
-    
-    
-    #def GetQuery(self):
-        #return cursor = collection.find(query)
-        
-        #"detector":    "tpc",
-        #"data": { "$elemMatch": {
-##            "host": site,
-            #"type": data_type,
-            #"status": "transferred"
-        #}},
-        #"source": { "$in": [ {"type": "AmBe"}, {"type": "Rn220"}]},
-        #"tags": {"$elemMatch": { "name": "_sciencerun0" }}
-        #}
