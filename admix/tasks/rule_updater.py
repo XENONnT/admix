@@ -7,7 +7,7 @@ from rucio.client.client import Client
 
 from admix.tasks import helper
 
-class RuleUpdater(object):
+class RuleUpdater(Tasker):
     
     def __init__(self, db_curser=None,
                        task_list=None,
@@ -39,7 +39,6 @@ class RuleUpdater(object):
             
             run_data   = i_run['data']
             
-            #print( run_number )
             for i_data in run_data:                
                 
                 i_data_type     = i_data['type']
@@ -65,10 +64,6 @@ class RuleUpdater(object):
                 else:
                     continue
                 
-                
-                #print(i_data_host, i_data_scope, i_data_type)
-                #print("old:", i_data_rse)
-                #print("old:", i_data_rule_info)
                 
                 #get all destinations first:
                 destinations = []
@@ -112,9 +107,6 @@ class RuleUpdater(object):
                     NewRSE.append(str(j_rse).decode('unicode-escape'))
                     NewRSES.append( stat.decode('unicode-escape') )
                 
-                #print("new:", NewRSE)
-                #print("new:", NewRSES)
-                
                 if set(i_data_rse) != set(NewRSE) or set(NewRSES) != set(i_data_rule_info):
                     print("-- Update this run:")
                     print(run_name, run_number, str(i_data_location))
@@ -122,9 +114,21 @@ class RuleUpdater(object):
                     print("Old entry: ", i_data_rse, i_data_rule_info)
                     print("  ")
                     #cnt_bad_rules+=1
-                
-                
-                
+                else:
+                    print("-- Nothing to do for run:", run_number)
+                    #Need collection pointer:
+                    #self.collection.update({'_id': self.run_doc['_id'],
+                                            #'data': {
+                                                #'$elemMatch': i_data}
+                                            #},
+                                            #{'$set': {
+                                                ##'data.$.status': self.rucio.get_rucio_info()['status'],
+                                                ##'data.$.location': self.rucio.get_rucio_info()['location'],
+                                                ##'data.$.checksum': self.rucio.get_rucio_info()['checksum'],
+                                                #'data.$.rse': NewRSE,
+                                                #'data.$.rule_info': NewRSES
+                                                #}
+                                            #})
                 
                 
                 

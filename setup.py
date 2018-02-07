@@ -30,11 +30,9 @@ setup(
     long_description=readme + '\n\n' + history,
     author="Boris Bauermeister",
     author_email='Boris.Bauermeister@gmail.com',
-    url='https://github.com/XeBoris/admix',
+    url='https://github.com/XENON1T/admix',
     packages=find_packages(include=['admix', 
-                                    'admix.tasks', 
-                                    #'admix.helper',
-                                    #'admix.tasker',
+                                    'admix.tasks',
                                     'admix.runDB']),
 
     include_package_data=True,

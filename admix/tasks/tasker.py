@@ -27,10 +27,13 @@ class Tasker(xenon_runDB.XenonRunDatabase):
         
         #Create the query:
         self.CreateQuery()
+        #self.tasker_xrd.CreateQuery()
+        #q = self.tasker_xrd.GetQuery()
+        #print("q:", q)
         #Ask for the db cursor
         cursordb = self.GetCursor()
         
-        print("load:", len(cursordb))
+        print("loaded:", len(cursordb))
 
         self.GetTaskList()
         
@@ -49,7 +52,8 @@ class Tasker(xenon_runDB.XenonRunDatabase):
             print("Run the rule server")
             
         if self.run_task == 'rule-updater-1t':
-            print("Run a specific Xenon1T rule update")
+            print("Run a specific Xenon1T rule updater")
+            print("n")
             rule_updater.RuleUpdater(db_curser=self.GetCursor(),
                                      task_list=self.GetTaskList(),
                                      type_list=self.GetTypeList(),

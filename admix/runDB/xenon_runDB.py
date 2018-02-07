@@ -87,7 +87,10 @@ class XenonRunDatabase(object):
     
     def GetQuery(self):
         return self.query
-        
+    
+    def GetCollection(self):
+        return self.collection
+    
     def GetCursor(self):
         #ToDo: Separate this into a function to set from teh outside later
         sort_key = (('start', -1),
