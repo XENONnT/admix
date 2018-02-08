@@ -84,6 +84,14 @@ def server():
     logging.getLogger('').addHandler(console)
     logging.getLogger("requests").setLevel(logging.ERROR)
     
+    #Check for a sleep time:
+    if 'sleep_time' in helper.get_hostconfig():
+        sleep_time = helper.get_hostconfig()['sleep_time']
+        logging.info("Sleep time from the admix configuration file is %s seconds" % str(sleep_time) )
+    else:
+        logging.info("Sleep time uses pre defined value of %s seconds" % str(sleep_time) )
+        sleep_time = 5
+    
     # Ping rucio
       #todo ?
     # Ping Xenon Database
@@ -105,5 +113,5 @@ def server():
         if _once:
             break
         else:
-            logging.info('Sleeping. (5s)')
-        time.sleep(5)
+            logging.info('Sleeping. ({t} seconds)'.format(t=sleep_time) )
+        time.sleep(sleep_time)
