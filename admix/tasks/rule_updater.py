@@ -106,21 +106,30 @@ class RuleUpdater(object):
                             stat = "{rse}:{validation}".format(rse=j_rse, validation="valid")
                         else:
                             stat = "{rse}:{validation}".format(rse=j_rse, validation=Rexpires__)
+                        
+                        #in both cases the location is valid (Rstatus__ == OK). Report it:
+                        NewRSE.append(str(j_rse).decode('unicode-escape'))
+                        
                     else:
                         stat = "{rse}:{validation}".format(rse=j_rse, validation=Rstatus__)
                     
-                    NewRSE.append(str(j_rse).decode('unicode-escape'))
                     NewRSES.append( stat.decode('unicode-escape') )
+                
+                
                 
                 if set(i_data_rse) != set(NewRSE) or set(NewRSES) != set(i_data_rule_info):
                     logging.info("Rucio has the latest location information for {r}/{n}".format(r=run_number, n=run_name))
-                    logging.info("Old Xenon1T database entry:")
+                    
+                    logging.info("--Old RSE locations: {list}".format(list=' '.join(i_data_rse)))
+                    logging.info("--New RSE locations: {list}".format(list=' '.join(NewRSE)))
+                    logging.info("Old Xenon1T database entry (rule_info):")
                     for i_old in i_data_rule_info:
                         logging.info("  <> {info}".format(info=i_old))
-                    logging.info("New Xenon1T database entry:")
+                    
+                    logging.info("New Xenon1T database entry (rule_info):")
                     for i_new in NewRSES:
                         logging.info("  <> {info}".format(info=i_new))
-                    logging.info("-> UPDATE:")
+                    logging.info("  -> UPDATE it:")
                     
                     if helper.global_dictionary['no_db_update'] == True:
                         self.db_collection.update({'_id': i_run['_id'],
@@ -135,8 +144,6 @@ class RuleUpdater(object):
                                                     })
                         logging.info("    -> Success")
                     else:
-                        logging.info("Xenon database update is disabled")
-                else:
-                    pass
-                    #print("-- Nothing to do for run:", run_number)
+                        logging.info("    Xenon database update is disabled")
+
 
