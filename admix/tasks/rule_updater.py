@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import with_statement
 import logging
+import time
 
 from admix.tasks import helper
 from admix.runDB import xenon_runDB
@@ -145,5 +146,6 @@ class RuleUpdater(object):
                         logging.info("    -> Success")
                     else:
                         logging.info("    Xenon database update is disabled")
-
+                    
+                    time.sleep(3)
 

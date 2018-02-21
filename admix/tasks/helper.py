@@ -5,6 +5,7 @@ import logging
 import os
 import time
 import json
+import datetime
 import numpy as np
 
 #Create global variables:
