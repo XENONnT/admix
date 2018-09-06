@@ -32,16 +32,16 @@ setup(
     author_email='Boris.Bauermeister@gmail.com',
     url='https://github.com/XENON1T/admix',
     packages=find_packages(include=['admix', 
-                                    'admix.tasks',
-                                    'admix.runDB']),
+                                    'admix.interfaces',
+                                    ]),
 
     include_package_data=True,
     install_requires=requirements,
     entry_points={
         'console_scripts': [
             'admix-version=admix.admix:version',
-            'admix-tester=admix.admix:tester',
-            'admix-server=admix.admix:server',
+            #'admix-tester=admix.admix:tester',
+            #'admix-server=admix.admix:server',
         ]
     },
     license="BSD license",
@@ -54,7 +54,12 @@ setup(
         'Natural Language :: English',
         "Programming Language :: Python :: 2",
         'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7'
+        'Programming Language :: Python :: 2.7',
+        "Programming Language :: Python :: 3",
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6'
+        
     ],
     test_suite='tests',
     tests_require=test_requirements,
