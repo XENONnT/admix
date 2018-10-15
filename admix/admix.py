@@ -6,6 +6,7 @@ import os
 """Main module section"""
 import admix
 
+from admix.interfaces.rucioapi import ConfigRucioAPI
 #from admix.runDB import xenon_runDB as XenonRunDatabase
 #from admix.tasks import tester as TestaDMIX
 #from admix.tasks import helper
@@ -18,7 +19,14 @@ def version():
     print("aDMIX is ready for Python3...")
     print("Version:", admix.__version__)
     
-#def tester():
+def tester():
+    print("I am your aDMIX tester")
+    rc_reader = ConfigRucioAPI()
+    
+    rc_reader.Config("admix/config/xenon1t_format.config")
+    
+    print(rc_reader.GetTypes())
+    print(rc_reader.GetStructure())
     #tt = TestaDMIX.TestaDMIX()
     #tt.PrintTester()
     

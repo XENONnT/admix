@@ -40,7 +40,7 @@ setup(
     entry_points={
         'console_scripts': [
             'admix-version=admix.admix:version',
-            #'admix-tester=admix.admix:tester',
+            'admix-tester=admix.admix:tester',
             #'admix-server=admix.admix:server',
         ]
     },
