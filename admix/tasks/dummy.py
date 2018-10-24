@@ -9,24 +9,16 @@ import logging
 from admix.tasks import helper
 from admix.interfaces.database import DataBase
 
-class tester():
+class dummy():
     
     def __init__(self):
-        pass
-        #self.rucio_client = Client()
-        #self.xrd = XenonRunDatabase.XenonRunDatabase()
-        
-    def init(self):
-        print("overwrite init")
-        db = DataBase()
+        print('dummy starts')
         
     def run(self,*args, **kwargs):
-        self.init()
-        
-        print("run tester")
+        print("run dummy")
         print(args)
         print(kwargs)
         
     def __del__(self):
-        print( 'tester stop')
+        print( 'dummy stop')
         

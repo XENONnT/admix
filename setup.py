@@ -33,8 +33,8 @@ setup(
     url='https://github.com/XENON1T/admix',
     packages=find_packages(include=['admix', 
                                     'admix.interfaces',
+                                    'admix.tasks',
                                     ]),
-
     include_package_data=True,
     install_requires=requirements,
     entry_points={
