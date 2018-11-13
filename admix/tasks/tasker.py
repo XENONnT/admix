@@ -11,6 +11,9 @@ import numpy as np
 from admix.tasks import helper
 from admix.tasks.tester import tester
 from admix.tasks.dummy import dummy
+from admix.tasks.upload_with_mongodb import upload_with_mongodb
+from admix.tasks.set_manuell_transfers import set_manuell_transfers
+from admix.tasks.upload_by_call import upload_by_call
 
 #from admix.tasks import uploader
 #from admix.tasks import rule_updater
@@ -32,11 +35,23 @@ class Tasker():
                 i_task.run()
             
             
-    def ExecuteTask(self, task_name):
+    def ExecuteTask(self, task_name=None):
         print("execute task")
         print("-", self.registeredtasks)
         print(":", self.tasker_list)
         print("Exec:", task_name)
+        
+        print("Execute task:", task_name)    
+        ret = 0
+        for i_task in self.registeredtasks:
+            name = i_task.__class__.__name__
+            if name == task_name:
+                ret = i_task.run()
+        if ret == 1:
+            print("Task {task} finished successful".format(task=task_name))
+        else:
+            print("Task {task} not executed successfully".format(task=task_name))
+            
         #This member function makes the book
         #of the available tasks which are specified in 
         #the configuration file
@@ -77,7 +92,10 @@ class Tasker():
         try:
             self.registeredtasks = [
                                         tester(),
-                                        dummy()
+                                        dummy(),
+                                        upload_with_mongodb(),
+                                        set_manuell_transfers(),
+                                        upload_by_call(),
                                     ]
         except:
             print("No tasks are registerred to aDMIX!")

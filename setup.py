@@ -41,6 +41,8 @@ setup(
         'console_scripts': [
             'admix-version=admix.admix:version',
             'admix-tester=admix.admix:tester',
+            'admix-transfer=admix.admix:manuell_transfer',
+            'admix-uploader=admix.admix:upload_by_call',
             #'admix-server=admix.admix:server',
         ]
     },

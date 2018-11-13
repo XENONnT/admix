@@ -17,10 +17,13 @@ def make_global(dict_key, dict_value):
     if dict_key not in global_dictionary:
         global_dictionary[dict_key]=dict_value
 
-def get_hostconfig():
+def get_hostconfig(key=None):
     with open(global_dictionary['admix_config'], 'r') as data_file:
         data = json.load(data_file)
-        return data 
+        if key in data:
+            return data[key]
+        else:
+            return data
     #try:
         #with open(global_dictionary['admix_config'], 'r') as data_file:
             #data = json.load(data_file)
@@ -61,6 +64,25 @@ def run_number_converter(run_number):
         nb_array = None
     
     return nb_array
+
+def safeformat(str, **kwargs):
+    #https://stackoverflow.com/questions/17215400/python-format-string-unused-named-arguments
+    class SafeDict(dict):
+        def __missing__(self, key):
+            return '{' + key + '}'
+    replacements = SafeDict(**kwargs)
+    return str.format_map(replacements)
+
+def read_folder(path):
+    ret_folder = []
+    ret_dirpath = []
+    ret_files = []
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        ret_dirpath.extend(dirpath)
+        ret_folder.extend(dirnames)
+        ret_files.extend(filenames)
+        break
+    return [ret_dirpath, ret_folder, ret_files]
 
 def run_name_converter(run_name=None):
     #convert a comma separated list of the --name
