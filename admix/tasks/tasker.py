@@ -14,18 +14,18 @@ from admix.tasks.dummy import dummy
 from admix.tasks.upload_with_mongodb import upload_with_mongodb
 from admix.tasks.set_manuell_transfers import set_manuell_transfers
 from admix.tasks.upload_by_call import upload_by_call
-
+from admix.tasks.database_entries import database_entries
 #from admix.tasks import uploader
 #from admix.tasks import rule_updater
 #from admix.runDB import xenon_runDB
 
 
 class Tasker():
-    
+
     def __init__(self):
         self.RegisteredTasks()
         self.GetTaskList()
-            
+
     def ExecuteTasks(self):
         print(self.tasker_list)
         for i_task in self.registeredtasks:
@@ -33,15 +33,15 @@ class Tasker():
             print("--", name)
             if name in self.tasker_list:
                 i_task.run()
-            
-            
+
+
     def ExecuteTask(self, task_name=None):
         print("execute task")
         print("-", self.registeredtasks)
         print(":", self.tasker_list)
         print("Exec:", task_name)
-        
-        print("Execute task:", task_name)    
+
+        print("Execute task:", task_name)
         ret = 0
         for i_task in self.registeredtasks:
             name = i_task.__class__.__name__
@@ -51,18 +51,18 @@ class Tasker():
             print("Task {task} finished successful".format(task=task_name))
         else:
             print("Task {task} not executed successfully".format(task=task_name))
-            
+
         #This member function makes the book
-        #of the available tasks which are specified in 
+        #of the available tasks which are specified in
         #the configuration file
-        
-        
+
+
         ##Create the query:
         #self.CreateQuery()
         #for i_task in self.registeredtasks:
-            #if 
+            #if
 
-        
+
         #if self.run_task == 'upload':
             #print("Run an upload session")
             #uploader.Uploader(db_collection=self.GetCollection(),
@@ -71,13 +71,13 @@ class Tasker():
                               #type_list=self.GetTypeList(),
                               #detk_list=self.GetDetectorList()
                               #).run()
-            
+
         #if self.run_task == 'download':
             #print("Run a download session")
-            
+
         #if self.run_task == 'rule-server':
             #print("Run the rule server")
-            
+
         #if self.run_task == 'rule-updater-1t':
             #logging.info("Run a specific Xenon1T rule updater")
             #rule_updater.RuleUpdater(db_collection=self.GetCollection(),
@@ -87,7 +87,7 @@ class Tasker():
                                      #dest_list=self.GetDestinationList(),
                                      #detk_list=self.GetDetectorList()
                                      #).run()
-    
+
     def RegisteredTasks(self):
         try:
             self.registeredtasks = [
@@ -96,12 +96,13 @@ class Tasker():
                                         upload_with_mongodb(),
                                         set_manuell_transfers(),
                                         upload_by_call(),
+                                        database_entries(),
                                     ]
         except:
             print("No tasks are registerred to aDMIX!")
             exit()
         return self.registeredtasks
-        
+
     def GetTaskList(self):
         try:
             self.tasker_list = helper.get_hostconfig()['task']
@@ -116,7 +117,7 @@ class Tasker():
             print("Specify a task")
             exit()
         return self.tasker_list
-    
+
     def GetTypeList(self):
         try:
             self.type_list = helper.get_hostconfig()['type'].replace(" ", "").split(",")
@@ -126,7 +127,7 @@ class Tasker():
             #logging.debug("task_list not specified, running all tasks")
             #return []
         return self.type_list
-    
+
     def GetDetectorList(self):
         try:
             self.detector_list = helper.get_hostconfig()['detector'].replace(" ", "").split(",")
@@ -134,7 +135,7 @@ class Tasker():
             print("No detectors are specified")
             exit()
         return self.detector_list
-    
+
     def GetDestinationList(self):
         try:
             self.destination_list = helper.get_hostconfig()['destination'].replace(" ", "").split(",")
@@ -142,4 +143,3 @@ class Tasker():
             print("No detectors are specified")
             exit()
         return self.destination_list
-                               

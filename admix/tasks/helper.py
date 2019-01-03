@@ -13,7 +13,7 @@ global_dictionary = {}
 
 def make_global(dict_key, dict_value):
     global global_dictionary
-    
+
     if dict_key not in global_dictionary:
         global_dictionary[dict_key]=dict_value
 
@@ -27,11 +27,11 @@ def get_hostconfig(key=None):
     #try:
         #with open(global_dictionary['admix_config'], 'r') as data_file:
             #data = json.load(data_file)
-            #return data 
+            #return data
     #except:
         #print("aDMIX host configuration is not loaded")
         #exit()
-    
+
 def get_hostname():
     return os.environ.get('HOSTNAME')
 
@@ -47,10 +47,10 @@ def run_number_converter(run_number):
         #get all run numbers which are given by
         #commandline before possible sequence operator
         rn = run_number.split(",")
-        
+
         #split individual array entries by '-'
         #get a continous run number sequence each
-        
+
         for i_rn in rn:
             if i_rn.find('-') >= 0:
                 j_rn = i_rn.split("-")
@@ -62,8 +62,33 @@ def run_number_converter(run_number):
                 nb_array.append(int(i_rn))
     else:
         nb_array = None
-    
+
     return nb_array
+
+def timestamp_converter(time_stamp):
+    nb_array = []
+    if time_stamp != None:
+        #splits by ',':
+        #get all run numbers which are given by
+        #commandline before possible sequence operator
+        rn = time_stamp.split(",")
+
+        #split individual array entries by '-'
+        #get a continous run number sequence each
+
+        for i_rn in rn:
+            if i_rn.find('-') >= 0:
+                j_rn = i_rn.split("-")
+                j_rnA = string_to_datatime(time_=j_rn[0], pattern='%y%m%d_%H%M')
+                j_rnB = string_to_datatime(time_=j_rn[1], pattern='%y%m%d_%H%M')
+                nb_array.append( [j_rnA, j_rnB] )
+            else:
+                nb_array.append(string_to_datatime(time_=i_rn, pattern='%Y%m%d_%H%M'))
+    else:
+        nb_array=None
+
+    return nb_array
+
 
 def safeformat(str, **kwargs):
     #https://stackoverflow.com/questions/17215400/python-format-string-unused-named-arguments
@@ -87,11 +112,11 @@ def read_folder(path):
 def run_name_converter(run_name=None):
     #convert a comma separated list of the --name
     #terminal input into a python  list
-    
+
     if run_name != None:
         run_name = run_name.replace(" ", "")
         run_name = run_name.split(",")
-        
+
     return run_name
 
 def check_valid_timestamp( timestamp=None):
@@ -102,32 +127,45 @@ def check_valid_timestamp( timestamp=None):
         ts = timestamp.split("_")
         if len(ts) == 2 and len(ts[0]) == 6 and len(ts[1]) == 4:
             ts_valid = True
-    
+
     return ts_valid
 
 def string_to_datatime( time_='700101_0000', pattern='%y%m%d_%H%M'):
     return datetime.datetime.strptime(time_, pattern)
 
 def run_timestampe_converter(timestamp = None):
-    
+
     ts_list = []
     if timestamp != None:
         ts = timestamp.split(",")
-        
+
         for i_ts in ts:
             i_ts = i_ts.replace(" ", "")
-            
+
             if i_ts.find("-") >= 0:
                 beg_i_ts = string_to_datatime(i_ts.split("-")[0])
                 end_i_ts = string_to_datatime(i_ts.split("-")[1])
                 if end_i_ts > beg_i_ts:
                     ts_list.append( "{beg}-{end}".format(beg=i_ts.split("-")[0], end=i_ts.split("-")[1]) )
-                    
+
             else:
                 print("You need to define a time range such as: 180101_1530-180101_1630")
     else:
         ts_list=None
-    
+
     return ts_list
+string_to_datatime
+def get_science_run(timestamp):
+    #Evaluate science run periods:
 
+    #1) Change from sc0 to sc1:
+    dt0to1 = datetime.datetime(2017, 2, 2, 17, 40)
 
+    #Evaluate the according science run number:
+    if timestamp <= dt0to1:
+        science_run = "000"
+    elif timestamp >= dt0to1:
+        science_run = "001"
+    else:
+        science_run = -1
+    return science_run

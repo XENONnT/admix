@@ -31,7 +31,7 @@ setup(
     author="Boris Bauermeister",
     author_email='Boris.Bauermeister@gmail.com',
     url='https://github.com/XENON1T/admix',
-    packages=find_packages(include=['admix', 
+    packages=find_packages(include=['admix',
                                     'admix.interfaces',
                                     'admix.tasks',
                                     ]),
@@ -43,6 +43,8 @@ setup(
             'admix-tester=admix.admix:tester',
             'admix-transfer=admix.admix:manuell_transfer',
             'admix-uploader=admix.admix:upload_by_call',
+            'admix-database=admix.admix:database_entries',
+
             #'admix-server=admix.admix:server',
         ]
     },
@@ -61,7 +63,7 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6'
-        
+
     ],
     test_suite='tests',
     tests_require=test_requirements,
