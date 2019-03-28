@@ -1,7 +1,7 @@
 import logging
 import argparse
 import os
-
+import datetime #remove later if not needed
 
 """Main module section"""
 import admix
@@ -52,26 +52,28 @@ def tester():
                         help="Load your host configuration")
     parser.add_argument('--no-update', dest='no_update', action='store_false',
                         help="Add this option to prevent aDMIX updating the Xenon database")
-    parser.add_argument('--once', dest='once', action='store_true',
-                        help="Run the server only once an exits")
+    parser.add_argument('--server', dest='server', action='store_true',
+                        help="Run aDMIX as server.")
     parser.add_argument('--select-run-numbers', dest='select_run_numbers', type=str,
                         help="Select a range of runs (xxxx1-xxxx2)")
     parser.add_argument('--select-run-times', dest='select_run_times', type=str,
                         help="Select a range of runs by timestamps")
+    parser.add_argument('--destination', dest='destination', type=str,
+                        help="Put in your destination manually")
+    parser.add_argument('--plugin-type', dest='plugin_type', type=str,
+                        help="Put in your plugin type of choice manually")
+
 
 
     args = parser.parse_args()
 
-    if args.select_run_numbers != None:
-        helper.make_global("run_beg", args.select_run_numbers.split("-")[0])
-        helper.make_global("run_end", args.select_run_numbers.split("-")[1])
-    if args.select_run_times != None:
-        helper.make_global("run_start_time", args.select_run_times.split("-")[0])
-        helper.make_global("run_end_time", args.select_run_times.split("-")[1])
-
+    helper.make_global("run_numbers", args.select_run_numbers)
+    helper.make_global("run_times", args.select_run_times)
     helper.make_global("admix_config", os.path.abspath(args.admix_config))
     helper.make_global("no_db_update", args.no_update)
-    _once = args.once
+    helper.make_global("destination", args.destination)
+    helper.make_global("plugin_type", args.plugin_type)
+    _server = args.server
 
 
     #Pre tests:
@@ -107,21 +109,13 @@ def tester():
         logging.info("Sleep time uses pre defined value of %s seconds" % str(sleep_time) )
         sleep_time = 5
 
-    # Ping rucio
-      #todo ?
-    # Ping Xenon Database
-      #todo ?
-    #Finish pre tests
-
-    #runDB
-
-
     while True: # yeah yeah
         print("cycle")
         task_m = Tasker()
         task_m.ExecuteTasks()
 
-        if _once:
+        if _server == False:
+            logging.info('Server mode OFF  -- Goodbye')
             break
         else:
             logging.info('Sleeping. ({t} seconds)'.format(t=sleep_time) )
@@ -263,15 +257,21 @@ def upload_by_call():
         sleep_time = 5
 
     while True: # yeah yeah
+        dt_beg = datetime.datetime.now()
+        
         task_m = Tasker()
-        task_m.ExecuteTask("upload_by_call")
+        #task_m.ExecuteTask("upload_by_call")
+        task_m.ExecuteTask("update_runDB")
 
+        dt_end = datetime.datetime.now()
+        
+        print("time:", dt_end-dt_beg)
         if _once:
             break
         else:
             logging.info('Sleeping. ({t} seconds)'.format(t=sleep_time) )
         time.sleep(sleep_time)
-
+    
 
 def database_entries():
     print("Develop aDMIX service package")

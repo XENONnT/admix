@@ -105,13 +105,17 @@ class upload_by_call():
             #Extract run number and name from overview collection
             r_name = i_run['name']
             r_number = i_run['number']
+            print(r_name, "/", r_number)
             #Pull the full run information (according to projection which is pre-defined) by the run name
-            db_info = self.db.GetRunByName(r_name)[0]
+            db_info = self.db.GetRunByNameNumber(r_name, r_number)[0]
 
 
             ##REMOVE AND CHECK FOR UPLOAD DETECTORS (-> config files)
             #if db_info['detector'] != 'tpc':
                 #continue
+
+            if 'data' not in db_info:
+                continue
 
             for i_data in db_info['data']:
 
@@ -182,7 +186,13 @@ class upload_by_call():
                 rucio_template = rc_reader.GetStructure()[origin_type]  #Depending on the plugin we choose the right template from the config
                 rucio_template_sorted = [key for key in sorted(rucio_template.keys())]
 
-                #Fill the key words:
+                #Fill the key words with keyword class:
+
+                #ajdust db_info with detecto information if experiment is xe1t???
+                #This might work but is a hack up now
+                if helper.get_hostconfig('experiment') == 'Xenon1T' and db_info['detector'] =='muon_veto':
+                    db_info['detector'] = 'mv'
+
                 self.keyw.ResetTemplate()
                 self.keyw.SetTemplate(template_info)
                 self.keyw.SetTemplate(db_info)
@@ -277,7 +287,7 @@ class upload_by_call():
 
                     self.db.AddDatafield(db_info['_id'], new_data_dict)
 
-                elif rule_status == 'OK':
+                elif rule_status == 'OK' or rule_status == 'REPLICATING' or rule_status == 'STUCK':
                     #if there is a rucio rule we can skip here
                     skip_upload = True
                 elif db_dest_status == True and self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status') == 'transferring':
@@ -299,6 +309,7 @@ class upload_by_call():
                             skip_upload = True
 
                 print("skip:", skip_upload)
+                print("-- rule status: ", rule_status)
                 print("-- origin_type: ", origin_type)
                 print("-- DB status:", self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status'))
                 print("-- DB RSE: ", self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='rse'))
@@ -307,13 +318,13 @@ class upload_by_call():
                     continue
 
                 #if the pre checks are ok we can upload:
-                self.rc.Upload(upload_structure=rucio_template, upload_path=origin_location, rse=rse0, rse_lifetime=rlt0)
+                rc_status, rc_status_msg = self.rc.Upload(upload_structure=rucio_template, upload_path=origin_location, rse=rse0, rse_lifetime=rlt0)
 #[File replicas states successfully updated]
                 verify_location = self.rc.VerifyLocations(upload_structure=rucio_template, upload_path=origin_location, checksum_test=False)
                 rucio_rule = self.rc.GetRule(upload_structure=rucio_template, rse=rse0)
 
                 ##update after initial upload:
-                if verify_location == True and rucio_rule['state'] == 'OK':
+                if verify_location == True and rucio_rule['state'] == 'OK' and rc_status == 'OK':
                     rse_to_db = ["{rse}:{state}:{lifetime}".format(rse=rse0, state=rucio_rule['state'], lifetime=rucio_rule['expires'])]
                     self.db.SetDataField(db_info['_id'], type=origin_type, host=ptr0, key='rse', value=rse_to_db)
                     rc_location = rucio_template[rucio_template_sorted[-1]]['did']
@@ -377,7 +388,8 @@ class upload_by_call():
                     #------Goes to memberfunctions laters
 
                 else:
-                    rse_to_db = ["{rse}:{state}:{lifetime}".format(rse=rse0, state=rucio_rule['state'], lifetime=rucio_rule['expires'])]
+                    #rse_to_db = ["{rse}:{state}:{lifetime}".format(rse=rse0, state=rucio_rule['state'], lifetime=rucio_rule['expires'])]
+                    rse_to_db = ["{rse}:{state}:{lifetime}".format(rse=rse0, state="UNKNOWN", lifetime=rucio_rule['expires'])] #try to replace rucio_state by UNKNOWN
                     self.db.SetDataField(db_info['_id'], type=origin_type, host=ptr0, key='rse', value=rse_to_db)
                     self.db.SetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status', value='RSEreupload')
 
@@ -386,6 +398,10 @@ class upload_by_call():
                 print(verify_location)
                 print(db_dest_status)
                 self.db.ShowDataField(db_info['_id'], type=origin_type, host=ptr0)
+
+                if rc_status == 'ERROR':
+                    for iline in rc_status_msg:
+                        print("RUCIO error: ", iline)
 
 
                 for i_dest in dest:

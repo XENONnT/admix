@@ -15,6 +15,7 @@ from admix.tasks.upload_with_mongodb import upload_with_mongodb
 from admix.tasks.set_manuell_transfers import set_manuell_transfers
 from admix.tasks.upload_by_call import upload_by_call
 from admix.tasks.database_entries import database_entries
+from admix.tasks.update_runDB import update_runDB
 #from admix.tasks import uploader
 #from admix.tasks import rule_updater
 #from admix.runDB import xenon_runDB
@@ -97,6 +98,7 @@ class Tasker():
                                         set_manuell_transfers(),
                                         upload_by_call(),
                                         database_entries(),
+                                        update_runDB()
                                     ]
         except:
             print("No tasks are registerred to aDMIX!")

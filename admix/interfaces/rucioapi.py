@@ -224,8 +224,15 @@ echo "path: {ticket_path}"
 
         print(upload_string)
         msg, err = self.doRucio(upload_string)
+
+        status = 'OK'
+        status_msg = []
         for i_msg in msg:
-            print( i_msg)
+            if i_msg.find("ERROR")>= 0:
+                status = "ERROR"
+            status_msg.append(i_msg)
+
+        return status, status_msg
 
 class RucioAPI():
 
@@ -497,7 +504,7 @@ class TransferRucio(RucioCLI, RucioAPI, ConfigRucioDataFormat):
         rule = self.GetRule(upload_structure, rse)
         #This function checks if for a given upload structure and a requested
         #upload destination already a rule exists in Rucio
-        
+
         #HINT: GetRule returns None if no rule found now!
 
         r_status = None
@@ -629,13 +636,9 @@ class TransferRucio(RucioCLI, RucioAPI, ConfigRucioDataFormat):
         upload_dict['lifetime'] = rse_lifetime
         print("Upload:")
         print(upload_dict)
-        self.rc_cli.CliUpload(method="upload-folder-with-did", upload_dict=upload_dict)
+        rc_status, rc_status_msg = self.rc_cli.CliUpload(method="upload-folder-with-did", upload_dict=upload_dict)
+        return rc_status, rc_status_msg
 
-        print("")
-
-
-        print("-")
-        print(upload_path)
 
         #self.rc = RucioConfig.__init__(self)
         #self.rcdataformat = ConfigRucioDataFormat.__init__(self)

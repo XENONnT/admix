@@ -64,6 +64,13 @@ class ConnectMongoDB():
         query = {"name": run_name}
         return list(self.db.find(query, projection=self.projection ))
 
+    def GetRunByNameNumber(self, run_name, run_number, reconnect=False):
+        if reconnect == True:
+            self.Connect()
+
+        query = { "$and":[ {"name": run_name}, {"number":run_number}]}
+        return list(self.db.find(query, projection=self.projection ))
+
     def GetRunByID(self, run_id, reconnect=False):
         if reconnect == True:
             self.Connect()
