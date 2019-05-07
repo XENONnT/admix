@@ -1,14 +1,22 @@
+import http.client
+
 import pymongo
 import requests
-import http.client
-from admix.tasks import helper
+
+import admix.helper.helper as helper
+
 
 class ConnectMongoDB():
 
     def __init__(self):
-        self.db_mongodb_string = helper.get_hostconfig()['database']['address']
+        self.db_mongodb_address = helper.get_hostconfig()['database']['address']
+        self.db_mongodb_user = helper.get_hostconfig()['database']['user']
         self.db_mongodb_pw     = helper.get_hostconfig()['database']['password']
+        self.db_mongodb_string = None
         self.db = None
+
+        #bulid the mongodb address string:
+        self._make_connection_string()
 
         if 'collection' not in helper.get_hostconfig()['database']:
             self.collection_string = []
@@ -22,6 +30,13 @@ class ConnectMongoDB():
 
         #Define the basic projections for mongoDB
         self.SetProjection(projection=None, from_config=True)
+
+    def _make_connection_string(self):
+        if "mongodb://" not in self.db_mongodb_address:
+            print("Not a mongoDB address!")
+        else:
+            taddress = self.db_mongodb_address.replace("mongodb://", "")
+            self.db_mongodb_string = f'mongodb://{self.db_mongodb_user}:{self.db_mongodb_pw}@{taddress}'
 
     def SetProjection(self, projection=None, from_config=False):
 
@@ -78,11 +93,74 @@ class ConnectMongoDB():
         query = {"_id": run_id}
         return list(self.db.find(query, projection=self.projection ))
 
+    def GetRunsByTimestamp(self, ts_beg=None, ts_end=None, reconnect=False, sort=[('_id',1)]):
+        if reconnect == True:
+            self.Connect()
+
+        if ts_beg == None:
+            ts_beg = self.GetSmallest("start")
+        if ts_end == None:
+            ts_end = self.GetLargest("start")
+
+        query = { '$and': [ {'start': {'$gte':ts_beg}}, {'start': {'$lte':ts_end}} ] }
+        projection = {"name":True, "number": True, "start":True, "_id":True}
+        return list(self.db.find(query, projection=projection).sort(sort) )
+
     def GetSmallest(self, key):
         return sorted(list(self.db.find({}, projection={key: True, '_id':True})), key=lambda k: k[key])[0][key]
 
     def GetLargest(self, key):
         return sorted(list(self.db.find({}, projection={key: True, '_id':True})), key=lambda k: k[key])[-1][key]
+
+    def GetRunsByTag(self, tag=None, sort="ascending"):
+
+        #check if tag is a list or a string:
+        if type(tag) == str:
+            tag = [tag]
+        elif type(tag) != list or tag==None:
+            return {}
+
+        #create an aggregation from the list of tags:
+        tag_name_match = [ {"tags.name": i_tag} for i_tag in tag]
+        tag_name_match = {"$match": {"$and": tag_name_match}}
+
+        #evaluate sort direction:
+        if sort == "ascending":
+            sort = -1 #ascending means from latest to earliest run
+        else:
+            sort = 1
+
+        agr = [
+            {"$project":  {"tags": True, "name": True, "number": True, "start":True}},
+            tag_name_match,
+            {"$sort": {"start": sort}}
+            ]
+        return list(self.db.aggregate(agr))
+
+    def GetRunsBySource(self, source=None, sort="ascending"):
+
+        #check if source is a list or a string:
+        if type(source) == str:
+            source = [source]
+        elif type(source) != list or source==None:
+            return {}
+
+        #create an aggregation from the list of tags:
+        source_name_match = [ {"source.type": i_source} for i_source in source]
+        source_name_match = {"$match": {"$and": source_name_match}}
+
+        #evaluate sort direction:
+        if sort == "ascending":
+            sort = -1 #ascending means from latest to earliest run
+        else:
+            sort = 1
+
+        agr = [
+            {"$project":  {"name": True, "number": True, "start":True, "source":True}},
+            source_name_match,
+            {"$sort": {"start": sort}}
+            ]
+        return list(self.db.aggregate(agr))
 
     def FindTimeStamp(self, key, value):
         #timestamp definition:

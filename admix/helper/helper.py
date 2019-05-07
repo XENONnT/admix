@@ -32,6 +32,7 @@ def get_hostconfig(key=None):
         #print("aDMIX host configuration is not loaded")
         #exit()
 
+
 def get_hostname():
     return os.environ.get('HOSTNAME')
 
@@ -154,7 +155,8 @@ def run_timestampe_converter(timestamp = None):
         ts_list=None
 
     return ts_list
-string_to_datatime
+
+#string_to_datatime
 def get_science_run(timestamp):
     #Evaluate science run periods:
 

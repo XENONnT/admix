@@ -1,142 +1,148 @@
 # -*- coding: utf-8 -*-
-
-import logging
-import datetime
-import time
-#import rucio
-#from rucio.client.client import Client
-
-#from admix.runDB import xenon_runDB as XenonRunDatabase
-
-import os
 import json
-from admix.tasks import helper
-from admix.interfaces.database import DataBase, ConnectMongoDB
-from admix.interfaces.rucioapi import ConfigRucioDataFormat, RucioAPI, RucioCLI, TransferRucio
+import os
+from admix.helper import helper
 
-class update_runDB():
+from admix.interfaces.database import ConnectMongoDB
+from admix.helper.decorator import Collector
+
+#get Rucio imports done:
+from admix.interfaces.rucio_dataformat import ConfigRucioDataFormat
+from admix.interfaces.rucio_summoner import RucioSummoner
+from admix.interfaces.destination import Destination
+from admix.interfaces.keyword import Keyword
+from admix.interfaces.templater import Templater
+
+@Collector
+class UpdateRunDBMongoDB():
 
     def __init__(self):
-        print('Upload by call starts')
+        pass
+
+    def __del__(self):
+        pass
 
     def init(self):
+        helper.global_dictionary['logger'].Info(f'Init task {self.__class__.__name__}')
+
         self.db = ConnectMongoDB()
         self.db.Connect()
 
-        ##This class will evaluate your destinations:
-        #self.destination = Destination()
+        #Init the Rucio data format evaluator in three steps:
+        self.rc_reader = ConfigRucioDataFormat()
+        self.rc_reader.Config(helper.get_hostconfig('rucio_template'))
 
-        ##Since we deal with an experiment, everything is predefine:
-        #self.exp_temp = Templater()
-        #self.exp_temp.Config( helper.get_hostconfig()['template'] )
+        #This class will evaluate your destinations:
+        self.destination = Destination()
 
-        ##Init a class to handle keyword strings:
-        #self.keyw = Keyword()
+        #Since we deal with an experiment, everything is predefine:
+        self.exp_temp = Templater()
+        self.exp_temp.Config(helper.get_hostconfig()['template'])
+
+        #Init a class to handle keyword strings:
+        self.keyw = Keyword()
 
         #Init Rucio for later uploads and handling:
-        self.rc = TransferRucio()
-        self.rc.SetAccount(helper.get_hostconfig('rucio_account'))
-        self.rc.rc_cli.SetConfigPath(helper.get_hostconfig("rucio_cli"))
-        self.rc.rc_cli.SetProxyTicket(helper.get_hostconfig('rucio_x509'))
-        self.rc.rc_cli.SetHost(helper.get_hostconfig('host'))
-        self.rc.rc_cli.SetRucioAccount(helper.get_hostconfig('rucio_account'))
-        self.rc.rc_cli.ConfigHost()
+        self.rc = RucioSummoner(helper.get_hostconfig("rucio_backend"))
+        self.rc.SetRucioAccount(helper.get_hostconfig('rucio_account'))
+        #These are important for CLI choice
+        #self.rc.SetConfigPath(helper.get_hostconfig("rucio_cli"))
+        #self.rc.SetProxyTicket(helper.get_hostconfig('rucio_x509'))
+        #self.rc.SetHost(helper.get_hostconfig('host'))
+        #And get to your Rucio:
+        self.rc.ConfigHost()
+
+
 
     def run(self,*args, **kwargs):
         self.init()
-        print("-------------------------")
-        print("Task: Update runDB")
 
+        #Decide if you select runs from argsparse or just take everything:
+        if 'run_beg' in helper.global_dictionary:
+            run_beg = helper.global_dictionary['run_beg']
+        else:
+            run_beg = self.db.GetSmallest('number')
 
-        #evaluate global_dictionary to create a query to select runs:
-        query = {}
+        if 'run_end' in helper.global_dictionary:
+            run_end = helper.global_dictionary['run_end']
+        else:
+            run_end = self.db.GetLargest('number')
 
-        run_numbers = None
-        if 'run_numbers' in helper.global_dictionary:
-            run_numbers = helper.global_dictionary['run_numbers']
-        run_times = None
-        if 'run_times' in helper.global_dictionary:
-            run_times = helper.global_dictionary['run_times']
+        #When you found your run numbers, you want to select timestamps from them
+        #This allows to catch everything in between
+        ts_beg = self.db.FindTimeStamp('number', int(run_beg) )
+        ts_end = self.db.FindTimeStamp('number', int(run_end) )
 
+        #ToDo We need to get the timestamp selector from helper.global_dictionary into the game here!
+        #print( helper.global_dictionary['run_start_time'] )
+        #print( helper.global_dictionary['run_end_time'] )
+        #Get your collection of run numbers and run names
+        collection = self.db.GetRunsByTimestamp(ts_beg, ts_end)
 
-        if run_numbers != None and run_times == None:
-            #we use run numbers to select here
-            rn = helper.run_number_converter(run_numbers)
-            rn_beg = None
-            rn_end = None
-            if len(rn) > 1 and rn[-1]>rn[0]:
-                query = { '$and': [ {'number': {'$gte':int(rn[0])}}, {'number': {'$lte':int(rn[-1])}} ] }
-            elif (len(rn) > 1 and rn[-1]==rn[0]) or (len(rn)==1):
-                query = { 'number': int(rn[0]) }
-            elif len(rn) > 1 and rn[-1]<rn[0]:
-                print("Your run number selection {0} is wrong".format(helper.global_dictionary['run_numbers']))
-                exit()
-
-        elif run_numbers == None and run_times != None:
-            #we use the run times to select
-            rn = helper.timestamp_converter(run_times)
-            try:
-                query = { '$and': [ {'start': {'$gte':rn[0][0]}}, {'start': {'$lte':rn[0][1]}} ] }
-            except:
-                print("Your run times need to be like YYMMDD_HHMM-YYMMDD_HHMM")
-                exit()
-        elif run_numbers == None and run_times == None:
-            query = {}
-            
-        #Query an overview collection with the relevant information
-        #According to the selected timestamps:
-        self.db.Connect()
-        self.db.SetProjection(projection={'number':True, 'name':True, '_id':True, 'start':True}, from_config=False)
-
-        #collection = self.db.GetQuery(query, sort=[('name',-1)])
-        collection = self.db.GetQuery(query)
-
-        #Once you grabbed the overview collection, you want to
-        #reset your mongodb projections to include the data field with
-        #the locations:
-        self.db.Connect()
-        self.db.SetProjection(projection={'number':True, 'name':True, '_id':True, 
-                                          'data':True, 'detector':True, 'start':True,
-                                          #'data.meta':False
-                                          }, from_config=False)
-        
         #Run through the overview collection:
         for i_run in collection:
             #Extract run number and name from overview collection
             r_name = i_run['name']
+
+            dict_name = {}
+            dict_name['date'] = r_name.split("_")[0]
+            dict_name['time'] = r_name.split("_")[1]
+
             r_number = i_run['number']
             #Pull the full run information (according to projection which is pre-defined) by the run name
             db_info = self.db.GetRunByName(r_name)[0]
 
             print("Test dataset:", r_name, "/", r_number)
-            
+
             if 'data' not in db_info:
                 continue
-            
+
+            #We need to define the right plugins here which are getting updated
+            plugin_list = ['raw_records', 'records']
             #adjust the data field with a Rucio update if necessary:
             for i_data in db_info['data']:
-                
+
                 if i_data['host'] != 'rucio-catalogue':
                     continue
-                
-                #skip if a type is specified somewhere (config file or command line)
-                if (helper.global_dictionary['plugin_type'] == None) and \
-                    (isinstance(helper.get_hostconfig('type'), list) == True) and \
-                    (len(helper.get_hostconfig('type')) >= 1) and \
-                    (i_data['type'] not in helper.get_hostconfig('type') ):
+
+                if i_data['type'] not in plugin_list:
                     continue
 
-                if helper.global_dictionary['plugin_type'] != None and i_data['type'] != helper.global_dictionary['plugin_type']:
-                    continue
-                
-                #check rules
+                # check rules
                 if 'location' not in i_data or i_data['location'] == "n/a":
                     print("Skip {0} - Check for location and data consistency".format(i_data['type']))
                     continue
-                
-                scope = i_data['location'].split(":")[0]
-                dname = i_data['location'].split(":")[1]
-                rc_rules = self.rc.rc_api.ListDidRules(scope, dname)
+
+                # Go for the rucio template:
+                rucio_template = self.rc_reader.GetPlugin(i_data['type'])
+
+                # Fill the key word class with information beforehand:
+                #extract the hash
+                try:
+                    _hash = i_data['location'].split(":")[1].split("-")[1]
+                except:
+                    _hash = "Xenon1T"
+
+                self.keyw.ResetTemplate()
+                self.keyw.SetTemplate(dict_name)
+                self.keyw.SetTemplate(db_info)
+                self.keyw.SetTemplate({'hash': _hash, 'plugin': i_data['type']})
+                self.keyw.SetTemplate({'science_run': helper.get_science_run(db_info['start'])})
+
+                rucio_template = self.keyw.CompleteTemplate(rucio_template)
+
+                  #skip if a type is specified somewhere (config file or command line)
+                #if (helper.global_dictionary['plugin_type'] == None) and \
+                #    (isinstance(helper.get_hostconfig('type'), list) == True) and \
+                #    (len(helper.get_hostconfig('type')) >= 1) and \
+                #    (i_data['type'] not in helper.get_hostconfig('type')):
+                #    continue
+
+                #if helper.global_dictionary['plugin_type'] != None and i_data['type'] != helper.global_dictionary['plugin_type']:
+                #    continue
+
+                rc_rules = self.rc.ListDidRules(rucio_template)
+
                 rule = []
                 for i_rule in rc_rules:
                     #Extract the rucio rule information per RSE location
@@ -153,13 +159,7 @@ class update_runDB():
                                                                       lifetime=expires_at))
                 #Update RSE field if necessary:
                 if rule != i_data['rse']:
-                    self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='rse', value=rule)
+                    #self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='rse', value=rule)
                     print("  -> Updated location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))
                 else:
                     print("  |No update at location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))
-
-
-
-
-    def __del__(self):
-        print( 'Update runDB stops')

@@ -12,7 +12,8 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-    # TODO: put package requirements here
+    'pymongo', 'utilix  '
+
 ]
 
 setup_requirements = [
@@ -34,6 +35,7 @@ setup(
     packages=find_packages(include=['admix',
                                     'admix.interfaces',
                                     'admix.tasks',
+                                    'admix.helper',
                                     ]),
     include_package_data=True,
     install_requires=requirements,
@@ -44,6 +46,7 @@ setup(
             'admix-transfer=admix.admix:manuell_transfer',
             'admix-uploader=admix.admix:upload_by_call',
             'admix-database=admix.admix:database_entries',
+            'admix=admix.admix:your_admix',
 
             #'admix-server=admix.admix:server',
         ]

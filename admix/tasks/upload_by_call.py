@@ -1,22 +1,20 @@
 # -*- coding: utf-8 -*-
 
-import logging
-import datetime
-import time
-
 #import rucio
 #from rucio.client.client import Client
 
 #from admix.runDB import xenon_runDB as XenonRunDatabase
 
-import os
 import json
-from admix.tasks import helper
-from admix.interfaces.database import DataBase, ConnectMongoDB
-from admix.interfaces.rucioapi import ConfigRucioDataFormat, RucioAPI, RucioCLI, TransferRucio
-from admix.interfaces.templater import Templater
+import os
+
+from admix.helper.helper import helper
+from admix.interfaces.database import ConnectMongoDB
 from admix.interfaces.destination import Destination
 from admix.interfaces.keyword import Keyword
+from admix.interfaces.rucio_summoner import ConfigRucioDataFormat, TransferRucio
+from admix.interfaces.templater import Templater
+
 
 class upload_by_call():
 
@@ -32,7 +30,7 @@ class upload_by_call():
 
         #Since we deal with an experiment, everything is predefine:
         self.exp_temp = Templater()
-        self.exp_temp.Config( helper.get_hostconfig()['template'] )
+        self.exp_temp.Config(helper.get_hostconfig()['template'])
 
         #Init a class to handle keyword strings:
         self.keyw = Keyword()
@@ -164,14 +162,14 @@ class upload_by_call():
                 if (helper.global_dictionary['plugin_type'] == None) and \
                     (isinstance(helper.get_hostconfig('type'), list) == True) and \
                     (len(helper.get_hostconfig('type')) >= 1) and \
-                    (origin_type not in helper.get_hostconfig('type') ):
+                    (origin_type not in helper.get_hostconfig('type')):
                     continue
 
                 if helper.global_dictionary['plugin_type'] != None and origin_type != helper.global_dictionary['plugin_type']:
                     continue
 
                 print("Destination:", dest)
-                print("Origin:", origin_type, origin_location, origin_host, origin_status, helper.get_hostconfig('type') )
+                print("Origin:", origin_type, origin_location, origin_host, origin_status, helper.get_hostconfig('type'))
 
                 #Extract the template information according the pre-defined physical file structure:
                 template_info = self.exp_temp.GetTemplateEval(plugin=origin_type,
@@ -190,13 +188,13 @@ class upload_by_call():
 
                 #ajdust db_info with detecto information if experiment is xe1t???
                 #This might work but is a hack up now
-                if helper.get_hostconfig('experiment') == 'Xenon1T' and db_info['detector'] =='muon_veto':
+                if helper.get_hostconfig('experiment') == 'Xenon1T' and db_info['detector'] == 'muon_veto':
                     db_info['detector'] = 'mv'
 
                 self.keyw.ResetTemplate()
                 self.keyw.SetTemplate(template_info)
                 self.keyw.SetTemplate(db_info)
-                self.keyw.SetTemplate({'science_run':helper.get_science_run(db_info['start'])})
+                self.keyw.SetTemplate({'science_run': helper.get_science_run(db_info['start'])})
 
                 for key, val, in rucio_template.items():
                     val = self.keyw.CompleteKeywords(val)

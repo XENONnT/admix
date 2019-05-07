@@ -14,7 +14,7 @@ from admix.interfaces.keyword import Keyword
 from admix.interfaces.templater import Templater
 
 @Collector
-class UploadMongoDB():
+class InitTransfersMongoDB():
 
     def __init__(self):
         pass
@@ -112,6 +112,8 @@ class UploadMongoDB():
                     helper.global_dictionary['logger'].Info("No destination specified! Skip")
                     continue
 
+                continue
+                
                 #reactivate if this is specified in the config file
                 #if helper.global_dictionary['plugin_type'] != None and helper.global_dictionary['plugin_type'] != i_date['type']:
                     #continue

@@ -1,22 +1,19 @@
 # -*- coding: utf-8 -*-
 
-import logging
-import datetime
-import time
-
 #import rucio
 #from rucio.client.client import Client
 
 #from admix.runDB import xenon_runDB as XenonRunDatabase
 
 import os
-import json
-from admix.tasks import helper
-from admix.interfaces.database import DataBase, ConnectMongoDB
-from admix.interfaces.rucioapi import ConfigRucioDataFormat, RucioAPI, RucioCLI, TransferRucio
-from admix.interfaces.templater import Templater
+
+import admix.helper.helper as helper
+from admix.interfaces.database import ConnectMongoDB
 from admix.interfaces.destination import Destination
 from admix.interfaces.keyword import Keyword
+from admix.interfaces.rucio_summoner import ConfigRucioDataFormat, TransferRucio
+from admix.interfaces.templater import Templater
+
 
 class database_entries():
 
@@ -32,7 +29,7 @@ class database_entries():
 
         #Since we deal with an experiment, everything is predefine:
         self.exp_temp = Templater()
-        self.exp_temp.Config( helper.get_hostconfig()['template'] )
+        self.exp_temp.Config(helper.get_hostconfig()['template'])
 
         #Init a class to handle keyword strings:
         self.keyw = Keyword()
@@ -238,7 +235,7 @@ class database_entries():
                 self.keyw.ResetTemplate()
                 self.keyw.SetTemplate(template_info)
                 self.keyw.SetTemplate(db_info)
-                self.keyw.SetTemplate({'science_run':helper.get_science_run(db_info['start'])})
+                self.keyw.SetTemplate({'science_run': helper.get_science_run(db_info['start'])})
 
                 for key, val, in rucio_template.items():
                     val = self.keyw.CompleteKeywords(val)

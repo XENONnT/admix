@@ -1,19 +1,16 @@
 # -*- coding: utf-8 -*-
 
-import logging
-import datetime
-import time
-
 #import rucio
 #from rucio.client.client import Client
 
 #from admix.runDB import xenon_runDB as XenonRunDatabase
 
 import os
-from admix.tasks import helper
-from admix.interfaces.database import DataBase, ConnectMongoDB
-from admix.interfaces.rucioapi import ConfigRucioDataFormat, RucioAPI, RucioCLI, TransferRucio
+
+from admix.helper import helper
+from admix.interfaces.database import ConnectMongoDB
 from admix.interfaces.templater import Templater
+
 
 class set_manuell_transfers():
 
@@ -26,7 +23,7 @@ class set_manuell_transfers():
 
         #Since we deal with an experiment, everything is predefine:
         self.exp_temp = Templater()
-        self.exp_temp.Config( helper.get_hostconfig()['template'] )
+        self.exp_temp.Config(helper.get_hostconfig()['template'])
 
 
     def run(self,*args, **kwargs):

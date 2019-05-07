@@ -14,7 +14,7 @@ from admix.interfaces.keyword import Keyword
 from admix.interfaces.templater import Templater
 
 @Collector
-class UploadMongoDB():
+class DownloadMongoDB():
 
     def __init__(self):
         pass

@@ -1,427 +1,123 @@
-import logging
 import argparse
+import datetime  # remove later if not needed
+import logging
+import numpy as np
+import time
 import os
-import datetime #remove later if not needed
 
-"""Main module section"""
+from admix.helper.logger import Logger
 import admix
+import admix.helper.helper as helper
 
-from admix.interfaces.rucioapi import ConfigRucioDataFormat, RucioAPI, RucioCLI, TransferRucio
-from admix.tasks.tasker import Tasker
 #from admix.runDB import xenon_runDB as XenonRunDatabase
 #from admix.tasks import tester as TestaDMIX
-from admix.tasks import helper
 
+#import the decorators:
+from admix.helper.decorator import NameCollector, ClassCollector
+#import all your tasks:
+from admix.tasks.tester import Tester
+from admix.tasks.testDB import TestDB
+from admix.tasks.upload_with_mongodb import UploadMongoDB
+from admix.tasks.update_runDB import UpdateRunDBMongoDB
+from admix.tasks.init_transfers_with_mongodb import InitTransfersMongoDB
 
-import time
 
 def version():
     print("aDMIX is ready for Python3...")
     print("Version:", admix.__version__)
 
-#def tester():
-    #print("I am your aDMIX tester")
-    #rc_reader = ConfigRucioDataFormat()
+def your_admix():
+    print("advanced Data Management in XENON")
 
-    #rc_reader.Config("admix/config/xenon1t_format.config")
+    parser = argparse.ArgumentParser(description="Run your favourite aDMIX")
 
-    #print(rc_reader.GetTypes())
-    #print(rc_reader.GetStructure())
-    ##tt = TestaDMIX.TestaDMIX()
-    ##tt.PrintTester()
-
-    ##t = RucioConfig()
-    ##t.SetRucioConfig("admix/config/rucio_cli.config")
-
-    ##rc = RucioAPI()
-    #rcli = RucioCLI()
-    #rcli.SetConfigPath("/home/bauermeister/Development/admix/admix/config/rucio_cli/")
-    #rcli.SetHost("midway2")
-    #rcli.SetProxyTicket("/home/bauermeister/proxy_xenon/x509up_own")
-    #rcli.SetRucioAccount("production")
-    #rcli.ConfigHost()
-
-
-def tester():
-    print("Develop aDMIX service package")
-
-    parser = argparse.ArgumentParser(description="Run your favourite aDMIX task in a loop!")
-
-    #From here the input depends on the usage of the command
-    parser.add_argument('--admix-config', dest="admix_config", type=str,
-                        help="Load your host configuration")
-    parser.add_argument('--no-update', dest='no_update', action='store_false',
-                        help="Add this option to prevent aDMIX updating the Xenon database")
-    parser.add_argument('--server', dest='server', action='store_true',
-                        help="Run aDMIX as server.")
-    parser.add_argument('--select-run-numbers', dest='select_run_numbers', type=str,
-                        help="Select a range of runs (xxxx1-xxxx2)")
-    parser.add_argument('--select-run-times', dest='select_run_times', type=str,
-                        help="Select a range of runs by timestamps")
-    parser.add_argument('--destination', dest='destination', type=str,
-                        help="Put in your destination manually")
-    parser.add_argument('--plugin-type', dest='plugin_type', type=str,
-                        help="Put in your plugin type of choice manually")
-
-
-
-    args = parser.parse_args()
-
-    helper.make_global("run_numbers", args.select_run_numbers)
-    helper.make_global("run_times", args.select_run_times)
-    helper.make_global("admix_config", os.path.abspath(args.admix_config))
-    helper.make_global("no_db_update", args.no_update)
-    helper.make_global("destination", args.destination)
-    helper.make_global("plugin_type", args.plugin_type)
-    _server = args.server
-
-
-    #Pre tests:
-    # admix host configuration must match the hostname:
-    if helper.get_hostconfig()['hostname'] != helper.get_hostname():
-        print("admix configuration file for %s" % helper.get_hostconfig()['hostname'])
-        print("You are at % " % helper.get_hostname() )
-        exit()
-
-    ##Setup the log file (like in cax):
-    admix_version = 'admix_v%s - ' % admix.__version__
-    logging.basicConfig(filename=helper.get_hostconfig()['log_path'],
-                        level=logging.INFO,
-                        format=admix_version + '%(asctime)s [%(levelname)s] '
-                                             '%(message)s')
-    logging.info('aDMIX is starting')
-
-    # define a Handler which writes INFO messages or higher to the sys.stderr
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-    # tell the handler to use this format
-    console.setFormatter(formatter)
-    # add the handler to the root logger
-    logging.getLogger('').addHandler(console)
-    logging.getLogger("requests").setLevel(logging.ERROR)
-
-    #Check for a sleep time:
-    if 'sleep_time' in helper.get_hostconfig():
-        sleep_time = helper.get_hostconfig()['sleep_time']
-        logging.info("Sleep time from the admix configuration file is %s seconds" % str(sleep_time) )
-    else:
-        logging.info("Sleep time uses pre defined value of %s seconds" % str(sleep_time) )
-        sleep_time = 5
-
-    while True: # yeah yeah
-        print("cycle")
-        task_m = Tasker()
-        task_m.ExecuteTasks()
-
-        if _server == False:
-            logging.info('Server mode OFF  -- Goodbye')
-            break
-        else:
-            logging.info('Sleeping. ({t} seconds)'.format(t=sleep_time) )
-        time.sleep(sleep_time)
-
-def manuell_transfer():
-    print("Set up a transfer manually in the database")
-
-    parser = argparse.ArgumentParser(description="Input commands to setup a transfer manually.")
-
-    #From here the input depends on the usage of the command
-    parser.add_argument('--admix-config', dest="admix_config", type=str,
-                        help="Load your host configuration")
-    parser.add_argument('--no-update', dest='no_update', action='store_false',
-                        help="Add this option to prevent aDMIX updating the Xenon database")
-    parser.add_argument('--select-run', dest='select_run', type=str,
-                        help="Select a single run")
-    parser.add_argument('--select-run-numbers', dest='select_run_numbers', type=str,
-                        help="Select a range of runs (xxxx1-xxxx2)")
-    parser.add_argument('--select-run-times', dest='select_run_times', type=str,
-                        help="Select a range of runs by timestamps")
-
-
-    args = parser.parse_args()
-
-    if args.select_run_numbers != None and args.select_run == None:
-        helper.make_global("run_beg", args.select_run_numbers.split("-")[0])
-        helper.make_global("run_end", args.select_run_numbers.split("-")[1])
-    if args.select_run_numbers == None and args.select_run != None:
-        helper.make_global("run_beg", args.select_run)
-        helper.make_global("run_end", args.select_run)
-    if args.select_run_times != None:
-        helper.make_global("run_start_time", args.select_run_times.split("-")[0])
-        helper.make_global("run_end_time", args.select_run_times.split("-")[1])
-
-    helper.make_global("admix_config", os.path.abspath(args.admix_config))
-    helper.make_global("no_db_update", args.no_update)
-
-
-
-    #Pre tests:
-    # admix host configuration must match the hostname:
-    if helper.get_hostconfig()['hostname'] != helper.get_hostname():
-        print("admix configuration file for %s" % helper.get_hostconfig()['hostname'])
-        print("You are at % " % helper.get_hostname() )
-        exit()
-
-    ##Setup the log file (like in cax):
-    admix_version = 'admix_v%s - ' % admix.__version__
-    logging.basicConfig(filename=helper.get_hostconfig()['log_path'],
-                        level=logging.INFO,
-                        format=admix_version + '%(asctime)s [%(levelname)s] '
-                                             '%(message)s')
-    logging.info('aDMIX is starting')
-
-    # define a Handler which writes INFO messages or higher to the sys.stderr
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-    # tell the handler to use this format
-    console.setFormatter(formatter)
-    # add the handler to the root logger
-    logging.getLogger('').addHandler(console)
-    logging.getLogger("requests").setLevel(logging.ERROR)
-
-
-    task_m = Tasker()
-    task_m.ExecuteTask("set_manuell_transfers")
-
-
-
-
-
-def upload_by_call():
-    print("Develop aDMIX service package")
-
-    parser = argparse.ArgumentParser(description="Run your favourite aDMIX task in a loop!")
-
-    #From here the input depends on the usage of the command
+    # From here the input depends on the usage of the command
+    # Add modules here:
+    parser.add_argument('task', nargs="?", default="default",
+                        help="Select an aDMIX task")
+    # Add arguments for the process manager:
     parser.add_argument('--admix-config', dest="admix_config", type=str,
                         help="Load your host configuration")
     parser.add_argument('--no-update', dest='no_update', action='store_false',
                         help="Add this option to prevent aDMIX updating the Xenon database")
     parser.add_argument('--once', dest='once', action='store_true',
                         help="Run the server only once an exits")
+    # Add arguments for the individual tasks:
     parser.add_argument('--select-run-numbers', dest='select_run_numbers', type=str,
                         help="Select a range of runs (xxxx1-xxxx2)")
     parser.add_argument('--select-run-times', dest='select_run_times', type=str,
-                        help="Select a range of runs by timestamps")
-    parser.add_argument('--destination', dest='destination', type=str,
-                        help="Put in your destination manually")
-    parser.add_argument('--plugin-type', dest='plugin_type', type=str,
-                        help="Put in your plugin type of choice manually")
-
-
-
+                        help="Select a range of runs by timestamps <Date><Time>-<Date><Time>")
+    parser.add_argument('--source', nargs='*', dest='source', type=str,
+                        help="Select data according to a certain source(s)")
+    parser.add_argument('--tag', nargs='*', dest='tag', type=str,
+                        help="Select data according to a certain tag(s)")
+    #parser.add_argument('--destination', dest='destination', type=str,
+    #                    help="Add a destination from ")
     args = parser.parse_args()
 
-    helper.make_global("run_numbers", args.select_run_numbers)
-    helper.make_global("run_times", args.select_run_times)
-    helper.make_global("admix_config", os.path.abspath(args.admix_config))
-    helper.make_global("no_db_update", args.no_update)
-    helper.make_global("destination", args.destination)
-    helper.make_global("plugin_type", args.plugin_type)
-    _once = args.once
-
-
-    #Pre tests:
-    # admix host configuration must match the hostname:
-    if helper.get_hostconfig()['hostname'] != helper.get_hostname():
-        print("admix configuration file for %s" % helper.get_hostconfig()['hostname'])
-        print("You are at % " % helper.get_hostname() )
-        exit()
-
-    ##Setup the log file (like in cax):
-    admix_version = 'admix_v%s - ' % admix.__version__
-    logging.basicConfig(filename=helper.get_hostconfig()['log_path'],
-                        level=logging.INFO,
-                        format=admix_version + '%(asctime)s [%(levelname)s] '
-                                             '%(message)s')
-    logging.info('aDMIX is starting')
-
-    # define a Handler which writes INFO messages or higher to the sys.stderr
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-    # tell the handler to use this format
-    console.setFormatter(formatter)
-    # add the handler to the root logger
-    logging.getLogger('').addHandler(console)
-    logging.getLogger("requests").setLevel(logging.ERROR)
-
-    #Check for a sleep time:
-    if 'sleep_time' in helper.get_hostconfig():
-        sleep_time = helper.get_hostconfig()['sleep_time']
-        logging.info("Sleep time from the admix configuration file is %s seconds" % str(sleep_time) )
-    else:
-        logging.info("Sleep time uses pre defined value of %s seconds" % str(sleep_time) )
-        sleep_time = 5
-
-    while True: # yeah yeah
-        dt_beg = datetime.datetime.now()
-        
-        task_m = Tasker()
-        #task_m.ExecuteTask("upload_by_call")
-        task_m.ExecuteTask("update_runDB")
-
-        dt_end = datetime.datetime.now()
-        
-        print("time:", dt_end-dt_beg)
-        if _once:
-            break
-        else:
-            logging.info('Sleeping. ({t} seconds)'.format(t=sleep_time) )
-        time.sleep(sleep_time)
-    
-
-def database_entries():
-    print("Develop aDMIX service package")
-
-    parser = argparse.ArgumentParser(description="Run your favourite aDMIX task in a loop!")
-
-    #From here the input depends on the usage of the command
-    parser.add_argument('--admix-config', dest="admix_config", type=str,
-                        help="Load your host configuration")
-    parser.add_argument('--no-update', dest='no_update', action='store_false',
-                        help="Add this option to prevent aDMIX updating the Xenon database")
-    parser.add_argument('--once', dest='once', action='store_true',
-                        help="Run the server only once an exits")
-    parser.add_argument('--select-run-numbers', dest='select_run_numbers', type=str,
-                        help="Select a range of runs (xxxx1-xxxx2)")
-    parser.add_argument('--select-run-times', dest='select_run_times', type=str,
-                        help="Select a range of runs by timestamps")
-
-
-
-    args = parser.parse_args()
-
+    #We make the individual arguments global available right after aDMIX starts:
     if args.select_run_numbers != None:
         helper.make_global("run_beg", args.select_run_numbers.split("-")[0])
         helper.make_global("run_end", args.select_run_numbers.split("-")[1])
     if args.select_run_times != None:
-        helper.make_global("run_start_time", args.select_run_times.split("-")[0])
-        helper.make_global("run_end_time", args.select_run_times.split("-")[1])
+        helper.make_global("run_start_time", helper.string_to_datatime(args.select_run_times.split("-")[0], '%y%m%d_%H%M') )
+        helper.make_global("run_end_time", helper.string_to_datatime(args.select_run_times.split("-")[1], '%y%m%d_%H%M') )
 
     helper.make_global("admix_config", os.path.abspath(args.admix_config))
     helper.make_global("no_db_update", args.no_update)
-    _once = args.once
+    helper.make_global("source", args.source)
+    helper.make_global("tag", args.tag)
 
 
     #Pre tests:
     # admix host configuration must match the hostname:
     if helper.get_hostconfig()['hostname'] != helper.get_hostname():
         print("admix configuration file for %s" % helper.get_hostconfig()['hostname'])
-        print("You are at % " % helper.get_hostname() )
+        print(helper.get_hostname())
+        print("You are at {0}".format( helper.get_hostname()))
         exit()
 
-    ##Setup the log file (like in cax):
-    admix_version = 'admix_v%s - ' % admix.__version__
-    logging.basicConfig(filename=helper.get_hostconfig()['log_path'],
-                        level=logging.INFO,
-                        format=admix_version + '%(asctime)s [%(levelname)s] '
-                                             '%(message)s')
-    logging.info('aDMIX is starting')
+    #Setup the logger in a very basic modi
+    lg = Logger(logpath=helper.get_hostconfig()['log_path'],
+                loglevel=logging.DEBUG)
+    lg.Info("aDMIX - advanced Data Management in XENON")
+    helper.make_global("logger", lg)
+    #Determine which tasks are addressed:
+    # - if it comes from args.task use it, nevertheless what is defined in hostconfig("task")
+    # - if args.task == default use hostconfig("task") information
+    task_list = []
+    if args.task == "default":
+        task_list.extend(helper.get_hostconfig("task"))
+    else:
+        task_list = [args.task]
 
-    # define a Handler which writes INFO messages or higher to the sys.stderr
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-    # tell the handler to use this format
-    console.setFormatter(formatter)
-    # add the handler to the root logger
-    logging.getLogger('').addHandler(console)
-    logging.getLogger("requests").setLevel(logging.ERROR)
+    #test if the list of tasks is available from the decorator
+    task_test = [True if i_task in NameCollector else False for i_task in task_list]
+    task_list = np.array(task_list)[task_test]
 
-    task_m = Tasker()
-    task_m.ExecuteTask("database_entries")
+    if len(task_list) == 0:
+        lg.Warning("Select a task from this list:")
+        for i_task in NameCollector:
+            lg.Warning("  <> {0}".format(i_task))
+            lg.Warning("or adjust the 'task' field in your configuration")
+            lg.Warning("file: {0}".format(helper.global_dictionary["admix_config"]))
+        exit()
 
+    #Go for the loop
+    while True:
 
-#def uploader():
-    #pass
+        for i_task in task_list:
+            helper.global_dictionary['logger'].Info(f"Run task: {i_task}")
+            ClassCollector[i_task].init()
+            status = ClassCollector[i_task].run()
 
-#def downloader():
-    #pass
+            if status == 1:
+                pass
+                #lg.Error("Module did not start")
 
-#def server():
+            #We might need this later:
+            #ClassCollector[i_task].__del__()
 
-    #parser = argparse.ArgumentParser(description="Run your favourite aDMIX task in a loop!")
+        if args.once == True:
+            break
 
-    ##From here the input depends on the usage of the command
-    #parser.add_argument('--admix-config', dest="admix_config", type=str,
-                        #help="Load your host configuration")
-    #parser.add_argument('--once', dest='once', action='store_true',
-                        #help="Run the server only once an exits")
-    #parser.add_argument('--no-update', dest='no_update', action='store_false',
-                        #help="Add this option to prevent aDMIX updating the Xenon database")
-
-    #parser.add_argument('--run', dest='run', type=str,
-                        #help="Xenon1T run number")
-    #parser.add_argument('--name', dest='name', type=str,
-                        #help="Xenon1T run name")
-    #parser.add_argument('--timestamp', dest='timestamp', type=str,
-                        #help="Select a range of times in where the runs are in")
-
-    #args = parser.parse_args()
-    #helper.make_global("admix_config", os.path.abspath(args.admix_config))
-    #helper.make_global("no_db_update", args.no_update)
-    #_run          = helper.run_number_converter(args.run)
-    #_name         = helper.run_name_converter(args.name)
-    #_timestamp    = helper.run_timestampe_converter(args.timestamp)
-    #_once         = args.once
-
-
-    ##Pre tests:
-    ## admix host configuration must match the hostname:
-    #if helper.get_hostconfig()['hostname'] != helper.get_hostname():
-        #print("admix configuration file for %s" % helper.get_hostconfig()['hostname'])
-        #print("You are at % " % helper.get_hostname() )
-        #exit()
-
-    ###Setup the log file (like in cax):
-    #admix_version = 'admix_v%s - ' % __version__
-    #logging.basicConfig(filename=helper.get_hostconfig()['log_path'],
-                        #level=logging.INFO,
-                        #format=admix_version + '%(asctime)s [%(levelname)s] '
-                                             #'%(message)s')
-    #logging.info('aDMIX is starting')
-
-    ## define a Handler which writes INFO messages or higher to the sys.stderr
-    #console = logging.StreamHandler()
-    #console.setLevel(logging.INFO)
-    #formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-    ## tell the handler to use this format
-    #console.setFormatter(formatter)
-    ## add the handler to the root logger
-    #logging.getLogger('').addHandler(console)
-    #logging.getLogger("requests").setLevel(logging.ERROR)
-
-    ##Check for a sleep time:
-    #if 'sleep_time' in helper.get_hostconfig():
-        #sleep_time = helper.get_hostconfig()['sleep_time']
-        #logging.info("Sleep time from the admix configuration file is %s seconds" % str(sleep_time) )
-    #else:
-        #logging.info("Sleep time uses pre defined value of %s seconds" % str(sleep_time) )
-        #sleep_time = 5
-
-    ## Ping rucio
-      ##todo ?
-    ## Ping Xenon Database
-      ##todo ?
-    ##Finish pre tests
-
-
-
-    #while True: # yeah yeah
-
-        #task_m = tasker.Tasker()
-
-        #task_m.LoadCollection()
-        #task_m.QueryByTimestamp(_timestamp)
-        #task_m.QueryByRunnumber(_run)
-        #task_m.QueryByRunname(_name)
-        #task_m.ExecuteTask()
-
-        #if _once:
-            #break
-        #else:
-            #logging.info('Sleeping. ({t} seconds)'.format(t=sleep_time) )
-        #time.sleep(sleep_time)

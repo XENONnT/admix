@@ -1,21 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import with_statement
-import logging
-import datetime
-import os
-import time
-import json
-import weakref
-import numpy as np
 
-from admix.tasks import helper
-from admix.tasks.tester import tester
-from admix.tasks.dummy import dummy
-from admix.tasks.upload_with_mongodb import upload_with_mongodb
-from admix.tasks.set_manuell_transfers import set_manuell_transfers
-from admix.tasks.upload_by_call import upload_by_call
 from admix.tasks.database_entries import database_entries
+from admix.tasks.dummy import dummy
+from admix.tasks.set_manuell_transfers import set_manuell_transfers
+from admix.tasks.tester import tester
 from admix.tasks.update_runDB import update_runDB
+from admix.tasks.upload_by_call import upload_by_call
+from admix.tasks.upload_with_mongodb import upload_with_mongodb
+
+
 #from admix.tasks import uploader
 #from admix.tasks import rule_updater
 #from admix.runDB import xenon_runDB

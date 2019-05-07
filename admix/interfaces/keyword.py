@@ -1,10 +1,7 @@
 #Author: Boris Bauermeister
 #Descriptions: A class to manage key words in strings
 
-#import sys
-#import datetime
-#import os
-import re
+import datetime
 
 class Keyword():
 
@@ -24,6 +21,12 @@ class Keyword():
     def SetString(self, string):
         #this is a string with which needs to be filled up with content from keys.
         pass
+
+    def CompleteTemplate(self, template):
+        #Fill a template dictionary with the help from CompleteKeywords()
+        for key, val, in template.items():
+            val = self.CompleteKeywords(val)
+        return template
 
     def CompleteKeywords(self, val):
         if 'tag_words' not in val:
@@ -50,7 +53,7 @@ class Keyword():
         if key=="detector":
             return db_info['detector']
         elif key=="science_run":
-            sr = self.get_science_run( db_info['start'] )
+            sr = self._get_science_run( db_info['start'] )
             if sr != -1:
                 return sr
             else:
@@ -58,7 +61,7 @@ class Keyword():
         else:
             return None
 
-    def get_science_run(self, timestamp ):
+    def _get_science_run(self, timestamp ):
         #Evaluate science run periods:
 
         #1) Change from sc0 to sc1:
