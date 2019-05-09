@@ -151,7 +151,7 @@ class UpdateRunDBMongoDB():
                     state = i_rule['state']
                     #print(i_rule)
                     if i_rule['expires_at'] != None:
-                        expires_at = datetime.datetime.strptime(i_rule['expires_at'], "%a, %d %b %Y %H:%M:%S %Z").strftime("%Y-%m-%d-%H-%M-%S")
+                        expires_at = i_rule['expires_at'].strftime("%Y-%m-%d-%H:%M:%S")
                     else:
                         expires_at = None
                     rule.append("{rse}:{state}:{lifetime}".format(rse=rse_expression,
@@ -159,7 +159,7 @@ class UpdateRunDBMongoDB():
                                                                       lifetime=expires_at))
                 #Update RSE field if necessary:
                 if rule != i_data['rse']:
-                    #self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='rse', value=rule)
+                    self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='rse', value=rule)
                     print("  -> Updated location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))
                 else:
                     print("  |No update at location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))

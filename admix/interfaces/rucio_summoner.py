@@ -87,6 +87,38 @@ class RucioSummoner():
                                  rse_expression=g_rse,
                                  lifetime=g_rlt)
 
+    def UpdateRules(self, upload_structure=None, rse_rules=None):
+
+        #sort locations again
+        sorted_keys = [key for key in sorted(upload_structure.keys())]
+
+        #assume: We want to check only for the lowest container or dataset:
+        val_scope = upload_structure[sorted_keys[-1]]['did'].split(":")[0]
+        val_dname = upload_structure[sorted_keys[-1]]['did'].split(":")[1]
+
+        #Get Rule IDs:
+        r_rules = self._rucio.ListDidRules(val_scope, val_dname)
+        r_rse_ids = {}
+        for i_rule in r_rules:
+            r_rse = i_rule['rse_expression']
+            r_rse_ids[r_rse] = i_rule['id']
+
+        for i_rule in rse_rules:
+            g_ptr = i_rule.split(":")[0]
+            g_rse = i_rule.split(":")[1]
+            g_rlt = i_rule.split(":")[2]
+            if g_rlt == "None":
+                g_rlt = None
+            else:
+                g_rlt = int(g_rlt)
+            if g_rse not in list(r_rse_ids.keys()):
+                continue
+
+            print("Create", g_ptr, g_rse, g_rlt, r_rse_ids[g_rse])
+            options = {}
+            options['lifetime'] = g_rlt
+            self._rucio.UpdateRule(r_rse_ids[g_rse], options )
+
 
     def _rule_status_dictionary(self):
         rule = {}
@@ -127,13 +159,11 @@ class RucioSummoner():
         r_rules = self._rucio.ListDidRules(val_scope, val_dname)
         if r_rules == None:
             return None
-        rule_list = []
+        rule = self._rule_status_dictionary()
         for i_rule in r_rules:
 
             if rse!= None and i_rule['rse_expression'] != rse:
                 continue
-
-            rule = self._rule_status_dictionary()
             rule['rse'] = i_rule['rse_expression']
             rule['exists'] = True
             rule['state']  = i_rule['state']
@@ -141,13 +171,13 @@ class RucioSummoner():
             rule['cnt_repl'] = i_rule['locks_replicating_cnt']
             rule['cnt_stuck'] = i_rule['locks_stuck_cnt']
             rule['id'] = i_rule['id']
+            print("_", i_rule['expires_at'], type(i_rule['expires_at']))
             if i_rule['expires_at'] == None:
                 rule['expires'] = None
             else:
-                rule['expires'] = datetime.datetime.strptime(i_rule['expires_at'], "%a, %d %b %Y %H:%M:%S %Z").strftime("%Y-%m-%d-%H-%M-%S")
-            rule_list.append(rule)
+                rule['expires'] = i_rule['expires_at'].strftime("%Y-%m-%d-%H:%M:%S")
 
-        return rule_list
+        return rule
 
     def CheckRule(self, upload_structure=None, rse=None):
 

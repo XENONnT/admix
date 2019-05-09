@@ -96,11 +96,11 @@ def your_admix():
     task_list = np.array(task_list)[task_test]
 
     if len(task_list) == 0:
-        lg.Warning("Select a task from this list:")
+        print("Select a task from this list:")
         for i_task in NameCollector:
-            lg.Warning("  <> {0}".format(i_task))
-            lg.Warning("or adjust the 'task' field in your configuration")
-            lg.Warning("file: {0}".format(helper.global_dictionary["admix_config"]))
+            print("  <> {0}".format(i_task))
+            print("or adjust the 'task' field in your configuration")
+            print("file: {0}".format(helper.global_dictionary["admix_config"]))
         exit()
 
     #Go for the loop

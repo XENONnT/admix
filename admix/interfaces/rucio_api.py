@@ -142,6 +142,19 @@ class RucioAPI():
         except:
             print("No rule created for {dids}".format(dids=dids))
 
+    def UpdateRule(self, rule_id, options):
+
+        try:
+            self._rucio_client.update_replication_rule(rule_id, options)
+        except:
+            print("Rule not found")
+
+    def GetReplicationRule(self, rule_id, estimate_ttc=False):
+        try:
+            self._rucio_client.get_replication_rule(self, rule_id, estimate_ttc=False)
+        except:
+            print("No replication rule to get")
+
     #Metadata:
     def GetMetadata(self, scope, name):
         try:
