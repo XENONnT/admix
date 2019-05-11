@@ -15,12 +15,12 @@ import admix.helper.helper as helper
 #import the decorators:
 from admix.helper.decorator import NameCollector, ClassCollector
 #import all your tasks:
-from admix.tasks.tester import Tester
-from admix.tasks.testDB import TestDB
+#from admix.tasks.tester import Tester
+#from admix.tasks.testDB import TestDB
 from admix.tasks.upload_with_mongodb import UploadMongoDB
 from admix.tasks.update_runDB import UpdateRunDBMongoDB
 from admix.tasks.init_transfers_with_mongodb import InitTransfersMongoDB
-
+from admix.tasks.download_with_mongodb import DownloadMongoDB
 
 def version():
     print("aDMIX is ready for Python3...")
@@ -51,8 +51,13 @@ def your_admix():
                         help="Select data according to a certain source(s)")
     parser.add_argument('--tag', nargs='*', dest='tag', type=str,
                         help="Select data according to a certain tag(s)")
-    #parser.add_argument('--destination', dest='destination', type=str,
-    #                    help="Add a destination from ")
+    parser.add_argument('--destination', dest='destination', type=str,
+                        help="Add a destination from ")
+    parser.add_argument('--rse', dest='rse', type=str,
+                        help="Select your RSE from where to download data")
+    parser.add_argument('--lifetime', dest='lifetime', type=str,
+                        help="Select your RSE from where to download data")
+
     args = parser.parse_args()
 
     #We make the individual arguments global available right after aDMIX starts:

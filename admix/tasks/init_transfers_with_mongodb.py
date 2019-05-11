@@ -73,8 +73,9 @@ class InitTransfersMongoDB():
         #ToDo We need to get the timestamp selector from helper.global_dictionary into the game here!
         #print( helper.global_dictionary['run_start_time'] )
         #print( helper.global_dictionary['run_end_time'] )
+
         #Get your collection of run numbers and run names
-        collection = self.db.GetRunsByTimestamp(ts_beg, ts_end)
+        collection = self.db.GetDestination(ts_beg, ts_end)
 
         #Run through the overview collection:
         for i_run in collection:

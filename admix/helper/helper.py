@@ -131,8 +131,8 @@ def check_valid_timestamp( timestamp=None):
 
     return ts_valid
 
-def string_to_datatime( time_='700101_0000', pattern='%y%m%d_%H%M'):
-    return datetime.datetime.strptime(time_, pattern)
+    def string_to_datatime( time_='700101_0000', pattern='%y%m%d_%H%M'):
+        return datetime.datetime.strptime(time_, pattern)
 
 def run_timestampe_converter(timestamp = None):
 
@@ -157,8 +157,11 @@ def run_timestampe_converter(timestamp = None):
     return ts_list
 
 #string_to_datatime
-def get_science_run(timestamp):
+def get_science_run(timestamp=datetime.datetime(1981, 11, 11, 5, 30)):
     #Evaluate science run periods:
+
+    if timestamp == datetime.datetime(1981, 11, 11, 5, 30):
+        return "0"
 
     #1) Change from sc0 to sc1:
     dt0to1 = datetime.datetime(2017, 2, 2, 17, 40)

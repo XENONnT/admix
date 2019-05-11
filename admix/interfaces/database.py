@@ -232,6 +232,36 @@ class ConnectMongoDB():
         #elif: return key of dict
         return value
 
+    def GetDestination(self, ts_beg=None, ts_end=None, sort="ascending"):
+
+        if ts_beg == None:
+            ts_beg = self.GetSmallest("start")
+        if ts_end == None:
+            ts_end = self.GetLargest("start")
+
+        #evaluate sort direction:
+        if sort == "ascending":
+            sort = -1 #ascending means from latest to earliest run
+        else:
+            sort = 1
+
+        col = self.db.aggregate(
+                    [
+                        {"$match": {'$and': [ {'start': {'$gte':ts_beg}}, {'start': {'$lte':ts_end}} ]}},
+                        {"$unwind": "$data"},
+                        {"$project": {
+                                        "name": 1, "number": 1, "destination": "$data.destination",
+                                        "ndest": { "$cond": [{ "$isArray": "$data.destination"}, {"$size": "$data.destination"}, 0]},
+                                    }},
+                        {"$match": {"ndest": {"$gt": 0}}},
+                        {"$project": {"name":1, "number":1}},
+                        {"$sort": {"start": sort}}
+
+                    ]
+                )
+
+        return col
+
     def StatusDataField(self, id_field, type=None, host=None):
         #Test if a dictionary exists in a list for a specific combination of type and host
         run = self.GetRunByID(id_field)[0]

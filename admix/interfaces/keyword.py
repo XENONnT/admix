@@ -40,12 +40,11 @@ class Keyword():
             #try to find it in the self._template:
             for i_template in self._template:
                 if i_tag in i_template:
-                    did= did.replace("{"+i_tag+"}", i_template[i_tag])
+                    did= did.replace("{"+i_tag+"}", str(i_template[i_tag]))
             #elif self._eval_db_info(i_tag, db_info) != None:
                 #did= did.replace("{"+i_tag+"}", self._eval_db_info(i_tag, db_info))
 
         val['did'] = did
-
         return val
 
 

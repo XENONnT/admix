@@ -14,8 +14,10 @@ class Destination():
         self._origin      = None #holds the information from which locations the data destination
 
         self._rucio_rule  = []
-        self._template = {"rucio":"^rucio-catalogue:(\w+):(\w+)",
-                         "rucio-download":"(\w+)",
+        self._template = {
+                            "rucio":"^rucio-catalogue:(\w+):(\w+)",
+                            "rucio-download":"(\w+)",
+                            "file":"^file:(\w+):(\w+)",
                          }
 
 
@@ -57,7 +59,7 @@ class Destination():
             #some point. But you want to ignore this
             if i_dest == None:
                 continue
-
+            print( i_dest)
             if bool(re.search(self._template['rucio'], i_dest)):
                 rc_dict={}
                 rc_dict['protocol']='rucio-catalogue'
@@ -66,6 +68,16 @@ class Destination():
                     rc_dict['upload'] = True
                 else:
                     rc_dict['upload'] = False
+                self._rucio_rule.append(rc_dict)
+            if bool(re.search(self._template['file'], i_dest)):
+                print(i_dest)
+                rc_dict = {}
+                rc_dict['protocol'] = 'file'
+                rc_dict['dir'], rc_dict['info'] = re.search(self._template['file'], i_dest).group(1, 2)
+                #if len(self._rucio_rule) == 0:
+                #    rc_dict['upload'] = True
+                #else:
+                #    rc_dict['upload'] = False
                 self._rucio_rule.append(rc_dict)
 
     def __host_is_origin(self):

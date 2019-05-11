@@ -75,7 +75,10 @@ class UploadMongoDB():
         #print( helper.global_dictionary['run_start_time'] )
         #print( helper.global_dictionary['run_end_time'] )
         #Get your collection of run numbers and run names
-        collection = self.db.GetRunsByTimestamp(ts_beg, ts_end)
+        collection = self.db.GetDestination(ts_beg, ts_end)
+
+        #ToDo Do we need this later?
+        #collection = self.db.GetRunsByTimestamp(ts_beg, ts_end)
 
         #Run through the overview collection:
         for i_run in collection:
@@ -107,7 +110,7 @@ class UploadMongoDB():
                 dest = self.destination.EvalDestination(host=helper.get_hostconfig('host'),
                                                         origin=i_data['host'],
                                                         destination=origin_dest)
-
+                print(dest)
                 if len(dest) == 0:
                     helper.global_dictionary['logger'].Info("No destination specified! Skip")
                     continue
@@ -168,7 +171,7 @@ class UploadMongoDB():
                 self.keyw.ResetTemplate()
                 self.keyw.SetTemplate(template_info)
                 self.keyw.SetTemplate(db_info)
-                self.keyw.SetTemplate({'science_run': helper.get_science_run(db_info['start'])})
+                #self.keyw.SetTemplate({'science_run': helper.get_science_run(db_info['start'])})
 
                 rucio_template = self.keyw.CompleteTemplate(rucio_template)
 

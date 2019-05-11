@@ -54,6 +54,18 @@ class DownloadMongoDB():
     def run(self,*args, **kwargs):
         self.init()
 
+        #Specifiy the download path:
+        if 'destination' not in helper.global_dictionary:
+            dw_path = "./"
+        else:
+            dw_path = helper.global_dictionary['destination']
+        if 'rse' not in helper.global_dictionary:
+            dw_rse = None
+        else:
+            dw_rse =  helper.global_dictionary['rse']
+
+        print("Dw path:", dw_path)
+        print("Dw from RSE", dw_rse)
 
         #Decide if you select runs from argsparse or just take everything:
         if 'run_beg' in helper.global_dictionary:
@@ -97,21 +109,24 @@ class DownloadMongoDB():
                 helper.global_dictionary['logger'].Debug('aDMIX runs at host: {0}'.format(helper.get_hostconfig('host')))
 
                 #get the destination from DB:
-                origin_dest = None
-                if 'destination' in i_data:
-                    origin_dest = i_data['destination']
+                #origin_dest = None
+                #if 'destination' in i_data:
+                #    origin_dest = i_data['destination']
 
                 #print("destination:", origin_dest)
                 #print(i_data)
+                origin_dest = "file:./:None"
 
                 dest = self.destination.EvalDestination(host=helper.get_hostconfig('host'),
                                                         origin=i_data['host'],
                                                         destination=origin_dest)
+                print(dest)
+                #if len(dest) == 0:
+                #    helper.global_dictionary['logger'].Info("No destination specified! Skip")
+                #    continue
 
-                if len(dest) == 0:
-                    helper.global_dictionary['logger'].Info("No destination specified! Skip")
-                    continue
 
+                continue
                 #reactivate if this is specified in the config file
                 #if helper.global_dictionary['plugin_type'] != None and helper.global_dictionary['plugin_type'] != i_date['type']:
                     #continue

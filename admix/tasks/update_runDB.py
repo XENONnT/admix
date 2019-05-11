@@ -13,6 +13,8 @@ from admix.interfaces.destination import Destination
 from admix.interfaces.keyword import Keyword
 from admix.interfaces.templater import Templater
 
+import copy
+
 @Collector
 class UpdateRunDBMongoDB():
 
@@ -92,7 +94,7 @@ class UpdateRunDBMongoDB():
             #Pull the full run information (according to projection which is pre-defined) by the run name
             db_info = self.db.GetRunByName(r_name)[0]
 
-            print("Test dataset:", r_name, "/", r_number)
+            print("Test dataset:", r_name, "/", r_number, dict_name, db_info['name'])
 
             if 'data' not in db_info:
                 continue
@@ -114,7 +116,8 @@ class UpdateRunDBMongoDB():
                     continue
 
                 # Go for the rucio template:
-                rucio_template = self.rc_reader.GetPlugin(i_data['type'])
+                #ToDo We should do better than deepcopy
+                rucio_template = copy.deepcopy(self.rc_reader.GetPlugin(i_data['type']))
 
                 # Fill the key word class with information beforehand:
                 #extract the hash
@@ -130,7 +133,6 @@ class UpdateRunDBMongoDB():
                 self.keyw.SetTemplate({'science_run': helper.get_science_run(db_info['start'])})
 
                 rucio_template = self.keyw.CompleteTemplate(rucio_template)
-
                   #skip if a type is specified somewhere (config file or command line)
                 #if (helper.global_dictionary['plugin_type'] == None) and \
                 #    (isinstance(helper.get_hostconfig('type'), list) == True) and \
@@ -147,6 +149,7 @@ class UpdateRunDBMongoDB():
                 for i_rule in rc_rules:
                     #Extract the rucio rule information per RSE location
                     #and append
+
                     rse_expression = i_rule['rse_expression']
                     state = i_rule['state']
                     #print(i_rule)
@@ -157,6 +160,7 @@ class UpdateRunDBMongoDB():
                     rule.append("{rse}:{state}:{lifetime}".format(rse=rse_expression,
                                                                       state=state,
                                                                       lifetime=expires_at))
+
                 #Update RSE field if necessary:
                 if rule != i_data['rse']:
                     self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='rse', value=rule)
