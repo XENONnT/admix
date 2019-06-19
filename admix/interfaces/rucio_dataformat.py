@@ -14,7 +14,6 @@ class ConfigRucioDataFormat():
         self.types_ = []
         self.structure_ = {}
         self.eval_ = 0
-        print("Init ConfigRucioDataFormat")
 
     def Config(self, config_path):
         #put in your favourite experimental configuration

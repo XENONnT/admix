@@ -36,7 +36,7 @@ def get_hostconfig(key=None):
 def get_hostname():
     return os.environ.get('HOSTNAME')
 
-def run_number_converter(run_number):
+def run_number_converter_full(run_number=None):
     #convert the run number input from terminal by two
     #operators:
     #  - The ',' separates the individual run numbers
@@ -47,6 +47,7 @@ def run_number_converter(run_number):
         #splits by ',':
         #get all run numbers which are given by
         #commandline before possible sequence operator
+        #(split without, makes no trouble)
         rn = run_number.split(",")
 
         #split individual array entries by '-'
@@ -66,29 +67,131 @@ def run_number_converter(run_number):
 
     return nb_array
 
-def timestamp_converter(time_stamp):
-    nb_array = []
-    if time_stamp != None:
-        #splits by ',':
-        #get all run numbers which are given by
-        #commandline before possible sequence operator
-        rn = time_stamp.split(",")
+def eval_run_numbers(run_numbers=None, run_number_min=None, run_number_max=None):
 
-        #split individual array entries by '-'
-        #get a continous run number sequence each
+    #test if run_numbers follows a certain structure:
+    eval_nb_min = None
+    eval_nb_max = None
+    if run_numbers != None and run_number_min != None and run_number_max != None:
 
-        for i_rn in rn:
-            if i_rn.find('-') >= 0:
-                j_rn = i_rn.split("-")
-                j_rnA = string_to_datatime(time_=j_rn[0], pattern='%y%m%d_%H%M')
-                j_rnB = string_to_datatime(time_=j_rn[1], pattern='%y%m%d_%H%M')
-                nb_array.append( [j_rnA, j_rnB] )
+        if run_numbers.find("-") > 0:
+            rn_beg, rn_end = run_numbers.split("-")
+
+            if rn_beg.isdigit():
+                eval_nb_min = rn_beg
+            elif rn_beg.isdigit() == False and rn_beg == 'MIN':
+                eval_nb_min = run_number_min
             else:
-                nb_array.append(string_to_datatime(time_=i_rn, pattern='%Y%m%d_%H%M'))
-    else:
-        nb_array=None
+                #todo raise exception
+                print("Check your run number input (Format: 00000-00002 or 00002")
+                exit(1)
 
-    return nb_array
+            if rn_end.isdigit()==True:
+                eval_nb_max = rn_end
+            elif rn_end.isdigit()==False and rn_end == 'MAX':
+                eval_nb_max = run_number_max
+            else:
+                # todo raise exception
+                print("Check your run number input (Format: 00000-00002 or 00002")
+                exit(1)
+
+        elif run_numbers.find("-") ==-1 and run_numbers.isdigit() == True:
+            eval_nb_min = run_numbers
+            eval_nb_max = run_numbers
+
+
+    elif run_numbers == None and run_number_min != None and run_number_max != None:
+        eval_nb_min = run_number_min
+        eval_nb_max = run_number_max
+    else:
+        #todo raise execption
+        print("Check your run number input (Format: 00000-00002 or 00002")
+        exit(1)
+
+    return [eval_nb_min, eval_nb_max]
+
+def eval_run_timestamps(run_timestamps=None, run_timestamp_min=None, run_timestamp_max=None):
+
+    eval_ts_min = None
+    eval_ts_max = None
+    if run_timestamps != None and run_timestamp_min != None and run_timestamp_max != None:
+
+        if run_timestamps.find("-") > 0:
+
+            if run_timestamps.split("-")[0] == 'MIN':
+                ts_beg = run_timestamp_min
+            else:
+                try:
+                    ts_beg = string_to_datatime(run_timestamps.split("-")[0])
+                except ValueError as e:
+                    print("ValueError", e)
+                    print("Check your run number input (Format: 180101_1530-180101_1630 or 180101_1530")
+                    exit(1)
+
+            if run_timestamps.split("-")[1] == 'MAX':
+                ts_end = run_timestamp_max
+            else:
+                try:
+                    ts_end = string_to_datatime(run_timestamps.split("-")[1])
+                except ValueError as e:
+                    print("ValueError:", e)
+                    print("Check your run number input (Format: 180101_1530-180101_1630 or 180101_1530")
+                    exit(1)
+
+            if ts_beg < ts_end:
+                eval_ts_min = ts_beg
+                eval_ts_max = ts_end
+            else:
+                eval_ts_min = ts_end
+                eval_ts_max = ts_beg
+
+        elif run_timestamps.find("-") ==-1 and \
+                run_timestamps.split("_")[0].isdigit() and len(run_timestamps.split("_")[0])==6 and \
+                run_timestamps.split("_")[1].isdigit() and len(run_timestamps.split("_")[1])==4:
+
+            eval_ts_min = string_to_datatime(run_timestamps)
+            eval_ts_max = eval_ts_min
+        else:
+            print("Check your run number input (Format: 180101_1530-180101_1630 or 180101_1530")
+            exit(1)
+
+    elif run_timestamps == None and run_timestamp_min != None and run_timestamp_max != None:
+        eval_ts_min = run_timestamp_min
+        eval_ts_max = run_timestamp_max
+    else:
+        #todo raise execption
+        print("Check your run number input (Format: 00000-00002 or 00002")
+        exit(1)
+
+    return [eval_ts_min, eval_ts_max]
+
+
+def run_timestamp_converter(timestamp = None):
+
+    ts_list = []
+    if timestamp != None:
+        ts = timestamp.split(",")
+
+        for i_ts in ts:
+            i_ts = i_ts.replace(" ", "")
+
+            if i_ts.find("-") >= 0:
+                try:
+                    beg_i_ts = string_to_datatime(i_ts.split("-")[0])
+                    end_i_ts = string_to_datatime(i_ts.split("-")[1])
+                except ValueError as e:
+                    print("ValueError:", e)
+                    print("You need to define a time range such as: 180101_1530-180101_1630")
+                    exit(1)
+                if end_i_ts > beg_i_ts:
+                    ts_list.append( "{beg}-{end}".format(beg=i_ts.split("-")[0], end=i_ts.split("-")[1]) )
+            else:
+                pass
+
+    else:
+        ts_list=None
+
+    return ts_list
 
 
 def safeformat(str, **kwargs):
@@ -131,30 +234,10 @@ def check_valid_timestamp( timestamp=None):
 
     return ts_valid
 
-    def string_to_datatime( time_='700101_0000', pattern='%y%m%d_%H%M'):
+def string_to_datatime( time_='700101_0000', pattern='%y%m%d_%H%M'):
         return datetime.datetime.strptime(time_, pattern)
 
-def run_timestampe_converter(timestamp = None):
 
-    ts_list = []
-    if timestamp != None:
-        ts = timestamp.split(",")
-
-        for i_ts in ts:
-            i_ts = i_ts.replace(" ", "")
-
-            if i_ts.find("-") >= 0:
-                beg_i_ts = string_to_datatime(i_ts.split("-")[0])
-                end_i_ts = string_to_datatime(i_ts.split("-")[1])
-                if end_i_ts > beg_i_ts:
-                    ts_list.append( "{beg}-{end}".format(beg=i_ts.split("-")[0], end=i_ts.split("-")[1]) )
-
-            else:
-                print("You need to define a time range such as: 180101_1530-180101_1630")
-    else:
-        ts_list=None
-
-    return ts_list
 
 #string_to_datatime
 def get_science_run(timestamp=datetime.datetime(1981, 11, 11, 5, 30)):

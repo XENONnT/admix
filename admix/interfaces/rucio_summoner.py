@@ -30,13 +30,56 @@ class RucioSummoner():
         self._rucio.SetConfigPath(config_path)
 
     def SetProxyTicket(self, proxy_path):
-        self._rucio.SetProxyPath(proxy_path)
+        self._rucio.SetProxyTicket(proxy_path)
 
     def SetHost(self, hostname):
         self._rucio.SetHost(hostname)
 
     def ConfigHost(self):
         self._rucio.ConfigHost()
+
+    def Whoami(self):
+        """Rucio Summoner:Whoami
+           Results a dictionary to identify the current
+           Rucio user and credentials.
+        """
+        return self._rucio.Whoami()
+
+    def _VerifyStructure(self, upload_structure=None, level=-1):
+        """The Rucio summoner is able to deal with
+        two kinds of valid input arguments. To avoid
+        a break in the command chain we verify the
+        structure here first and prepare further steps.
+        The two valid input arguments are:
+        - A Rucio scope:name structure (DID) which is encoded
+          by a string
+        - A stacked container-dataset-file structure which
+          is encoded in a dictionary
+        """
+
+        val_scope = None
+        val_dname = None
+        if isinstance(upload_structure, str):
+            try:
+                val_scope = upload_structure.split(":")[0]
+                val_dname = upload_structure.split(":")[1]
+            except IndexError as e:
+                print("Function _VerifyStructure for Rucio DID input: IndexError")
+                print("Message:", e)
+                exit(1)
+        elif isinstance(upload_structure, dict):
+            #you can not sort keys if they are not in the dictionary:
+            #leave like it is
+            sorted_keys = [key for key in sorted(upload_structure.keys())]
+            try:
+                val_scope = upload_structure[sorted_keys[level]]['did'].split(":")[0]
+                val_dname = upload_structure[sorted_keys[level]]['did'].split(":")[1]
+            except IndexError as e:
+                print("Function _VerifyStructure for Rucio template input: IndexError")
+                print("Message:", e)
+                exit(1)
+
+        return (val_scope, val_dname)
 
     def VerifyStructure(self, upload_structure=None):
 
@@ -121,6 +164,10 @@ class RucioSummoner():
 
 
     def _rule_status_dictionary(self):
+        """This dictionary defines the full set of rule information
+        what is returned from Rucio and dedicated to further usage.
+        Add information carefully if you need to. Removing anything from
+        this dictionary breaks aDMIX."""
         rule = {}
         rule['rse'] = None
         rule['exists'] = False
@@ -133,32 +180,34 @@ class RucioSummoner():
         return rule
 
     def ListDidRules(self, upload_structure=None):
+        """List existing rules for a Rucio DID or Rucio template.
 
-        # sort locations again
-        sorted_keys = [key for key in sorted(upload_structure.keys())]
+        :param upload_structure: Allows a string which follows the Rucio DID structure of "scope:name" or a template
+                                 which is defined by the template class and the Rucio template defintion.
+        :return: A list of Rucio transfer rules with additional rule information. Each list element stands for a
+                 Rucio Storage Element (RSE).
+        """
 
-        # assume: We want to check only for the lowest container or dataset:
-        val_scope = upload_structure[sorted_keys[-1]]['did'].split(":")[0]
-        val_dname = upload_structure[sorted_keys[-1]]['did'].split(":")[1]
+        #analyse the function input regarding its allowed definitions:
+        val_scope, val_dname = self._VerifyStructure(upload_structure)
 
         r_rules = self._rucio.ListDidRules(val_scope, val_dname)
-        return r_rules
+
+        return list(r_rules)
 
     def GetRule(self, upload_structure=None, rse=None):
+        """This function checks if for a given upload structure or Rucio DID a requested
+        upload destination rule exists in Rucio already and returns a standarized
+        dictionary
+        """
 
-        #This function checks if for a given upload structure and a requested
-        #upload destination already a rule exists in Rucio
-
-        #sort locations again
-        sorted_keys = [key for key in sorted(upload_structure.keys())]
-
-        #assume: We want to check only for the lowest container or dataset:
-        val_scope = upload_structure[sorted_keys[-1]]['did'].split(":")[0]
-        val_dname = upload_structure[sorted_keys[-1]]['did'].split(":")[1]
+        #analyse the function input regarding its allowed definitions:
+        val_scope, val_dname = self._VerifyStructure(upload_structure)
 
         r_rules = self._rucio.ListDidRules(val_scope, val_dname)
-        if r_rules == None:
+        if len(r_rules) == 0:
             return None
+
         rule = self._rule_status_dictionary()
         for i_rule in r_rules:
 
@@ -382,6 +431,7 @@ class RucioSummoner():
         #rc_status, rc_status_msg = self._rucio.Upload(method="upload-folder-with-did-by-file", upload_dict=upload_dict)
         rc_status, rc_status_msg = self._rucio.Upload(method="upload-folder-with-did", upload_dict=[upload_dict])
         #return rc_status, rc_status_msg
+
 
 
         #self.rc = RucioConfig.__init__(self)

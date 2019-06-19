@@ -27,7 +27,7 @@ test_requirements = [
 setup(
     name='admix',
     version='0.1.0',
-    description="advanced Data Managment In Xenon",
+    description="advanced Data Managment In Xenon (aDMIX)",
     long_description=readme + '\n\n' + history,
     author="Boris Bauermeister",
     author_email='Boris.Bauermeister@gmail.com',
@@ -42,13 +42,7 @@ setup(
     entry_points={
         'console_scripts': [
             'admix-version=admix.admix:version',
-            'admix-tester=admix.admix:tester',
-            'admix-transfer=admix.admix:manuell_transfer',
-            'admix-uploader=admix.admix:upload_by_call',
-            'admix-database=admix.admix:database_entries',
             'admix=admix.admix:your_admix',
-
-            #'admix-server=admix.admix:server',
         ]
     },
     license="BSD license",
@@ -59,14 +53,7 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
-        "Programming Language :: Python :: 3",
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6'
-
     ],
     test_suite='tests',
     tests_require=test_requirements,

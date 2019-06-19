@@ -6,7 +6,6 @@ import time
 import os
 
 from admix.helper.logger import Logger
-import admix
 import admix.helper.helper as helper
 
 #from admix.runDB import xenon_runDB as XenonRunDatabase
@@ -15,8 +14,7 @@ import admix.helper.helper as helper
 #import the decorators:
 from admix.helper.decorator import NameCollector, ClassCollector
 #import all your tasks:
-#from admix.tasks.tester import Tester
-#from admix.tasks.testDB import TestDB
+from admix.tasks.example_task import RunExampleTask
 from admix.tasks.upload_with_mongodb import UploadMongoDB
 from admix.tasks.update_runDB import UpdateRunDBMongoDB
 from admix.tasks.init_transfers_with_mongodb import InitTransfersMongoDB
@@ -44,7 +42,7 @@ def your_admix():
                         help="Run the server only once an exits")
     # Add arguments for the individual tasks:
     parser.add_argument('--select-run-numbers', dest='select_run_numbers', type=str,
-                        help="Select a range of runs (xxxx1-xxxx2)")
+                        help="Select a range of runs (xxxx1 or xxxx1-xxxx2 or xxxx1-xxxx2,xxxx4-xxxx6)")
     parser.add_argument('--select-run-times', dest='select_run_times', type=str,
                         help="Select a range of runs by timestamps <Date><Time>-<Date><Time>")
     parser.add_argument('--source', nargs='*', dest='source', type=str,
@@ -61,18 +59,15 @@ def your_admix():
     args = parser.parse_args()
 
     #We make the individual arguments global available right after aDMIX starts:
-    if args.select_run_numbers != None:
-        helper.make_global("run_beg", args.select_run_numbers.split("-")[0])
-        helper.make_global("run_end", args.select_run_numbers.split("-")[1])
-    if args.select_run_times != None:
-        helper.make_global("run_start_time", helper.string_to_datatime(args.select_run_times.split("-")[0], '%y%m%d_%H%M') )
-        helper.make_global("run_end_time", helper.string_to_datatime(args.select_run_times.split("-")[1], '%y%m%d_%H%M') )
+    if args.select_run_numbers != None and args.select_run_times == None:
+        helper.make_global("run_numbers", args.select_run_numbers)
+    if args.select_run_times != None and args.select_run_numbers == None:
+        helper.make_global("run_timestamps", args.select_run_times)
 
     helper.make_global("admix_config", os.path.abspath(args.admix_config))
     helper.make_global("no_db_update", args.no_update)
     helper.make_global("source", args.source)
     helper.make_global("tag", args.tag)
-
 
     #Pre tests:
     # admix host configuration must match the hostname:
@@ -85,8 +80,10 @@ def your_admix():
     #Setup the logger in a very basic modi
     lg = Logger(logpath=helper.get_hostconfig()['log_path'],
                 loglevel=logging.DEBUG)
+    lg.Info("-----------------------------------------")
     lg.Info("aDMIX - advanced Data Management in XENON")
     helper.make_global("logger", lg)
+
     #Determine which tasks are addressed:
     # - if it comes from args.task use it, nevertheless what is defined in hostconfig("task")
     # - if args.task == default use hostconfig("task") information
@@ -112,13 +109,13 @@ def your_admix():
     while True:
 
         for i_task in task_list:
-            helper.global_dictionary['logger'].Info(f"Run task: {i_task}")
             ClassCollector[i_task].init()
-            status = ClassCollector[i_task].run()
+            ClassCollector[i_task].run()
+            #except:
+            #    helper.global_dictionary['logger'].Error(f" > Task {i_task} shows an exception")
+            #    pass
 
-            if status == 1:
-                pass
-                #lg.Error("Module did not start")
+            #lg.Error("Module did not start")
 
             #We might need this later:
             #ClassCollector[i_task].__del__()

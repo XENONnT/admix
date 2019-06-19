@@ -14,12 +14,17 @@ import json
 
 @Collector
 class RucioAPI():
+    """This class presents an approach to collect all necessary Rucio calls
+    in one class. That allows easy handling of Rucio calls based on the
+    Rucio API.
+    If there are ever changes in the Rucio API, here is the wrapper to fix it.
+    """
 
     def __init__(self):
         self._print_to_screen = False
-        self._rucioAPI_enabled = False
         self._rucio_version = None
         self._rucio_account = None
+
     def __del__(self):
         pass
 
@@ -35,29 +40,24 @@ class RucioAPI():
     def ConfigHost(self):
         #This member function setup the rucioAPI backend (load Client())
         try:
-            print("ConfigHost, RucioAPI:")
             self._rucio_client = Client()
             self._rucio_client_upload = UploadClient()
             self._rucio_client_download = DownloadClient()
-
-            print("Explore whoami:")
-            for key, val in self._rucio_client.whoami().items():
-                print(": ", key, "-", val)
-
-            print("Ping:")
-            test_call = self._rucio_client.ping()
-            print("test version:", test_call)
-            if 'version' in test_call:
-                self._rucio_version = test_call['version']
-            self._rucioAPI_enabled = True
         except:
             print("Can not init the Rucio API")
             print("-> Check for your Rucio installation")
-            exit()
+            exit(1)
 
     def Alive(self):
         print("RucioAPI alive")
     # finished the backend configuration for the Rucio API
+
+    def Whoami(self):
+        """RucioAPI:Whoami
+        Results a dictionary to identify the current
+        Rucio user and credentials.
+        """
+        return self._rucio_client.whoami()
 
     def GetRucioVersion(self):
         return self._rucio_version
@@ -97,10 +97,11 @@ class RucioAPI():
             return None
 
     def ListDidRules(self, scope, name):
-        try:
-            return self._rucio_client.list_did_rules(scope, name)
-        except:
-            return None
+        """Return a class generator from Rucio which contains the
+        individual rules to iterate over (or to create a list from)
+        """
+        return self._rucio_client.list_did_rules(scope, name)
+
     #Attach and detach:
     def AttachDids(self, scope, name, attachment, rse=None):
         try:

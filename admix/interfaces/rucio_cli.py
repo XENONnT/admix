@@ -9,13 +9,9 @@ from admix.helper.decorator import Collector
 class RucioCLI():
 
     def __init__(self):
-        print("Init the commandline module")
         self.rucio_version = None
         self.rucio_account = None
         self.rucio_host = None
-
-        self.print_to_screen = False
-        self.rucioCLI_enabled = False
 
     # Here comes the backend configuration part:
     def SetConfigPath(self, config_path):
@@ -33,10 +29,10 @@ class RucioCLI():
     def ConfigHost(self):
         try:
             self.config = self.GetConfig().format(rucio_account=self.rucio_account, x509_user_proxy=self.rucio_ticket_path)
-            self.rucioCLI_enabled = True
         except:
-            self.config = ""
-            self.rucioCLI_enabled = False
+            print("Can not init the Rucio CLI")
+            print("-> Check for your Rucio installation")
+            exit(1)
 
     def Alive(self):
         print("RucioCLI alive")
@@ -76,41 +72,6 @@ class RucioCLI():
         return stdout_value, stderr_value
 
 
-    #Init Rucio access by class:
-    def InitProxy(self, host=None, cert_path=None, key_path=None, ticket_path=None):
-
-        str_midway = """
-#.bashrc
-source /cvmfs/oasis.opensciencegrid.org/osg-software/osg-wn-client/3.3/current/el6-x86_64/setup.sh
-voms-proxy-init -voms xenon.biggrid.nl -cert {cert_path} -key {key_path} -valid 168:00 -out {ticket_path}
-echo "A new proxy-init for xenon.biggrid.nl is requested (168h)"
-echo "path: {ticket_path}"
-"""
-
-        #Select hosts:
-        exec_string=None
-        if host=="midway" or host=="midway2":
-            exec_string = str_midway.format(cert_path=cert_path, key_path=key_path, ticket_path=ticket_path)
-
-        #Execute hosts:
-        if host==None or cert_path==None or key_path==None or ticket_path==None:
-            return -1
-        else:
-            msg, err = self.doRucio(exec_string)
-
-            is_done=False
-            for i in msg:
-                if i.find("Creating proxy")>=0 and i.find("Done") >= 0:
-                    is_done=True
-                if is_done == True and i.find("Your proxy is valid until")>=0:
-                    expire_date = list(filter(None, i.replace("Your proxy is valid until", "").split(" ")))
-                    if len(expire_date[2]) < 2: expire_date[2]="0%s"%expire_date[2]
-                    str_expire_date = "{Y}-{M}-{day}-{time}".format(Y=expire_date[4], M=expire_date[2], day=expire_date[1], time=expire_date[3])
-                    str_expire_date = datetime.datetime.strptime(str_expire_date, "%Y-%d-%b-%H:%M:%S")
-                    #self.logger("InitProxy successfull for {host}".format(host=host))
-                    #self.logger("Ticket expires at {date}".format(date=str_expire_date))
-
-
     def GetConfig(self):
         config_string = ""
 
@@ -122,6 +83,7 @@ echo "path: {ticket_path}"
                     continue
                 config_string+=i_line
         else:
+
             print("Log: Miss config")
 
         return config_string
@@ -129,12 +91,35 @@ echo "path: {ticket_path}"
 
 
     def Whoami(self):
-
+        """RucioCLI:Whoami
+        Results a dictionary to identify the current
+        Rucio user and credentials.
+        CLI call requires to parse return string (msg)
+        into a dictionary first.
+        """
         upload_string = "rucio whoami"
         upload_string = self.config + upload_string
         msg, err = self.doRucio(upload_string)
+
+        dict_msg = {}
         for i_msg in msg:
-            print( i_msg )
+            i_msg = i_msg.replace(" ", "")
+            key, value = i_msg.split(":", 1)
+            dict_msg[key] = value
+        return dict_msg
+
+    def ListDidRules(self, scope, dname):
+        """List rules by scope and name from the command line
+        call.
+        """
+
+        upload_string = f"rucio list-rules {scope}:{dname}"
+        upload_string = self.config + upload_string
+        msg, err = self.doRucio(upload_string)
+
+        dict_msg = {}
+
+
 
     def CliUpload(self, method=None, upload_dict={}):
 

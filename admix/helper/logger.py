@@ -20,26 +20,26 @@ class Logger():
         self.setup()
 
     def setup(self):
+        """Setup your logging handler is crucial
 
-        log_format =f'admix_v{admix_version} ' + '%(asctime)s [%(levelname)s] | %(message)s'
+        """
+        log_format = f'admix_v{admix_version} ' + '%(asctime)s [%(levelname)s]\t| %(message)s'
 
-        self._loghandler = logging.getLogger('loghandler')
+        self._loghandler = logging.getLogger('admix_logger')
+        self._loghandler.setLevel(logging.DEBUG)
+        # create file handler which logs even debug messages
+        fh = logging.FileHandler(self.logpath)
+        fh.setLevel(logging.INFO)
+        # create console handler with a higher log level
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        # create formatter and add it to the handlers
         formatter = logging.Formatter(log_format)
-        self._loghandler.setLevel(self.loglevel)
-
-        handler = logging.handlers.RotatingFileHandler(self.logpath, maxBytes=200, backupCount=5)
-
-        fh = logging.FileHandler(filename=self.logpath)
-        #fh.setLevel(self.loglevel)
         fh.setFormatter(formatter)
+        ch.setFormatter(formatter)
+        # add the handlers to the logger
         self._loghandler.addHandler(fh)
-
-        #sh = logging.StreamHandler(sys.stdout)
-        #sh.setLevel(self.loglevel)
-        #sh.setFormatter(formatter)
-        #self._loghandler.addHandler(sh)
-
-        #self._loghandler.info("aDMIX - advanced Data Management in XENON")
+        self._loghandler.addHandler(ch)
 
     def Info(self, info):
         self._loghandler.info(info)

@@ -106,11 +106,26 @@ class ConnectMongoDB():
         projection = {"name":True, "number": True, "start":True, "_id":True}
         return list(self.db.find(query, projection=projection).sort(sort) )
 
-    def GetSmallest(self, key):
-        return sorted(list(self.db.find({}, projection={key: True, '_id':True})), key=lambda k: k[key])[0][key]
+    def GetSmallest(self, key="number"):
+        return sorted(list(self.db.find({}, projection={"name": True, "number":True, "_id":True})), key=lambda k: k["number"])[0].get(key)
 
-    def GetLargest(self, key):
-        return sorted(list(self.db.find({}, projection={key: True, '_id':True})), key=lambda k: k[key])[-1][key]
+    def GetLargest(self, key="number"):
+        return sorted(list(self.db.find({}, projection={"name": True, "number":True, "_id":True})), key=lambda k: k["number"])[-1].get(key)
+        #return sorted(list(self.db.find({}, projection={key: True, '_id':True})), key=lambda k: k[key])[-1][key]
+
+    def GetBoundary(self, key="number"):
+        #Evaluate the full run database for the first and last element and return
+        #a dictionary with its information. If None, then db entry does not exists
+        klist = sorted(list(self.db.find({}, projection={"name": True, "number":True, "start": True, "_id":True})), key=lambda k: k["number"])
+        kdict = {"min_name": klist[0].get('name'),
+                 "min_number": klist[0].get('number'),
+                 "min_start_time": klist[0].get('start'),
+                 "max_name": klist[-1].get('name'),
+                 "max_number": klist[-1].get('number'),
+                 "max_start_time": klist[-1].get('start'),
+                 }
+        return kdict
+
 
     def GetRunsByTag(self, tag=None, sort="ascending"):
 

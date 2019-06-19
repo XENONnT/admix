@@ -59,7 +59,6 @@ class Destination():
             #some point. But you want to ignore this
             if i_dest == None:
                 continue
-            print( i_dest)
             if bool(re.search(self._template['rucio'], i_dest)):
                 rc_dict={}
                 rc_dict['protocol']='rucio-catalogue'

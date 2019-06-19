@@ -30,6 +30,13 @@ class UpdateRunDBMongoDB():
         self.db = ConnectMongoDB()
         self.db.Connect()
 
+        # We want the first and the last run:
+        self.gboundary = self.db.GetBoundary()
+        self.run_nb_min = self.gboundary['min_number']
+        self.run_nb_max = self.gboundary['max_number']
+        self.run_ts_min = self.gboundary['min_start_time']
+        self.run_ts_max = self.gboundary['max_start_time']
+
         #Init the Rucio data format evaluator in three steps:
         self.rc_reader = ConfigRucioDataFormat()
         self.rc_reader.Config(helper.get_hostconfig('rucio_template'))
@@ -47,37 +54,44 @@ class UpdateRunDBMongoDB():
         #Init Rucio for later uploads and handling:
         self.rc = RucioSummoner(helper.get_hostconfig("rucio_backend"))
         self.rc.SetRucioAccount(helper.get_hostconfig('rucio_account'))
-        #These are important for CLI choice
-        #self.rc.SetConfigPath(helper.get_hostconfig("rucio_cli"))
-        #self.rc.SetProxyTicket(helper.get_hostconfig('rucio_x509'))
-        #self.rc.SetHost(helper.get_hostconfig('host'))
-        #And get to your Rucio:
+        self.rc.SetConfigPath(helper.get_hostconfig("rucio_cli"))
+        self.rc.SetProxyTicket(helper.get_hostconfig('rucio_x509'))
+        self.rc.SetHost(helper.get_hostconfig('host'))
         self.rc.ConfigHost()
 
 
 
     def run(self,*args, **kwargs):
-        self.init()
+        helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
 
-        #Decide if you select runs from argsparse or just take everything:
-        if 'run_beg' in helper.global_dictionary:
-            run_beg = helper.global_dictionary['run_beg']
+        ts_beg = None
+        ts_end = None
+        if helper.global_dictionary.get('run_numbers') != None:
+            #Evaluate terminal input for run number assumption (terminal input == true)
+            true_nb_beg, true_nb_end = helper.eval_run_numbers(helper.global_dictionary.get('run_numbers'),
+                                                               self.run_nb_min,
+                                                               self.run_nb_max)
+            #Get the timestamps from the run numbers:
+            ts_beg = self.db.FindTimeStamp('number', int(true_nb_beg))
+            ts_end = self.db.FindTimeStamp('number', int(true_nb_end))
+
+        elif helper.global_dictionary.get('run_timestamps') != None:
+            #Evaluate terminal input for run name assumption
+            true_ts_beg, true_ts_end = helper.eval_run_timestamps(helper.global_dictionary.get('run_timestamps'),
+                                                               self.run_ts_min,
+                                                               self.run_ts_max)
+            ts_beg = true_ts_beg
+            ts_end = true_ts_end
+
+        elif helper.global_dictionary.get('run_timestamps') == None and \
+            helper.global_dictionary.get('run_numbers') == None:
+            ts_beg = self.run_ts_min
+            ts_end = self.run_ts_max
         else:
-            run_beg = self.db.GetSmallest('number')
+            helper.global_dictionary['logger'].Error("Check for your input arguments (--select-run-number or --select-run-time")
+            exit(1)
+            #exection
 
-        if 'run_end' in helper.global_dictionary:
-            run_end = helper.global_dictionary['run_end']
-        else:
-            run_end = self.db.GetLargest('number')
-
-        #When you found your run numbers, you want to select timestamps from them
-        #This allows to catch everything in between
-        ts_beg = self.db.FindTimeStamp('number', int(run_beg) )
-        ts_end = self.db.FindTimeStamp('number', int(run_end) )
-
-        #ToDo We need to get the timestamp selector from helper.global_dictionary into the game here!
-        #print( helper.global_dictionary['run_start_time'] )
-        #print( helper.global_dictionary['run_end_time'] )
         #Get your collection of run numbers and run names
         collection = self.db.GetRunsByTimestamp(ts_beg, ts_end)
 
@@ -94,13 +108,13 @@ class UpdateRunDBMongoDB():
             #Pull the full run information (according to projection which is pre-defined) by the run name
             db_info = self.db.GetRunByName(r_name)[0]
 
-            print("Test dataset:", r_name, "/", r_number, dict_name, db_info['name'])
-
             if 'data' not in db_info:
                 continue
 
             #We need to define the right plugins here which are getting updated
             plugin_list = ['raw_records', 'records']
+
+            helper.global_dictionary['logger'].Info(f"Update data set {r_name}/{r_number}")
             #adjust the data field with a Rucio update if necessary:
             for i_data in db_info['data']:
 
@@ -112,7 +126,7 @@ class UpdateRunDBMongoDB():
 
                 # check rules
                 if 'location' not in i_data or i_data['location'] == "n/a":
-                    print("Skip {0} - Check for location and data consistency".format(i_data['type']))
+                    helper.global_dictionary['logger'].Info("Skip {0} - Check for location and data consistency".format(i_data['type']))
                     continue
 
                 # Go for the rucio template:
@@ -133,16 +147,6 @@ class UpdateRunDBMongoDB():
                 self.keyw.SetTemplate({'science_run': helper.get_science_run(db_info['start'])})
 
                 rucio_template = self.keyw.CompleteTemplate(rucio_template)
-                  #skip if a type is specified somewhere (config file or command line)
-                #if (helper.global_dictionary['plugin_type'] == None) and \
-                #    (isinstance(helper.get_hostconfig('type'), list) == True) and \
-                #    (len(helper.get_hostconfig('type')) >= 1) and \
-                #    (i_data['type'] not in helper.get_hostconfig('type')):
-                #    continue
-
-                #if helper.global_dictionary['plugin_type'] != None and i_data['type'] != helper.global_dictionary['plugin_type']:
-                #    continue
-
                 rc_rules = self.rc.ListDidRules(rucio_template)
 
                 rule = []
@@ -164,6 +168,6 @@ class UpdateRunDBMongoDB():
                 #Update RSE field if necessary:
                 if rule != i_data['rse']:
                     self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='rse', value=rule)
-                    print("  -> Updated location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))
+                    helper.global_dictionary['logger'].Info("Updated location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))
                 else:
-                    print("  |No update at location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))
+                    helper.global_dictionary['logger'].Info("No update at location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))

@@ -15,7 +15,8 @@ from admix.interfaces.templater import Templater
 class InitTransfersMongoDB():
 
     def __init__(self):
-        print("inittransfermongodb")
+        pass
+    def __del__(self):
         pass
 
     def init(self):
@@ -24,55 +25,73 @@ class InitTransfersMongoDB():
         self.db = ConnectMongoDB()
         self.db.Connect()
 
-        #Init the Rucio data format evaluator in three steps:
+        # We want the first and the last run:
+        self.gboundary = self.db.GetBoundary()
+        self.run_nb_min = self.gboundary['min_number']
+        self.run_nb_max = self.gboundary['max_number']
+        self.run_ts_min = self.gboundary['min_start_time']
+        self.run_ts_max = self.gboundary['max_start_time']
+
+        # Init the Rucio data format evaluator in three steps:
         self.rc_reader = ConfigRucioDataFormat()
         self.rc_reader.Config(helper.get_hostconfig('rucio_template'))
 
-        #This class will evaluate your destinations:
+        # This class will evaluate your destinations:
         self.destination = Destination()
 
-        #Since we deal with an experiment, everything is predefine:
+        # Since we deal with an experiment, everything is predefine:
         self.exp_temp = Templater()
         self.exp_temp.Config(helper.get_hostconfig()['template'])
 
-        #Init a class to handle keyword strings:
+        # Init a class to handle keyword strings:
         self.keyw = Keyword()
 
-        #Init Rucio for later uploads and handling:
+        # Init Rucio for later uploads and handling:
         self.rc = RucioSummoner(helper.get_hostconfig("rucio_backend"))
         self.rc.SetRucioAccount(helper.get_hostconfig('rucio_account'))
-        #These are important for CLI choice
-        #self.rc.SetConfigPath(helper.get_hostconfig("rucio_cli"))
-        #self.rc.SetProxyTicket(helper.get_hostconfig('rucio_x509'))
-        #self.rc.SetHost(helper.get_hostconfig('host'))
-        #And get to your Rucio:
+        self.rc.SetConfigPath(helper.get_hostconfig("rucio_cli"))
+        self.rc.SetProxyTicket(helper.get_hostconfig('rucio_x509'))
+        self.rc.SetHost(helper.get_hostconfig('host'))
         self.rc.ConfigHost()
 
 
-
     def run(self,*args, **kwargs):
-        self.init()
+        helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
 
+        ts_beg = None
+        ts_end = None
+        if helper.global_dictionary.get('run_numbers') != None:
+            # Evaluate terminal input for run number assumption (terminal input == true)
+            true_nb_beg, true_nb_end = helper.eval_run_numbers(helper.global_dictionary.get('run_numbers'),
+                                                               self.run_nb_min,
+                                                               self.run_nb_max)
+            # Get the timestamps from the run numbers:
+            ts_beg = self.db.FindTimeStamp('number', int(true_nb_beg))
+            ts_end = self.db.FindTimeStamp('number', int(true_nb_end))
 
-        #Decide if you select runs from argsparse or just take everything:
-        if 'run_beg' in helper.global_dictionary:
-            run_beg = helper.global_dictionary['run_beg']
+        elif helper.global_dictionary.get('run_timestamps') != None:
+            # Evaluate terminal input for run name assumption
+            true_ts_beg, true_ts_end = helper.eval_run_timestamps(helper.global_dictionary.get('run_timestamps'),
+                                                                  self.run_ts_min,
+                                                                  self.run_ts_max)
+            ts_beg = true_ts_beg
+            ts_end = true_ts_end
+
+        elif helper.global_dictionary.get('run_timestamps') == None and \
+                helper.global_dictionary.get('run_numbers') == None:
+            ts_beg = self.run_ts_min
+            ts_end = self.run_ts_max
         else:
-            run_beg = self.db.GetSmallest('number')
+            helper.global_dictionary['logger'].Error(
+                "Check for your input arguments (--select-run-number or --select-run-time")
+            exit(1)
+            # exection
 
-        if 'run_end' in helper.global_dictionary:
-            run_end = helper.global_dictionary['run_end']
-        else:
-            run_end = self.db.GetLargest('number')
+        # After we know the times:
+        helper.global_dictionary['logger'].Info(f"Run between {ts_beg} and {ts_end}")
 
-        #When you found your run numbers, you want to select timestamps from them
-        #This allows to catch everything in between
-        ts_beg = self.db.FindTimeStamp('number', int(run_beg) )
-        ts_end = self.db.FindTimeStamp('number', int(run_end) )
-
-        #ToDo We need to get the timestamp selector from helper.global_dictionary into the game here!
-        #print( helper.global_dictionary['run_start_time'] )
-        #print( helper.global_dictionary['run_end_time'] )
+        # Get your collection of run numbers and run names
+        collection = self.db.GetDestination(ts_beg, ts_end)
 
         #Get your collection of run numbers and run names
         collection = self.db.GetDestination(ts_beg, ts_end)
@@ -97,10 +116,6 @@ class InitTransfersMongoDB():
 
             for i_data in db_info['data']:
 
-                helper.global_dictionary['logger'].Info('Run number/type: {0}/{1}'.format(r_number, i_data['type']))
-                helper.global_dictionary['logger'].Debug('Run is at host: {0}'.format(i_data['host']))
-                helper.global_dictionary['logger'].Debug('aDMIX runs at host: {0}'.format(helper.get_hostconfig('host')))
-
                 #get the destination from DB:
                 origin_dest = None
                 if 'destination' in i_data:
@@ -110,6 +125,7 @@ class InitTransfersMongoDB():
                 dest = self.destination.EvalDestination(host="rucio-catalogue",
                                                         origin=i_data['host'],
                                                         destination=origin_dest)
+
                 if len(dest) == 0:
                     helper.global_dictionary['logger'].Info("No destination specified! Skip")
                     continue
@@ -133,9 +149,9 @@ class InitTransfersMongoDB():
 
                 rucio_template = self.keyw.CompleteTemplate(rucio_template)
 
-                print("rucio template after filling:")
-                print("-", rucio_template)
-
+                helper.global_dictionary['logger'].Info('Type {0}'.format(i_data['type']))
+                helper.global_dictionary['logger'].Debug('Run is at host: {0}'.format(i_data['host']))
+                helper.global_dictionary['logger'].Debug('aDMIX runs at host: {0}'.format(helper.get_hostconfig('host')))
 
                 #Begin to work through the new/updated rucio destinations:
                 for i_dest in dest:
@@ -144,20 +160,30 @@ class InitTransfersMongoDB():
                                                                      rse=i_dest['rse'],
                                                                      lifetime=i_dest['lifetime'])]
                     print(rse_rules)
-                    rule = self.rc.GetRule(upload_structure=rucio_template, rse=i_dest['rse'])
-
+                    try:
+                        rule = self.rc.GetRule(upload_structure=rucio_template, rse=i_dest['rse'])
+                    except:
+                        helper.global_dictionary['logger'].Error("No rule transfer rule applied for {0}".format(i_dest['rse']))
+                        continue
 
                     #1) Rule does not exists -> Create it, delete destination
                     if rule['state'] == "Unkown" and rule['rse'] == None:
-                        print("add transfer rule")
-                        self.rc.AddRules(upload_structure=rucio_template, rse_rules= rse_rules)
+                        try:
+                            helper.global_dictionary['logger'].Info('Add a Rucio transfer rule')
+                            self.rc.AddRules(upload_structure=rucio_template, rse_rules= rse_rules)
+                        except:
+                            helper.global_dictionary['logger'].Error('Can not create Rucio transfer rule')
                     #2) Rule exists but lifetime is different -> Update lifetime, delete destination
                     if rule['state'] == "OK" and i_dest['lifetime'] == 'None':
-                        print("everything is ok")
+                        helper.global_dictionary['logger'].Info('No need to do anything!')
                     #3) Rule does exists without lifetime changes -> delete destination
                     if rule['state'] == "OK" and i_dest['lifetime'] != 'None':
-                        print("update transfer rules")
-                        self.rc.UpdateRules(upload_structure=rucio_template, rse_rules= rse_rules)
+                        try:
+                            helper.global_dictionary['logger'].Info('Update Rucio transfer rule')
+                            self.rc.UpdateRules(upload_structure=rucio_template, rse_rules= rse_rules)
+                        except:
+                            helper.global_dictionary['logger'].Error('Can not update a transfer rule')
+
 
                 #update runDB after rules are updated/added:
                 rucio_rules = self.rc.ListDidRules(rucio_template)
@@ -173,12 +199,11 @@ class InitTransfersMongoDB():
                                                                  lifetime=dt)
                     rse_to_db.append(db_field)
 
-                print(rse_to_db)
+                helper.global_dictionary['logger'].Info(f'Update database with {rse_to_db}')
                 self.db.SetDataField(db_info['_id'], type=i_data['type'],
                                                      host='rucio-catalogue',
                                                      key='destination',
                                                      value=rse_to_db)
 
 
-    def __del__(self):
-        print( 'Upload mongoDB stops')
+

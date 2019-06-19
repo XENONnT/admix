@@ -6,8 +6,11 @@ __email__ = 'Boris.Bauermeister@gmail.com'
 __version__ = '0.1.0'
 
 #interfaces:
-from .interfaces.xenon_rucioAPI import *
-from .interfaces.xenon_runDB import *
+from admix.interfaces.rucio_dataformat import ConfigRucioDataFormat
+from admix.interfaces.rucio_summoner import RucioSummoner
+from admix.interfaces.destination import Destination
+from admix.interfaces.keyword import Keyword
+from admix.interfaces.templater import Templater
 
 #tasks:
-
+#no tasks so far...
