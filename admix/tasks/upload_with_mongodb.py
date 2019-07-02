@@ -184,9 +184,6 @@ class UploadMongoDB():
 
                 rucio_template = self.keyw.CompleteTemplate(rucio_template)
 
-                #print("rucio template after filling:")
-                #print("-", rucio_template)
-
                 #collect all files from the directory and do pre checks:
                 if os.path.isdir(origin_location) == False:
                     helper.global_dictionary['logger'].Error(f"Folder {origin_location} does not exists")
@@ -227,13 +224,14 @@ class UploadMongoDB():
 
                 #Check if rule exists in Rucio:
                 rule_status = self.rc.CheckRule(upload_structure=rucio_template, rse=rse0)
-                #verify the locations with rucio:
-                verify_location = self.rc.VerifyLocations(upload_structure=rucio_template, upload_path=origin_location, checksum_test=False)
+                #verify the locations with the rucio catalogue
+                #Hint: the outcome of this check does not skip uploading! (missing files on disk):
+                verify_location, _, _ = self.rc.VerifyLocations(upload_structure=rucio_template, upload_path=origin_location, checksum_test=False)
                 #check for a database entry:
                 db_dest_status = self.db.StatusDataField(db_info['_id'], type=origin_type, host=ptr0)
 
                 helper.global_dictionary['logger'].Info(f"Rucio rule status is: {rule_status}")
-                helper.global_dictionary['logger'].Info(f"Rucio rule verfication is: {verify_location}")
+                helper.global_dictionary['logger'].Info(f"Rucio vs. Disk file verfication is: {verify_location}")
                 helper.global_dictionary['logger'].Info(f"Database status is: {db_dest_status}")
 
                 #logging the filled template for debugging:
@@ -293,10 +291,15 @@ class UploadMongoDB():
 
 
                 #if the pre checks are ok we can upload:
+                upload_result = 1
+
                 try:
                     self.db.SetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status', value='transferring')
                     helper.global_dictionary['logger'].Info("Start Rucio upload...")
-                    self.rc.Upload(upload_structure=rucio_template, upload_path=origin_location, rse=rse0, rse_lifetime=rlt0)
+                    upload_result = self.rc.Upload(upload_structure=rucio_template,
+                                                   upload_path=origin_location,
+                                                   rse=rse0,
+                                                   rse_lifetime=rlt0)
                     helper.global_dictionary['logger'].Info("Rucio upload finished")
                 except:
                     helper.global_dictionary['logger'].Error("Rucio upload failed")
@@ -306,7 +309,15 @@ class UploadMongoDB():
                     self.db.SetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status', value='RSEreupload')
                     continue
 
-                verify_location = self.rc.VerifyLocations(upload_structure=rucio_template, upload_path=origin_location, checksum_test=False)
+                #Intend that the try/execpt run through well but there was a problem with the upload/rule setting
+                #of the DID. In that case we do not want to contioue:
+                if upload_result == 1:
+                    helper.global_dictionary['logger'].Error("Rucio upload may have failed. Check for DID")
+                    continue
+
+
+                #Verify if all files are uploaded (verify_location == True is enough)
+                verify_location, _, _ = self.rc.VerifyLocations(upload_structure=rucio_template, upload_path=origin_location, checksum_test=False)
                 rucio_rule = self.rc.GetRule(upload_structure=rucio_template, rse=rse0)
 
                 ##update after initial upload:

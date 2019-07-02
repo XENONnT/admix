@@ -1,3 +1,12 @@
+"""
+.. module:: rucio_cli
+   :platform: Unix
+   :synopsis: A legacy wrapper for the Rucio command line interface (CLI)
+
+.. moduleauthor:: Boris Bauermeister <Boris.Bauermeister@gmail.com>
+
+"""
+
 import logging
 import tempfile
 import subprocess
@@ -113,12 +122,13 @@ class RucioCLI():
         call.
         """
 
-        upload_string = f"rucio list-rules {scope}:{dname}"
-        upload_string = self.config + upload_string
-        msg, err = self.doRucio(upload_string)
+        pass
+        #upload_string = f"rucio list-rules {scope}:{dname}"
+        #upload_string = self.config + upload_string
+        #msg, err = self.doRucio(upload_string)
 
         dict_msg = {}
-
+        ...
 
 
     def CliUpload(self, method=None, upload_dict={}):
