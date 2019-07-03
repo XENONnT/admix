@@ -166,8 +166,15 @@ class UpdateRunDBMongoDB():
                                                                       lifetime=expires_at))
 
                 #Update RSE field if necessary:
-                if rule != i_data['rse']:
+                if rule != i_data['rse'] and len(rule) > 1:
                     self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='rse', value=rule)
                     helper.global_dictionary['logger'].Info("Updated location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))
+                elif rule != i_data['rse'] and len(rule) == 0:
+                    helper.global_dictionary['logger'].Info("No location ({0}) for type {1} to {2} found in Rucio".format(i_data['location'], i_data['type'], rule))
+                    helper.global_dictionary['logger'].Info("Set for purge: status -> NoRucioEntry")
+                    self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='status',
+                                         value="RucioClearance")
+                    self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='rse', value=rule)
+
                 else:
                     helper.global_dictionary['logger'].Info("No update at location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))

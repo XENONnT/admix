@@ -90,9 +90,6 @@ class InitTransfersMongoDB():
         # After we know the times:
         helper.global_dictionary['logger'].Info(f"Run between {ts_beg} and {ts_end}")
 
-        # Get your collection of run numbers and run names
-        collection = self.db.GetDestination(ts_beg, ts_end)
-
         #Get your collection of run numbers and run names
         collection = self.db.GetDestination(ts_beg, ts_end)
 
@@ -159,13 +156,12 @@ class InitTransfersMongoDB():
                     rse_rules = ["{protocol}:{rse}:{lifetime}".format(protocol=i_dest['protocol'],
                                                                      rse=i_dest['rse'],
                                                                      lifetime=i_dest['lifetime'])]
-                    print(rse_rules)
+
                     try:
                         rule = self.rc.GetRule(upload_structure=rucio_template, rse=i_dest['rse'])
                     except:
                         helper.global_dictionary['logger'].Error("No rule transfer rule applied for {0}".format(i_dest['rse']))
                         continue
-
                     #1) Rule does not exists -> Create it, delete destination
                     if rule['state'] == "Unkown" and rule['rse'] == None:
                         try:
@@ -202,8 +198,28 @@ class InitTransfersMongoDB():
                 helper.global_dictionary['logger'].Info(f'Update database with {rse_to_db}')
                 self.db.SetDataField(db_info['_id'], type=i_data['type'],
                                                      host='rucio-catalogue',
-                                                     key='destination',
+                                                     key='rse',
                                                      value=rse_to_db)
 
+                #Last step is to evaluate if InitTransfersWithMongoDB was able to init new Rucio transfer rules
+                #extract a list of required destinations:
+                t_dest = [ i['rse'] for i in dest ]
 
+                for i_rule_found in rse_to_db:
+                    #information about rules which are found in Rucio about the DID
+                    t_rse    = i_rule_found.split(":")[0]
+
+
+                    if t_rse in t_dest:
+                        dest[:] = [f"{i_dict.get('protocol')}:{i_dict.get('rse')}:{i_dict.get('lifetime')}" for
+                                       i_dict in dest if i_dict.get('rse') != t_rse]
+
+                        helper.global_dictionary['logger'].Info(f'Update database with destinations {dest}')
+
+                        self.db.SetDataField(db_info['_id'], type=i_data['type'],
+                                             host='rucio-catalogue',
+                                             key='destination',
+                                             value=dest)
+                    else:
+                        helper.global_dictionary['logger'].Info(f'Database destinations are still: {dest}')
 

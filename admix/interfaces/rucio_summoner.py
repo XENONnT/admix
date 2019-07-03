@@ -72,6 +72,13 @@ class RucioSummoner():
         print("Rucio alive")
 
     def _md5_hash(self, string):
+        """Function: _md5_hash(...)
+
+        Calculate a md5 hash from a string
+
+        :param string: A string
+        :return result: A md5 checksum of the input string
+        """
         return hashlib.md5(string.encode('utf-8')).hexdigest()
 
     def _VerifyStructure(self, upload_structure=None, level=-1):
@@ -424,7 +431,7 @@ class RucioSummoner():
 
         r_rules = self._rucio.ListDidRules(val_scope, val_dname)
         if len(r_rules) == 0:
-            return None
+            return self._rule_status_dictionary()
 
         rule = self._rule_status_dictionary()
         for i_rule in r_rules:
@@ -466,6 +473,7 @@ class RucioSummoner():
         #upload destination already a rule exists in Rucio
 
         #HINT: GetRule returns None if no rule found now!
+        print(rule)
 
         r_status = None
         if rule['exists'] == False:

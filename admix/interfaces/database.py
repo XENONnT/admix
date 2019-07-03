@@ -277,6 +277,42 @@ class ConnectMongoDB():
 
         return col
 
+    def GetClearance(self, ts_beg=None, ts_end=None, sort="ascending"):
+        """Function: GetClearance(...)
+
+        Returns from a mongoDB database all entries which have a list of dictionaries (data field) and an individual
+        data dictionary contains a key "status" with the value "RucioClearance"
+
+        :param ts_beg: A datetime object to set a time interval - Start value (field 'start')
+        :param ts_end: A datetime object to set a time interval - Stop value (field 'start')
+        :param sort: Sort your mongodb aggregation ascending (standard) or descending
+        :return collection: The summary collection of the requested status (RucioClearance) with name and number
+                            field only. Acts as reduced summary
+        """
+        if ts_beg == None:
+            ts_beg = self.GetSmallest("start")
+        if ts_end == None:
+            ts_end = self.GetLargest("start")
+
+        #evaluate sort direction:
+        if sort == "ascending":
+            sort = -1 #ascending means from latest to earliest run
+        else:
+            sort = 1
+
+        collection = self.db.aggregate(
+                    [
+                        {"$match": {'$and': [ {'start': {'$gte':ts_beg}}, {'start': {'$lte':ts_end}} ]}},
+                        {"$unwind": "$data"},
+                        {"$project": {"name":1, "number":1, "status": "$data.status"}},
+                        {"$match": {"status": "RucioClearance"}},
+                        {"$project": {"name":1, "number":1, "data":1}},
+                        {"$sort": {"start": sort}}
+                    ]
+                )
+
+        return collection
+
     def StatusDataField(self, id_field, type=None, host=None):
         #Test if a dictionary exists in a list for a specific combination of type and host
         run = self.GetRunByID(id_field)[0]

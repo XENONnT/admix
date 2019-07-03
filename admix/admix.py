@@ -19,6 +19,7 @@ from admix.tasks.upload_with_mongodb import UploadMongoDB
 from admix.tasks.update_runDB import UpdateRunDBMongoDB
 from admix.tasks.init_transfers_with_mongodb import InitTransfersMongoDB
 from admix.tasks.download_with_mongodb import DownloadMongoDB
+from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
 
 def version():
     print("aDMIX is ready for Python3...")
