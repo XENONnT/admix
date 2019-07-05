@@ -26,7 +26,7 @@ test_requirements = [
 
 setup(
     name='admix',
-    version='0.1.0',
+    version='0.2.0',
     description="advanced Data Managment In Xenon (aDMIX)",
     long_description=readme + '\n\n' + history,
     author="Boris Bauermeister",
