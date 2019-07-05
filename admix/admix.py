@@ -1,8 +1,6 @@
 import argparse
-import datetime  # remove later if not needed
 import logging
 import numpy as np
-import time
 import os
 
 from admix.helper.logger import Logger
@@ -40,12 +38,12 @@ def your_admix():
     parser.add_argument('--no-update', dest='no_update', action='store_false',
                         help="Add this option to prevent aDMIX updating the Xenon database")
     parser.add_argument('--once', dest='once', action='store_true',
-                        help="Run the server only once an exits")
+                        help="Run aDMIX only once")
     # Add arguments for the individual tasks:
     parser.add_argument('--select-run-numbers', dest='select_run_numbers', type=str,
                         help="Select a range of runs (xxxx1 or xxxx1-xxxx2 or xxxx1-xxxx2,xxxx4-xxxx6)")
     parser.add_argument('--select-run-times', dest='select_run_times', type=str,
-                        help="Select a range of runs by timestamps <Date><Time>-<Date><Time>")
+                        help="Select a range of runs by timestamps <Date>_<Time>-<Date>_<Time>")
     parser.add_argument('--source', nargs='*', dest='source', type=str,
                         help="Select data according to a certain source(s)")
     parser.add_argument('--tag', nargs='*', dest='tag', type=str,
@@ -102,8 +100,8 @@ def your_admix():
         print("Select a task from this list:")
         for i_task in NameCollector:
             print("  <> {0}".format(i_task))
-            print("or adjust the 'task' field in your configuration")
-            print("file: {0}".format(helper.global_dictionary["admix_config"]))
+        print("or adjust the 'task' field in your configuration")
+        print("file: {0}".format(helper.global_dictionary["admix_config"]))
         exit()
 
     #Go for the loop

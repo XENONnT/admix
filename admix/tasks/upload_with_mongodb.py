@@ -260,30 +260,47 @@ class UploadMongoDB():
 
                     self.db.AddDatafield(db_info['_id'], new_data_dict)
 
-                elif rule_status == 'OK':
-                    #if there is a rucio rule we can skip here
-                    skip_upload = True
-                elif db_dest_status == True and self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status') == 'transferring':
-                    skip_upload = True
-                elif db_dest_status == True and self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status') == 'transferred':
-                    skip_upload = True
-                elif db_dest_status == True and self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status') == 'RSEreupload':
-                    #There is a database status found in RSEreupload state: Reset it and continoue with uploading:
-                    pass
-                    #self.db.SetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status', value='transferring')
-                    #self.db.SetDataField(db_info['_id'], type=origin_type, host=ptr0, key='location', value='n/a')
-                elif db_dest_status == True and len(self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='rse'))>0:
-                    #if there exists a list of RSEs for the rucio-catalogue entry which contains the upload RSE we skip
-                    list_rse_is = self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='rse')
-                    for i_rse_is in list_rse_is:
-                        print("-", i_rse_is)
-                        if i_rse_is.split(":")[0]==rse0 and i_rse_is.split(":")[1]=='OK':
-                            skip_upload = True
+                #elif rule_status == 'OK':
+                #    #if there is a rucio rule we can skip here
+                #    skip_upload = True
+                #    print("---------------")
+                #    print("---------------")
+                elif db_dest_status == True:
+
+                    if self.db.GetDataField(db_info['_id'],
+                                            type=origin_type,
+                                            host=ptr0, key='status') == 'transferring' or \
+                       self.db.GetDataField(db_info['_id'],
+                                             type=origin_type,
+                                             host=ptr0, key='status') == 'transferred' or \
+                        self.db.GetDataField(db_info['_id'],
+                                                 type=origin_type,
+                                                 host=ptr0, key='status') == 'RucioClearance':
+
+                        skip_upload = True
+                    elif self.db.GetDataField(db_info['_id'],
+                                            type=origin_type,
+                                            host=ptr0, key='status') == 'RSEreupload':
+                        skip_upload = False
+
+
+                #elif db_dest_status == True and self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status') == 'RSEreupload':
+                #    #There is a database status found in RSEreupload state: Reset it and continoue with uploading:
+                #    skip_upload = False
+                #    #self.db.SetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status', value='transferring')
+                #    #self.db.SetDataField(db_info['_id'], type=origin_type, host=ptr0, key='location', value='n/a')
+                #elif db_dest_status == True and len(self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='rse'))>0:
+                #    #if there exists a list of RSEs for the rucio-catalogue entry which contains the upload RSE we skip
+                #    list_rse_is = self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='rse')
+                #    for i_rse_is in list_rse_is:
+                #        print("-", i_rse_is)
+                #        if i_rse_is.split(":")[0]==rse0 and i_rse_is.split(":")[1]=='OK':
+                #            skip_upload = True
 
                 if skip_upload==True:
                     tmp_status = self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status')
                     tmp_rse = self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='rse')
-                    helper.global_dictionary['logger'].Info("We skip uploading here because: "\
+                    helper.global_dictionary['logger'].Info("We skip uploading here because:\n "\
                                                             f"Database status is {tmp_status} and "\
                                                             f"Database RSE is {tmp_rse}. "\
                                                             "We do not want to interfere here...")
@@ -313,7 +330,7 @@ class UploadMongoDB():
                 #of the DID. In that case we do not want to contioue:
                 if upload_result == 1:
                     helper.global_dictionary['logger'].Error("Rucio upload may have failed. Check for DID")
-                    continue
+                    #continue
 
 
                 #Verify if all files are uploaded (verify_location == True is enough)

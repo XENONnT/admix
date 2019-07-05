@@ -13,9 +13,10 @@ import subprocess
 import datetime
 import os
 import json
-from admix.helper.decorator import ClassCollector, NameCollector
 from admix.interfaces.rucio_api import RucioAPI
 from admix.interfaces.rucio_cli import RucioCLI
+from admix.helper.decorator import NameCollector, ClassCollector
+
 import hashlib
 
 class RucioSummoner():
@@ -285,6 +286,7 @@ class RucioSummoner():
                 which the 'did' is chosen from.
         :return: A list of Rucio transfer rules with additional rule information. Each list element stands for a
                  Rucio Storage Element (RSE). If no rule exists it returns an empty list
+
         """
 
         #analyse the function input regarding its allowed definitions:
@@ -305,10 +307,11 @@ class RucioSummoner():
         :param rse: A valid Rucio Storage Element (RSE) of the current Rucio setting.
         :param level: If a template dictionary is used, the level refers to the depth of the sorted dictionary at
                       which the 'did' is chosen from.
-        :return result: Dictionary which with key->value ordering follows:
-                         - key: filename of the attached file
-                         - value: The local file location for the selected RSE
+        :return result: Dictionary which with key->value ordering follows:\n
+                         - key: filename of the attached file\n
+                         - value: The local file location for the selected RSE\n
                         Otherwise: {}
+
         """
 
         # Prepare a return dictionary:
@@ -325,11 +328,15 @@ class RucioSummoner():
         if rse not in list_rse:
             return result
 
-        # check if the given RSE is tape (true for yes)
-        _istape = self._rucio.ListRSEAttributes(rse)['istape']
-
         # get RSE overview if RSE exists
         rse_overview = self._rucio.GetRSE(rse)
+
+        # check if the given RSE is tape (true for yes)
+        _istape = False
+        if rse_overview.get('rse_type') == "DISK":
+            _istape=False
+        else:
+            _istape=True
 
         rse_hostname = rse_overview['protocols'][0]['hostname']
         rse_prefix = rse_overview['protocols'][0]['prefix']
@@ -616,7 +623,6 @@ class RucioSummoner():
         #Begin with analysing the download structure (similar to upload_structure)
         val_scope, val_dname = self._VerifyStructure(download_structure, level)
 
-
         dw = []
         for i_chunk in chunks:
             dw_dict = {}
@@ -672,16 +678,17 @@ class RucioSummoner():
                       rse=None, rse_lifetime=None):
         """Function: UploadToScope()
 
+        Upload a folder to a Rucio scope
+
         :param scope: A string which follows the rules of Rucio string
         :param upload_path: A valid (string) to a folder which holds a file (or files) for upload
         :param rse: A valid Rucio Storage Element (RSE)
         :param rse_lifetime: A valid (int) which defines the lifetime of the transfer rule after upload.
-        :return result: (upload_status, rse_rule) means:
-                (0, {'result': 0, 'lifetime': rse_lifetime}) for success and applied lifetime to the rule
-                (0, 1) for success and no rse_lifetime to the rule
-                (1, 1) for upload failure and rse_lifetime is not given
-                (1, {'result':1, 'lifetime': rse_lifetime}) for upload failure and rse_lifetime is skipped
-                                                            automatically
+        :return result: (upload_status, rse_rule) means:\n
+                * (0, {'result': 0, 'lifetime': rse_lifetime}) for success and applied lifetime to the rule\n
+                * (0, 1) for success and no rse_lifetime to the rule\n
+                * (1, 1) for upload failure and rse_lifetime is not given\n
+                * (1, {'result':1, 'lifetime': rse_lifetime}) for upload failure and rse_lifetime is skipped automatically
         """
 
         result = 1
@@ -744,31 +751,34 @@ class RucioSummoner():
         This function uploads the content of given folder into a Rucio dataset
         which is identified by given DID.
 
-        For example:
-        Folder: /path/to/example/calibration_source_1
-                                 |
-                                 |---18_t2_01
-                                 |---18_t2_02
-                                 |---18_t2_03
+        For example a folder:
+
+        | /path/to/example/calibration_source_1
+        |                   │
+        |                   ├──18_t2_01
+        |                   ├──18_t2_02
+        |                   └──18_t2_03
+
         DID (dataset): calibration_data_day1:calibration_source_1
 
         Results a Rucio structure:
-        calibration_data_day1:calibration_source_1        (Rucio dataset)
-                      |
-                      |--calibration_data_day1:18_t2_01   (Rucio file attached to dataset)
-                      |--calibration_data_day1:18_t2_02   (Rucio file attached to dataset)
-                      |--calibration_data_day1:18_t2_03   (Rucio file attached to dataset)
+
+        | calibration_data_day1:calibration_source_1        (Rucio dataset)
+        |           │
+        |           ├──calibration_data_day1:18_t2_01   (Rucio file attached to dataset)
+        |           ├──calibration_data_day1:18_t2_02   (Rucio file attached to dataset)
+        |           └──calibration_data_day1:18_t2_03   (Rucio file attached to dataset)
+
 
         :param upload_structure: A Rucio DID (type str) in form of scope:name
         :param upload_path: A path to an existing folder with data for upload
         :param rse: A valid Rucio Storage Element (RSE) for the initial upload
         :param rse_lifetime: (Optional) A lifetime in seconds
-        :return result: (upload_status, rse_rule) means:
-                (0, {'result': 0, 'lifetime': rse_lifetime}) for success and applied lifetime to the rule
-                (0, 1) for success and no rse_lifetime to the rule
-                (1, 1) for upload failure and rse_lifetime is not given
-                (1, {'result':1, 'lifetime': rse_lifetime}) for upload failure and rse_lifetime is skipped
-                                                            automatically
+        :return result: (upload_status, rse_rule) means:\n
+                  * (0, {'result': 0, 'lifetime': rse_lifetime}) for success and applied lifetime to the rule\n
+                  * (0, 1) for success and no rse_lifetime to the rule\n
+                  * (1, 1) for upload failure and rse_lifetime is not give\n
+                  * (1, {'result':1, 'lifetime': rse_lifetime}) for upload failure and rse_lifetime is skipped automatically
         """
 
         result = 1
@@ -822,32 +832,32 @@ class RucioSummoner():
 
     def Upload(self, upload_structure=None, upload_path=None,
                rse=None, rse_lifetime=None, level=-1):
-        """Function: Upload
+        """Function: Upload(...)
 
         inputs: upload_structure - a dictionary
          - The key words are not import. It is important that
            you can sort them: A1, A8, A6 -> A1, A6, A8
          - The value field must include:
            - did: The data identifier for the the structure
-           - type: Describes what kind of upload structure
-                   it is: container, dataset,...
+           - type: Describes what kind of upload structure (Container, dataset, files)
          - Data structures are created along the way
            of THE SORTED KEYs
          - The LAST data structure receives always the upload
 
         An example from a sorted template dictionary is:
-        Level: L0
-          - type rucio_container
-          - did x1t_SR001:x1t_SR001_data
-          - tag_words ['science_run']
-        Level: L1
-          - type rucio_container
-          - did x1t_SR001:x1t_SR001_190101_1300_tpc
-          - tag_words ['science_run', 'date', 'time', 'detector']
-        Level: L2
-          - type rucio_dataset
-          - did x1t_SR001_190101_1300_tpc:raw_records-58340a130a541c95997fd1c442930427b04eac30
-          - tag_words ['science_run', 'date', 'time', 'detector', 'plugin', 'hash']
+
+        |   Level: L0
+        |    ├── type rucio_container
+        |    ├── did x1t_SR001:x1t_SR001_data
+        |    └── tag_words ['science_run']
+        |   Level: L1
+        |    ├── type rucio_container
+        |    ├── did x1t_SR001:x1t_SR001_190101_1300_tpc
+        |    └── tag_words ['science_run', 'date', 'time', 'detector']
+        |   Level: L2
+        |    ├── type rucio_dataset
+        |    ├── did x1t_SR001_190101_1300_tpc:raw_records-58340a130a541c95997fd1c442930427b04eac30
+        |    └── tag_words ['science_run', 'date', 'time', 'detector', 'plugin', 'hash']
 
         The data files of the upload_path are always uploaded to the last Rucio dataset.
 

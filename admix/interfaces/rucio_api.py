@@ -19,6 +19,7 @@ from rucio.common.exception import NotAllFilesUploaded
 from rucio.common.exception import DuplicateContent
 from rucio.common.exception import DuplicateRule
 
+from admix.helper.decorator import NameCollector, ClassCollector
 from admix.helper.decorator import Collector
 import sys
 import tempfile
@@ -86,11 +87,13 @@ class RucioAPI():
         pass
     def ConfigHost(self):
         """Function: ConfigHost
+
         This member function setup the rucioAPI backend.
         To ensure full functionality, it needs:
-          * Client()
-          * UploadClient()
-          * DownloadClient()
+        * Client()
+        * UploadClient()
+        * DownloadClient()
+
         :raise Exception if Rucio API is not ready (miss-configured)
         """
         try:
