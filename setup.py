@@ -12,7 +12,8 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-    # TODO: put package requirements here
+    'pymongo', 'utilix  '
+
 ]
 
 setup_requirements = [
@@ -26,22 +27,22 @@ test_requirements = [
 setup(
     name='admix',
     version='0.1.0',
-    description="advanced Data Managment In Xenon",
+    description="advanced Data Managment In Xenon (aDMIX)",
     long_description=readme + '\n\n' + history,
     author="Boris Bauermeister",
     author_email='Boris.Bauermeister@gmail.com',
     url='https://github.com/XENON1T/admix',
-    packages=find_packages(include=['admix', 
+    packages=find_packages(include=['admix',
+                                    'admix.interfaces',
                                     'admix.tasks',
-                                    'admix.runDB']),
-
+                                    'admix.helper',
+                                    ]),
     include_package_data=True,
     install_requires=requirements,
     entry_points={
         'console_scripts': [
             'admix-version=admix.admix:version',
-            'admix-tester=admix.admix:tester',
-            'admix-server=admix.admix:server',
+            'admix=admix.admix:your_admix',
         ]
     },
     license="BSD license",
@@ -52,9 +53,7 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7'
+        'Programming Language :: Python :: 3.6'
     ],
     test_suite='tests',
     tests_require=test_requirements,

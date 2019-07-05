@@ -4,6 +4,20 @@
 Installation
 ============
 
+Required Pre-Installation:
+--------------------------
+
+Rucio - Scientific Data Management
+++++++++++++++++++++++++++++++++++
+
+The aDMIX tools uses activly the Rucio - Scientific Data Management tool to run uploads to grid locations according to your configuration. Therefore it is mandatory to install the Rucio client in the same Python environment such as aDMIX is installed. Further installations in different environments which requieres side loads (== sourcing from another Anaconda environment) is partially supported by the legacy module (Rucio CLI) but not recommended for further work since it is a) slow and the b) the legacy module may not fully developed.
+
+The Rucio - Scientific Data Management tools is found on Github (https://github.com/rucio/rucio) and further information are given here https://rucio.cern.ch/
+
+gfal
+++++
+
+
 
 Stable release
 --------------
