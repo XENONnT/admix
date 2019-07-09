@@ -10,7 +10,7 @@ aDMIX
         :target: https://travis-ci.org/XeBoris/admix
 
 .. image:: https://readthedocs.org/projects/admix/badge/?version=latest
-        :target: https://admix.readthedocs.io/en/latest/?badge=latest
+        :target: https://advance-data-management-in-xenon.readthedocs.io/en/latest/
         :alt: Documentation Status
 
 .. image:: https://pyup.io/repos/github/XeBoris/admix/shield.svg
@@ -28,7 +28,7 @@ Python Boilerplate contains all the boilerplate you need to create a Python pack
 Features
 --------
 
-* TODO
+* Improve in Rucio uploads on a multi-scale level
 
 Credits
 ---------
