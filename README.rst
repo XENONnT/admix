@@ -22,7 +22,7 @@ Python Boilerplate contains all the boilerplate you need to create a Python pack
 
 
 * Free software: BSD license
-* Documentation: https://admix.readthedocs.io.
+* Documentation: https://advance-data-management-in-xenon.readthedocs.io/en/latest/
 
 
 Features
