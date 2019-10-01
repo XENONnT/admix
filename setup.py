@@ -12,7 +12,7 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-    'pymongo', 'utilix  '
+    'pymongo', 'utilix'
 
 ]
 
@@ -27,7 +27,7 @@ test_requirements = [
 setup(
     name='admix',
     version='0.2.0',
-    description="advanced Data Managment In Xenon (aDMIX)",
+    description="advanced Data Management In Xenon (aDMIX)",
     long_description=readme + '\n\n' + history,
     author="Boris Bauermeister",
     author_email='Boris.Bauermeister@gmail.com',
@@ -37,6 +37,7 @@ setup(
                                     'admix.tasks',
                                     'admix.helper',
                                     ]),
+    package_data={'admix.helper': ['defunc_']},
     include_package_data=True,
     install_requires=requirements,
     entry_points={

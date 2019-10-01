@@ -77,6 +77,8 @@ def your_admix():
         print("You are at {0}".format( helper.get_hostname()))
         exit()
 
+    helper.functdef()
+
     #Setup the logger in a very basic modi
     lg = Logger(logpath=helper.get_hostconfig()['log_path'],
                 loglevel=logging.DEBUG)

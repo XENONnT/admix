@@ -166,13 +166,13 @@ class UploadMongoDB():
                 #print(template_info)
 
                 #print("rucio plugin info:")
-                #print(":", self.rc_reader.GetPlugin(origin_type))
+                #print(":", self.rc_reader.GetPlugin(origin_type, reset=True))
                 #print(":", self.rc_reader.GetTypes())
 
                 #Evaluate the Rucio name template according the plugin which is requested:
                 # rucio_template: Holds the unsorted Rucio container/dataset/file structure in levels
                 # rucio_template_sorted: Holds the sorted levels (L0, L1, L2,...)
-                rucio_template = self.rc_reader.GetPlugin(origin_type)
+                rucio_template = self.rc_reader.GetPlugin(origin_type, reset=True)
                 rucio_template_sorted = [key for key in sorted(rucio_template.keys())]
 
 
@@ -260,11 +260,11 @@ class UploadMongoDB():
 
                     self.db.AddDatafield(db_info['_id'], new_data_dict)
 
-                #elif rule_status == 'OK':
-                #    #if there is a rucio rule we can skip here
-                #    skip_upload = True
-                #    print("---------------")
-                #    print("---------------")
+                elif rule_status == 'OK':
+                    #if there is a rucio rule we can skip here
+                    skip_upload = True
+                    print("---------------")
+                    print("---------------")
                 elif db_dest_status == True:
 
                     if self.db.GetDataField(db_info['_id'],
@@ -305,6 +305,7 @@ class UploadMongoDB():
                                                             f"Database RSE is {tmp_rse}. "\
                                                             "We do not want to interfere here...")
                     continue
+
 
 
                 #if the pre checks are ok we can upload:

@@ -80,7 +80,9 @@ class ConfigRucioDataFormat():
         return self.types_
     def GetStructure(self):
         return self.structure_
-    def GetPlugin(self, plugin=None):
+    def GetPlugin(self, plugin=None, reset=False):
+        if reset == True:
+            self.Eval()
         if plugin!=None and plugin in self.structure_:
             return self.structure_[plugin]
         else:
