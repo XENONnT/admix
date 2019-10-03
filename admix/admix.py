@@ -18,6 +18,7 @@ from admix.tasks.update_runDB import UpdateRunDBMongoDB
 from admix.tasks.init_transfers_with_mongodb import InitTransfersMongoDB
 from admix.tasks.download_with_mongodb import DownloadMongoDB
 from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
+from admix.tasks.purge_with_mongodb import PurgeMongoDB
 
 def version():
     import admix
@@ -47,6 +48,10 @@ def your_admix():
                         help="Select a range of runs by timestamps <Date>_<Time>-<Date>_<Time>")
     parser.add_argument('--source', nargs='*', dest='source', type=str,
                         help="Select data according to a certain source(s)")
+    parser.add_argument('--type', nargs='*', dest='type', type=str,
+                        help="Select data according to a certain type")
+    parser.add_argument('--hash', nargs='*', dest='hash', type=str,
+                        help="Select data according to a certain hash")
     parser.add_argument('--tag', nargs='*', dest='tag', type=str,
                         help="Select data according to a certain tag(s)")
     parser.add_argument('--destination', dest='destination', type=str,
@@ -55,7 +60,8 @@ def your_admix():
                         help="Select your RSE from where to download data")
     parser.add_argument('--lifetime', dest='lifetime', type=str,
                         help="Select your RSE from where to download data")
-
+    parser.add_argument('--force', default=False, action="store_true",
+                        help="Enforce your action. Be aware of the application!")
     args = parser.parse_args()
 
     #We make the individual arguments global available right after aDMIX starts:
@@ -68,6 +74,9 @@ def your_admix():
     helper.make_global("no_db_update", args.no_update)
     helper.make_global("source", args.source)
     helper.make_global("tag", args.tag)
+    helper.make_global("type", args.type)
+    helper.make_global("hash", args.hash)
+    helper.make_global("force", args.force)
 
     #Pre tests:
     # admix host configuration must match the hostname:

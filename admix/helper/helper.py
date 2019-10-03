@@ -13,6 +13,11 @@ import numpy as np
 global_dictionary = {}
 
 def make_global(dict_key, dict_value):
+    """Function: make_global
+    Provides a global dictionary across aDMIX
+    :param dict_key: The name of the variable
+    :param dict_value: The value of the variable
+    """
     global global_dictionary
 
     if dict_key not in global_dictionary:
@@ -69,7 +74,13 @@ def run_number_converter_full(run_number=None):
     return nb_array
 
 def eval_run_numbers(run_numbers=None, run_number_min=None, run_number_max=None):
-
+    """Function: eval_run_numbers
+    Deals with several ways to hand over the timestamp/run names in aDMIX
+    1) <date>_<time> (Single)
+    2) <date>_<time>,<date>_<time> (Multiple)
+    :param timestamp: A string of timestamps what follows single, multiple criterion
+    :return list: A list of timestamps
+    """
     #test if run_numbers follows a certain structure:
     eval_nb_min = None
     eval_nb_max = None
@@ -112,7 +123,13 @@ def eval_run_numbers(run_numbers=None, run_number_min=None, run_number_max=None)
     return [eval_nb_min, eval_nb_max]
 
 def eval_run_timestamps(run_timestamps=None, run_timestamp_min=None, run_timestamp_max=None):
-
+    """Function: eval_run_timestamps
+    Deals with several ways to hand over the timestamp/run names in aDMIX
+    1) <date>_<time> (Single)
+    2) <date>_<time>,<date>_<time> (Multiple)
+    :param timestamp: A string of timestamps what follows single, multiple criterion
+    :return list: A list of timestamps
+    """
     eval_ts_min = None
     eval_ts_max = None
     if run_timestamps != None and run_timestamp_min != None and run_timestamp_max != None:
@@ -168,7 +185,13 @@ def eval_run_timestamps(run_timestamps=None, run_timestamp_min=None, run_timesta
 
 
 def run_timestamp_converter(timestamp = None):
-
+    """Function: run_timestamp_converter
+    Deals with several ways to hand over the timestamp/run names in aDMIX
+    1) <date>_<time> (Single)
+    2) <date>_<time>,<date>_<time> (Multiple)
+    :param timestamp: A string of timestamps what follows single, multiple criterion
+    :return list: A list of timestamps
+    """
     ts_list = []
     if timestamp != None:
         ts = timestamp.split(",")
@@ -196,7 +219,14 @@ def run_timestamp_converter(timestamp = None):
 
 
 def safeformat(str, **kwargs):
-    #https://stackoverflow.com/questions/17215400/python-format-string-unused-named-arguments
+    """Function safeformat
+    A quick python (3.2+) way to avoid errors with missing keywords in strings.
+    Taken from https://stackoverflow.com/questions/17215400/python-format-string-unused-named-arguments
+    :param str: The list of strings with brackets
+    :param **kwargs: Arguments to fill in the brackets
+    :return string: The string with filled brackets but leaves the ones untouched where no information is available
+    """
+
     class SafeDict(dict):
         def __missing__(self, key):
             return '{' + key + '}'
@@ -204,6 +234,11 @@ def safeformat(str, **kwargs):
     return str.format_map(replacements)
 
 def read_folder(path):
+    """Function: read_folder
+    Read a folder from the input path
+    :param path: String with valid path information
+    :return list: A list of [directory_path, folders, files] found in the path
+    """
     ret_folder = []
     ret_dirpath = []
     ret_files = []
@@ -215,8 +250,11 @@ def read_folder(path):
     return [ret_dirpath, ret_folder, ret_files]
 
 def run_name_converter(run_name=None):
-    #convert a comma separated list of the --name
-    #terminal input into a python  list
+    """Function: run_name_converter
+    convert a comma separated list of the --name terminal input into a python  list
+    :param run_name: A list of comma separated strings
+    :return list: A list of strings
+    """
 
     if run_name != None:
         run_name = run_name.replace(" ", "")
@@ -225,6 +263,13 @@ def run_name_converter(run_name=None):
     return run_name
 
 def check_valid_timestamp( timestamp=None):
+    """Function check_valid_timestamp
+    Check for the correct format of string timestamp
+    with format <date>_<time>
+
+    :param timestamp: A string timestamp (any format)
+    :return bool: True if pattern follows <date>_<time>, otherwise False
+    """
     #Check a valid timestamp scheme input
     # <date (YYMMDD)>_<time (hh:mm)>
     ts_valid = False
@@ -236,7 +281,13 @@ def check_valid_timestamp( timestamp=None):
     return ts_valid
 
 def string_to_datatime( time_='700101_0000', pattern='%y%m%d_%H%M'):
-        return datetime.datetime.strptime(time_, pattern)
+    """Function string_to_datetime
+    Lazy approach to create a datetime object from a string given a pattern
+    :param time: A timestamp string of your choice
+    :param pattern: The pattern what applies to the input of time
+    :return datetime: A datetime object of the timestampe
+    """
+    return datetime.datetime.strptime(time_, pattern)
 
 def functdef():
     try:
@@ -251,10 +302,18 @@ def functdef():
 
 #string_to_datatime
 def get_science_run(timestamp=datetime.datetime(1981, 11, 11, 5, 30)):
-    #Evaluate science run periods:
+    """Function get_science_run
+    This function evaluate (hardcoded) information about the science run
+    periods in XENON1T.
+    Note: We abandoned the concept science runs in data names and made use only
+    of the tagging system in the meta database. Use this function becomes
+    only necessary when dealing XENON1T data.
+    :param timestamp: A datetime object what holds the time of the run
+    :return string: One of both science run periods (000 or 001), if fails -1
+    """
 
     if timestamp == datetime.datetime(1981, 11, 11, 5, 30):
-        return "0"
+        return "-1"
 
     #1) Change from sc0 to sc1:
     dt0to1 = datetime.datetime(2017, 2, 2, 17, 40)
@@ -265,5 +324,5 @@ def get_science_run(timestamp=datetime.datetime(1981, 11, 11, 5, 30)):
     elif timestamp >= dt0to1:
         science_run = "001"
     else:
-        science_run = -1
+        science_run = "-1"
     return science_run
