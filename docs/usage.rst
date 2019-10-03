@@ -16,22 +16,22 @@ Run aDMIX to upload data sets (e.g. XENONnT plugins) into Rucio.
 Basic command outline:
 
 .. code-block:: console
-    
+
     admix UploadMongoDB --admix-config <CONFIG-FILE>
 
 Further comand arguments are:
   - '--once':
     Run the command only once and exit aDMIX
-  
-  - '--select-run-numbers': 
+
+  - '--select-run-numbers':
     Select run numbers according the following scheme. The run number is defined by the MongoDB entry with the field 'number'. Hint: The Separator is '-'. Do not use spaces in between.
-    
+
       * 00001: Only one run with run number
       * 00001-00002: All run numbers between 1 and (including) 2
-  
-  - '--select-run-times': 
-    Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps.                       
-                          
+
+  - '--select-run-times':
+    Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps.
+
 You can run the aDMIX upload command from any machine where the data are located. The database needs to hold a list of dictionaries and each dictionary presents a data type with location, status, rse (if Rucio) and destinations. An overview example could be:
 
 .. _table1:
@@ -56,7 +56,7 @@ You can run the aDMIX upload command from any machine where the data are located
 | midway-login1   | /project/lgrandi/xenon1t/processed/pax_v | transferred  | None                           | None                           |
 |                 | 6.10.1/170319_1211.root                  |              |                                |                                |
 +-----------------+------------------------------------------+--------------+--------------------------------+--------------------------------+
-| dali            | /dali/lgrandi/tunnell/strax_data/170319  | transferred  | None                           | ['rucio-catalogue:UC_OSG_USER  |                            
+| dali            | /dali/lgrandi/tunnell/strax_data/170319  | transferred  | None                           | ['rucio-catalogue:UC_OSG_USER  |
 |                 | _1211-records-943c2b3857b2a91358355745245|              |                                |  DISK:None']                   |
 |                 | 1b5049362ecbd                            |              |                                |                                |
 +-----------------+------------------------------------------+--------------+--------------------------------+--------------------------------+
@@ -64,7 +64,7 @@ You can run the aDMIX upload command from any machine where the data are located
 The location must be definied according to the definition in the *template.config* configuration file. An example for an inidivdual plugin looks like:
 
 .. code-block:: json
-    
+
     {
     "raw_records":{
         "login":"{abs_path}/{number}-{plugin}-{hash}",
@@ -77,8 +77,8 @@ The location must be definied according to the definition in the *template.confi
         "login":"{abs_path}/{number}-{plugin}-{hash}",
         },
     }
-    
-    
+
+
 The keywords such as abs_path, number,... are detemined by aDMIX automatically. The abs_path is detemined from the location where the data are stored at a certain location.
 
 The aDMIX uploader runs continously on the pre-selected run numbers or time stamps and looks for *destinations* which are set for **the same host** whereas aDMIX is running. The destination field is detemined by the destination (rucio-catalogue), the Rucio RSE and a possible lifetime for this upload. You can set several Rucio RSE destinations (strings which are separated by komma) but the first element of the list is the RSE where the data are uploaded the first time.
@@ -94,28 +94,28 @@ Run aDMIX to upload data sets (e.g. XENONnT plugins) into Rucio.
 Basic command outline:
 
 .. code-block:: console
-    
+
     admix UpdateRunDBMongoDB --admix-config <CONFIG-FILE>
 
 Further comand arguments are:
   - '--once':
     Run the command only once and exit aDMIX
-  
-  - '--select-run-numbers': 
+
+  - '--select-run-numbers':
     Select run numbers according the following scheme. The run number is defined by the MongoDB entry with the field 'number'. Hint: The Separator is '-'. Do not use spaces in between.
-    
+
       * 00001: Only one run with run number
       * 00001-00002: All run numbers between 1 and (including) 2
-  
-  - '--select-run-times': 
-    Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps. 
 
-    
+  - '--select-run-times':
+    Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps.
+
+
 Since several transfers within the Rucio catalogue are ongoing (see :_table1: for plugin 'raw' in column rse) we need to update the experiment database from time to time with the latest locations from Rucio. Run this command continously on *any location* with an installed Rucio catalogue.
 
 **Attention:** Due to deletion processes for Rucio transfer rules in the Rucio catalogue it might be possible that a certain dataset *does not* have any Rucio transfer rule. In this situation, the command set the status of the according Rucio database entry (rucio-catalogue) to *RucioClearance*. This status acts a as a pre-stage to remove the whole rucio-catalogue entry for the given plugin type from the database with the *ClearTransfersMongoDB* option.
-    
-    
+
+
 Init Rucio Transfers (with MongoDB)
 -----------------------------------
 
@@ -125,21 +125,21 @@ Run aDMIX to upload data sets (e.g. XENONnT plugins) into Rucio.
 Basic command outline:
 
 .. code-block:: console
-    
+
     admix InitTransfersMongoDB --admix-config <CONFIG-FILE>
 
 Further comand arguments are:
   - '--once':
     Run the command only once and exit aDMIX
-  
-  - '--select-run-numbers': 
+
+  - '--select-run-numbers':
     Select run numbers according the following scheme. The run number is defined by the MongoDB entry with the field 'number'. Hint: The Separator is '-'. Do not use spaces in between.
-    
+
       * 00001: Only one run with run number
       * 00001-00002: All run numbers between 1 and (including) 2
-  
-  - '--select-run-times': 
-    Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps. 
+
+  - '--select-run-times':
+    Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps.
 
 aDMIX is able to fetch *new* destinations for a given rucio-catalogue entry and plugin type. These destinations are defined similar to upload destinations. It is a list of strings:
 
@@ -147,46 +147,89 @@ aDMIX is able to fetch *new* destinations for a given rucio-catalogue entry and 
 
     destination = ['rucio-catalogue:UC_DALI_USERDISK:None',
                    'rucio-catalogue:NIKHEF_USERDISK:86400']
-                   
+
 You can set up the database entries from any location and run the aDMIX instance from any location with a pre-installed Rucio software package. aDMIX will fullfill all demanded destinations for the Rucio transfer rules.
 
 **Attention**
   * Each rule can be initialized with a lifetime (third argument). This lifetime is given in seconds (always). You are able to extend the lifetime at any point as long as there is a rule existing in the Rucio catalogue.
   * You can use the lifetime to **purge** data from the Rucio catalogue. If the lifetime is set to 10 seconds, Rucio will remove the transfer rule after 10 seconds automatically and the Rucio services in the background will start to purge data from the according RSE. Be aware that Rucio services crash sometimes in the background. If data do not disappear automatically you need to check manually for it.
-    
+
 Clear Rucio Information from Run Database (with MongoDB)
 --------------------------------------------------------
-
-Run aDMIX to upload data sets (e.g. XENONnT plugins) into Rucio.
-
 
 Basic command outline:
 
 .. code-block:: console
-    
+
     admix ClearTransfersMongoDB --admix-config <CONFIG-FILE>
 
 Further comand arguments are:
   - '--once':
     Run the command only once and exit aDMIX
-  
-  - '--select-run-numbers': 
+
+  - '--select-run-numbers':
     Select run numbers according the following scheme. The run number is defined by the MongoDB entry with the field 'number'. Hint: The Separator is '-'. Do not use spaces in between.
-    
+
       * 00001: Only one run with run number
       * 00001-00002: All run numbers between 1 and (including) 2
-  
-  - '--select-run-times': 
-    Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps. 
+
+  - '--select-run-times':
+    Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps.
 
 
 This command clears the database entries for the host rucio-catalogue when the status is set to *RucioClearance*. You can do this manually or it is set to *RucioClearance* by the UpdateRunDBMongoDB command of aDMIX. You can run this command from any location.
 
 **Attention**
   * No cross check for the number of locations! Keep this in mind in case you fear Rucio-database issues. Run a manual cross check before to avoid data loss from the database.
-    
-    
-    
+
+Purge Physical Data Locations on Disks (with MongoDB)
+-----------------------------------------------------
+This module allows you to purge data from physical data disks in a safe way. As an outcome, the physical disk location
+are de-registered from the meta database.
+
+You can run this command only at locations where do you intend to purge data. In that sense it becomes also important to
+specify host location in your configuration file to avoid uncertain host conditions.
+
+This command requests by default a two fold data existence before purging data from a physical disk. This assures that
+no datasets are deleted at the Rucio entry point before there are enough copies of the data spread. The two fold
+requirement is defined as:
+
+  - Two copies in Rucio which are in replication status OK and marked in the meta database with "transferred"
+  - One copy in Rucio with replication status OK and marked in meta database with "transferred". In addition one ore more
+    disk copies at several sites. Disk locations are determined by database only.
+
+The '--force' command can be used to enable a manual mode to purge data on disks which do not fulfil the minimum data
+safety requirement. Each dataset must be confirmed with 'yes'.
+
+Basic command outline:
+
+.. code-block:: console
+
+    admix PurgeMongoDB --admix-config <CONFIG-FILE>
+
+Due to the complex file structure our data products the purge command became quite extensive in terms of
+selections to narrow down the datasets (depending on type, version (hash), host and location). The supported
+terminal arguments are:
+
+  - '--once':
+    Run the command only once and exit aDMIX
+  - '--select-run-numbers':
+    Select run numbers according the following scheme. The run number is defined by the MongoDB entry with the field 'number'. Hint: The Separator is '-'. Do not use spaces in between.
+
+      * 00001: Only one run with run number
+      * 00001-00002: All run numbers between 1 and (including) 2
+  - '--select-run-times':
+    Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps.
+  - '--type':
+    Define a specific data product for purging (e.g. raw_records). The input allows multiple arguments but that specific
+    application (PurgeMongoDB) makes only use of one argument at one time.
+  - '--hash':
+    The hash sum is part of the data location and refers to a specific version of the chosen data product type. Choose
+    the hash from the meta database in advance.
+  - '--force':
+    Enforces a user to purge datasets which are prevented from purging. (Not enough copies in Rucio or other disks)
+
+
 aDMIX as a Module
 +++++++++++++++++
 
@@ -214,7 +257,7 @@ A Rucio template dictionary is defined in aDMIX as a dictionary with the followi
             "tag_words": ["date", "time", "detector", "plugin", "hash"],
             }
     }
-    
+
 
 aDMIX is shipped out with two modules which help you create this structure: *templater* and *keyword*. The aim of the *templater* module is to load a specific Rucio data structure from a configuration file. This helps you to provide several Rucio configurations for different experimental setups and allow you create automatically a complex Rucio structure, such as a dataset which is attached to container.
 
@@ -237,36 +280,36 @@ For example we have:
   - $Cx1t_SR{science_run}:xe1t_SR{science_run}_data: It defines by default a Rucio container (introduced by $C at the begin of the string).
   - Another container ($Cx1t_SR{science_run}:x1t_SR{science_run}_{date}_{time}_{detector}) is attached to the top level container $Cx1t_SR{science_run}:xe1t_SR{science_run}_data. This is introduced by the arrow feature ("|->|").
   - Finally we have another Rucio dataset attached ($Dx1t_SR{science_run}_{date}_{time}_{detector}:raw). A Rucio dataset is introduced by "$D" at the begin.
-  
+
 Have in mind that each level is defined by a Rucio data identifier which consist of a scope and name (scope:name) which are separated by a ':' character. The lowest structure (Rucio dataset) will receive the files during the upload process later). Each Rucio structure template contains keywords which ({date} or {science_run}). We are going to fill these keywords later by the *keyword* method:
 
 A full code example for XENONnT is given here:
 
 .. code-block:: python
-    
+
     from admix.interfaces.rucio_dataformat import ConfigRucioDataFormat
     from admix.interfaces.keyword import Keyword
     from admix.interfaces.templater import Templater
-    
+
     #Init the method to load a specific Rucio template configuration file:
-    
+
     path_to_your_rucio_configuration_file = "/.../.."
-    
+
     rc_reader = ConfigRucioDataFormat()
     rc_reader.Config(path_to_your_rucio_configuration_file)
-    
+
     #Receive the empty plugin structure from the configuration file:
     plugin_type = "raw_records"
     rucio_template = rc_reader.GetPlugin(plugin_type)
-    
-    
+
+
     #Init the keyword method
     keyw = Keyword()
-    
+
     #Prepare the keyword method to fill the keywords from the template:
-    
+
     rucio_in = "x1t_SR001_170319_1011_tpc:raw_records-58340a130"
-        
+
     db = {}
     db['plugin']   = rucio_in.split(":")[1].split("-")[0]
     db['date']     = rucio_in.split(":")[0].split("_")[2]
@@ -274,13 +317,13 @@ A full code example for XENONnT is given here:
     db['detector'] = rucio_in.split(":")[0].split("_")[4]
     db['hash']     = rucio_in.split(":")[1].split("-")[1]
     db['science_run'] = rucio_in.split(":")[0].split("_")[1].replace("SR", "")
-    
+
     keyw.SetTemplate(db)
     #(we assume here that the dictionary db is filed from a string. But it can come from any location (e.g. database, textfile)!
-    
+
     #Complete the Rucio template:
     rucio_template = keyw.CompleteTemplate(rucio_template)
-    
+
 
 The variable rucio_template holds the desired complex Rucio structure for a given plugin type.
 
@@ -314,7 +357,7 @@ How to download a given Rucio DID which is defined as "x1t_SR001_171230_1818_tpc
 
     #Most likely you are getting the run locations for a type
     did = "x1t_SR001_171230_1818_tpc:raw_records-7k65yaooed"
-    
+
     #Extract scope and name:
     scope = did.split(":")[0]
     dname = did.split(":")[1]
@@ -324,10 +367,10 @@ How to download a given Rucio DID which is defined as "x1t_SR001_171230_1818_tpc
                          rse="YOUR_DOWNLOAD_RSE",
                          no_subdir=False #if true, the DID name is not used in the download path
                          )
-    
+
     print(result)
-   
-    
+
+
 
 Download Single Chunks from a Rucio Data Identifier (DID)
 ---------------------------------------------------------
@@ -361,11 +404,11 @@ Let's assume the three chunks are '00001', '00002' and '00003'. Based on the gen
 
     #Most likely you are getting the run locations for a type
     did = "x1t_SR001_171230_1818_tpc:raw_records-7k65yaooed"
-    
+
     #Extract scope and name:
     scope = did.split(":")[0]
     dname = did.split(":")[1]
-    
+
     #Create a list of three chunks:
     chunks = [ str(i).zfill(6) for i in range(0, 3)]
     download_path = "/your/download/path/"
@@ -377,25 +420,25 @@ Let's assume the three chunks are '00001', '00002' and '00003'. Based on the gen
                                download_path=download_path,
                                rse=rse,
                                no_subdir=no_subdir)
-    
+
     #result is a list of dictionaries:
     for i_result i result:
         print(i_result)
 
-        
+
 Download from Rucio with a Template Dictionary (with chunks)
 ------------------------------------------------------------
 In additon to the Rucio downloads with a DID, aDMIX supports a Rucio template dictionary download too. It is important to notice that by default only the lowest level Rucio dataset is downloaded. It is possible to adjust it by specifing the level manually when calling the Download(...) function of aDMIX. Be aware that due to a complex Rucio structure, the download volume can be increased tremendously.
- 
+
 .. code-block:: python
-    
+
     #imports:
     from admix.interfaces.rucio_dataformat import ConfigRucioDataFormat
     from admix.interfaces.rucio_summoner import RucioSummoner
     from admix.interfaces.destination import Destination
     from admix.interfaces.keyword import Keyword
     from admix.interfaces.templater import Templater
-    
+
     #Be aware of the template files and the config "fake" setup":
     config_file = "/home/bauermeister/Development/software/admix_config/host_config_login_el7_api.config"
 
@@ -410,12 +453,12 @@ In additon to the Rucio downloads with a DID, aDMIX supports a Rucio template di
     rc.SetHost(config.get('host'))
     rc.ConfigHost()
 
-    
+
     ...CODE TO CREATE/LOAD/USE A RUCIO TEMPLATE DICTIONARY...
 
     rucio_template = keyw.CompleteTemplate(rucio_template)
 
-    
+
     result = rc.Download(download_structure=rucio_template,
                          download_path="/your/download/path/",
                          rse="YOUR_DOWNLOAD_RSE",
@@ -427,7 +470,7 @@ In additon to the Rucio downloads with a DID, aDMIX supports a Rucio template di
 In addition, it is possible to modify the Download command for chunks again:
 
 .. code-block:: python
-    
+
     chunks = [ str(i).zfill(6) for i in range(0, 3)]
     result = rc.DownloadChunks(download_structure=rucio_template,
                                chunks=chunks,
@@ -465,15 +508,14 @@ Of course you can also use UploadToDid(...) or UploadToScope(...) from the Rucio
     rc.SetProxyTicket(config.get('rucio_x509'))
     rc.SetHost(config.get('host'))
     rc.ConfigHost()
-    
+
     #prepare a rucio_template as described above:
     rucio_template = ...
-    
-    
+
+
     upload_result = self.rc.Upload(upload_structure=rucio_template,
                                    upload_path=origin_location, #A valid path with data to upload
                                    rse="INITIAL_RSE_UPLOAD",
-                                   rse_lifetime=None, #Or lifetime in seconds 
+                                   rse_lifetime=None, #Or lifetime in seconds
                                    )
     print(upload_result) # 0 if successful, 1 if failed
-    

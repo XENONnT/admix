@@ -277,6 +277,43 @@ class ConnectMongoDB():
 
         return col
 
+    def GetHosts(self, host, ts_beg=None, ts_end=None, sort="ascending"):
+        """Function: GetLocations
+        Get a selection of events between two timestamps (ts_beg, ts_end) for a pre-selected host
+        in the meta database.
+        :param host: A general location search to look for results of a specific host in the meta database
+        :param ts_beg: datetime object when to begin the search
+        :param ts_end: datetime object when to end the search
+        :param sort: How to sort the result: ascending or descending
+        :return MongoDB aggregation:
+        """
+
+        if ts_beg == None:
+            ts_beg = self.GetSmallest("start")
+        if ts_end == None:
+            ts_end = self.GetLargest("start")
+
+        #evaluate sort direction:
+        if sort == "ascending":
+            sort = -1 #ascending means from latest to earliest run
+        else:
+            sort = 1
+
+        col = self.db.aggregate(
+                    [
+                        {"$match": {'$and': [{'start': {'$gte':ts_beg}}, {'start': {'$lte':ts_end}}]}},
+                        {"$unwind": "$data"},
+                        {"$project": {
+                                        "name": 1, "number": 1, "host": "$data.host",
+                                    }},
+                        {"$match": {"host": host}},
+                        {"$project": {"name":1, "number":1}},
+                        {"$sort": {"start": sort}}
+                    ]
+                )
+
+        return col
+
     def GetClearance(self, ts_beg=None, ts_end=None, sort="ascending"):
         """Function: GetClearance(...)
 
