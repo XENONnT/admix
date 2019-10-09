@@ -2,7 +2,10 @@
 Usage
 =====
 
-advanced data management in XENON (aDMIX) allows you to run //stand alone// tasks which are decribed below. The purpose of the standalone tasks is to connect Rucio interactions (uploads, downloads and transfers) with the meta database (mongoDB interface). Furthermore, the aDMIX package offers a simple way interact with the Rucio catalogue or with the grid locations directly.
+advanced data management in XENON (aDMIX) allows you to run //stand alone// tasks which are described below.
+The purpose of the standalone tasks is to connect Rucio interactions (uploads, downloads and transfers) with
+the meta database (mongoDB interface). Furthermore, the aDMIX package offers a simple way interact with the Rucio
+catalogue or with the grid locations directly.
 
 Standalone Tasks in aDMIX
 +++++++++++++++++++++++++
@@ -19,20 +22,25 @@ Basic command outline:
 
     admix UploadMongoDB --admix-config <CONFIG-FILE>
 
-Further comand arguments are:
+Further command arguments are:
   - '--once':
     Run the command only once and exit aDMIX
 
   - '--select-run-numbers':
-    Select run numbers according the following scheme. The run number is defined by the MongoDB entry with the field 'number'. Hint: The Separator is '-'. Do not use spaces in between.
+    Select run numbers according the following scheme. The run number is defined by the MongoDB entry with the
+    field 'number'. Hint: The Separator is '-'. Do not use spaces in between.
 
       * 00001: Only one run with run number
       * 00001-00002: All run numbers between 1 and (including) 2
 
   - '--select-run-times':
-    Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps.
+    Select run times according to the start times of a run. The run time is defined by the MongoDB
+    entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>".
+    No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps.
 
-You can run the aDMIX upload command from any machine where the data are located. The database needs to hold a list of dictionaries and each dictionary presents a data type with location, status, rse (if Rucio) and destinations. An overview example could be:
+You can run the aDMIX upload command from any machine where the data are located. The database needs to hold a list of
+dictionaries and each dictionary presents a data type with location, status, rse (if Rucio) and destinations.
+An overview example could be:
 
 .. _table1:
 
@@ -61,7 +69,8 @@ You can run the aDMIX upload command from any machine where the data are located
 |                 | 1b5049362ecbd                            |              |                                |                                |
 +-----------------+------------------------------------------+--------------+--------------------------------+--------------------------------+
 
-The location must be definied according to the definition in the *template.config* configuration file. An example for an inidivdual plugin looks like:
+The location must be defined according to the definition in the *template.config* configuration file. An example for
+an individual plugin looks like:
 
 .. code-block:: json
 
@@ -79,11 +88,11 @@ The location must be definied according to the definition in the *template.confi
     }
 
 
-The keywords such as abs_path, number,... are detemined by aDMIX automatically. The abs_path is detemined from the location where the data are stored at a certain location.
+The keywords such as abs_path, number,... are detemined by aDMIX automatically. The abs_path is determined from the location where the data are stored at a certain location.
 
-The aDMIX uploader runs continously on the pre-selected run numbers or time stamps and looks for *destinations* which are set for **the same host** whereas aDMIX is running. The destination field is detemined by the destination (rucio-catalogue), the Rucio RSE and a possible lifetime for this upload. You can set several Rucio RSE destinations (strings which are separated by komma) but the first element of the list is the RSE where the data are uploaded the first time.
+The aDMIX uploader runs continuously on the pre-selected run numbers or time stamps and looks for *destinations* which are set for **the same host** whereas aDMIX is running. The destination field is determined by the destination (rucio-catalogue), the Rucio RSE and a possible lifetime for this upload. You can set several Rucio RSE destinations (strings which are separated by comma) but the first element of the list is the RSE where the data are uploaded the first time.
 
-Once the destination(s) are fullfilled successfully aDMIX the destination field is deleted from the database and the actual location with transferring status is written to the database in the "rse" field. An example is given in the table above.
+Once the destination(s) are fulfilled successfully aDMIX the destination field is deleted from the database and the actual location with transferring status is written to the database in the "rse" field. An example is given in the table above.
 
 Update the Run Database (with MongoDB)
 --------------------------------------
@@ -110,8 +119,11 @@ Further comand arguments are:
   - '--select-run-times':
     Select run times according to the start times of a run. The run time is defined by the MongoDB entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>". No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps.
 
+  - '--type':
+    Takes a list of plugin names (e.g. raw (xenon1t) or raw_records). You can select one or as many as like. If you do not
+    choose any plugin name by the command line, aDMIX will use all existing plugin names from the Rucio template configuration file.
 
-Since several transfers within the Rucio catalogue are ongoing (see :_table1: for plugin 'raw' in column rse) we need to update the experiment database from time to time with the latest locations from Rucio. Run this command continously on *any location* with an installed Rucio catalogue.
+Since several transfers within the Rucio catalogue are ongoing (see :_table1: for plugin 'raw' in column rse) we need to update the experiment database from time to time with the latest locations from Rucio. Run this command continuously on *any location* with an installed Rucio catalogue.
 
 **Attention:** Due to deletion processes for Rucio transfer rules in the Rucio catalogue it might be possible that a certain dataset *does not* have any Rucio transfer rule. In this situation, the command set the status of the according Rucio database entry (rucio-catalogue) to *RucioClearance*. This status acts a as a pre-stage to remove the whole rucio-catalogue entry for the given plugin type from the database with the *ClearTransfersMongoDB* option.
 
@@ -148,7 +160,7 @@ aDMIX is able to fetch *new* destinations for a given rucio-catalogue entry and 
     destination = ['rucio-catalogue:UC_DALI_USERDISK:None',
                    'rucio-catalogue:NIKHEF_USERDISK:86400']
 
-You can set up the database entries from any location and run the aDMIX instance from any location with a pre-installed Rucio software package. aDMIX will fullfill all demanded destinations for the Rucio transfer rules.
+You can set up the database entries from any location and run the aDMIX instance from any location with a pre-installed Rucio software package. aDMIX will fulfill all demanded destinations for the Rucio transfer rules.
 
 **Attention**
   * Each rule can be initialized with a lifetime (third argument). This lifetime is given in seconds (always). You are able to extend the lifetime at any point as long as there is a rule existing in the Rucio catalogue.
@@ -428,7 +440,7 @@ Let's assume the three chunks are '00001', '00002' and '00003'. Based on the gen
 
 Download from Rucio with a Template Dictionary (with chunks)
 ------------------------------------------------------------
-In additon to the Rucio downloads with a DID, aDMIX supports a Rucio template dictionary download too. It is important to notice that by default only the lowest level Rucio dataset is downloaded. It is possible to adjust it by specifing the level manually when calling the Download(...) function of aDMIX. Be aware that due to a complex Rucio structure, the download volume can be increased tremendously.
+In additon to the Rucio downloads with a DID, aDMIX supports a Rucio template dictionary download too. It is important to notice that by default only the lowest level Rucio dataset is downloaded. It is possible to adjust it by specifying the level manually when calling the Download(...) function of aDMIX. Be aware that due to a complex Rucio structure, the download volume can be increased tremendously.
 
 .. code-block:: python
 
@@ -483,7 +495,7 @@ Upload with a Template Dictionary
 
 Uploads are made similar to the downloads and need a Rucio template dictionary if it is wished to upload data into a complex Rucio structure. Once the Rucio template dictionary is created you need to provide a data location and an initial RSE (with lifetime if needed). The location of the data does only need to contain individual files under folder. The common Rucio scope is determined from the Rucio template dictionary for the lowest level if not specified otherwise.
 
-Of course you can also use UploadToDid(...) or UploadToScope(...) from the RucioSummoner to upload data to Rucio. These functions do not offer the abilty to build a complex Rucio structure beforehand.
+Of course you can also use UploadToDid(...) or UploadToScope(...) from the RucioSummoner to upload data to Rucio. These functions do not offer the ability to build a complex Rucio structure beforehand.
 
 .. code-block:: python
 

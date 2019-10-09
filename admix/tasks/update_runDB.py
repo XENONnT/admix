@@ -40,6 +40,7 @@ class UpdateRunDBMongoDB():
         #Init the Rucio data format evaluator in three steps:
         self.rc_reader = ConfigRucioDataFormat()
         self.rc_reader.Config(helper.get_hostconfig('rucio_template'))
+        self.defined_types = self.rc_reader.GetTypes()
 
         #This class will evaluate your destinations:
         self.destination = Destination()
@@ -95,6 +96,19 @@ class UpdateRunDBMongoDB():
         #Get your collection of run numbers and run names
         collection = self.db.GetRunsByTimestamp(ts_beg, ts_end)
 
+
+
+        # We need to define the right plugins here which are getting updated:
+        # Therefore we have two options!
+        # 1) Use all types which are defined in Rucio format configuration file
+        # 2) Use the command line argument inputs
+        if helper.global_dictionary.get('type') != None and isinstance(helper.global_dictionary.get('type'), list):
+            plugin_list = helper.global_dictionary.get('type')
+        else:
+            plugin_list = self.defined_types
+
+        #plugin_list = ['raw_records', 'records']
+
         #Run through the overview collection:
         for i_run in collection:
             #Extract run number and name from overview collection
@@ -110,9 +124,6 @@ class UpdateRunDBMongoDB():
 
             if 'data' not in db_info:
                 continue
-
-            #We need to define the right plugins here which are getting updated
-            plugin_list = ['raw_records', 'records']
 
             helper.global_dictionary['logger'].Info(f"Update data set {r_name}/{r_number}")
             #adjust the data field with a Rucio update if necessary:
@@ -140,11 +151,26 @@ class UpdateRunDBMongoDB():
                 except:
                     _hash = "Xenon1T"
 
+                #This section is adjust for XENON1T legacy support:
+                # The detector name muon_veto from the database changes into mv
+                # Fix one minute bug from past XENON1T days...
+                # Fix the science run definition hole between SR0 and SR1
+                sr_run_selected = helper.get_science_run(db_info['start'])
+                if _hash == 'Xenon1T':
+                    db_info = helper.xenon1t_detector_renamer(db_info)
+                    #fixing the one minute offset bug in XENON1T by overwriting the dict_name from true
+                    #Rucio locations such they are stored in the runDB
+                    dict_name['date'] = i_data['location'].split(":")[0].split("_")[2]
+                    dict_name['time'] = i_data['location'].split(":")[0].split("_")[3]
+                    sr_run_selected = i_data['location'].split(":")[0].split("_")[1].replace("SR", "")
+
+
+                #Fill in the templates:
                 self.keyw.ResetTemplate()
                 self.keyw.SetTemplate(dict_name)
                 self.keyw.SetTemplate(db_info)
                 self.keyw.SetTemplate({'hash': _hash, 'plugin': i_data['type']})
-                self.keyw.SetTemplate({'science_run': helper.get_science_run(db_info['start'])})
+                self.keyw.SetTemplate({'science_run': sr_run_selected})
 
                 rucio_template = self.keyw.CompleteTemplate(rucio_template)
                 rc_rules = self.rc.ListDidRules(rucio_template)
@@ -165,10 +191,18 @@ class UpdateRunDBMongoDB():
                                                                       state=state,
                                                                       lifetime=expires_at))
 
+
                 #Update RSE field if necessary:
-                if rule != i_data['rse'] and len(rule) > 1:
+                if rule != i_data['rse'] and len(rule) >= 1:
                     self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='rse', value=rule)
                     helper.global_dictionary['logger'].Info("Updated location ({0}) for type {1} to {2}".format(i_data['location'], i_data['type'], rule))
+
+                    #Since we update the runDB with new Rucio locations, I suppose we should update the status field
+                    #just in case...
+                    if self.db.GetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'],
+                                            key='status') != "transferred":
+                        self.db.SetDataField(db_info['_id'], type=i_data['type'], host=i_data['host'], key='status',
+                                             value="transferred")
                 elif rule != i_data['rse'] and len(rule) == 0:
                     helper.global_dictionary['logger'].Info("No location ({0}) for type {1} to {2} found in Rucio".format(i_data['location'], i_data['type'], rule))
                     helper.global_dictionary['logger'].Info("Set for purge: status -> NoRucioEntry")
