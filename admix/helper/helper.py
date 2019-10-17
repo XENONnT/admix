@@ -326,3 +326,14 @@ def get_science_run(timestamp=datetime.datetime(1981, 11, 11, 5, 30)):
     else:
         science_run = "-1"
     return science_run
+
+def xenon1t_detector_renamer(input):
+    """Function: xenon1t_detector_renamer
+
+
+    """
+
+    if input.get("detector") == 'muon_veto':
+        input['detector'] = 'mv'
+    return input
+
