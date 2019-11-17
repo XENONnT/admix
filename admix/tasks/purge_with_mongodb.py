@@ -203,6 +203,8 @@ class PurgeMongoDB():
                 pHost = i_data['host']
                 pType = i_data['type']
                 pDict = i_data
+
+            print( helper.global_dictionary.get("force"))
             #purge without request is ok if:
             # - two valid rucio copies ("OK" for transfer)
             # - one valid rucio copy and one or more valid disk copies
@@ -252,11 +254,15 @@ class PurgeMongoDB():
                         helper.global_dictionary['logger'].Info("> Removed from runDB [finished]")
 
                 else:
-                    helper.global_dictionary['logger'].Info("You have choosen to not purge data")
+                    helper.global_dictionary['logger'].Info("You have chosen to not purge data")
 
             else:
                 helper.global_dictionary['logger'].Info("Purging data is rejected!")
-
+                helper.global_dictionary['logger'].Info(f"Location: {path_to_purge}")
+                helper.global_dictionary['logger'].Info(f"Type: {pType}")
+                helper.global_dictionary['logger'].Info(f"Host: {pHost}")
+                helper.global_dictionary['logger'].Info(f"Copies on other disks then {hc_host}: {valid_disk_copies}")
+                helper.global_dictionary['logger'].Info(f"Copies in Rucio: {valid_rucio_copies}: {valid_rucio_rses}")
 
 
         return 0

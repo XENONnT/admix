@@ -263,8 +263,8 @@ class UploadMongoDB():
                 elif rule_status == 'OK':
                     #if there is a rucio rule we can skip here
                     skip_upload = True
-                    print("---------------")
-                    print("---------------")
+                    helper.global_dictionary['logger'].Info("A Rucio rule exits already. We skip here!")
+
                 elif db_dest_status == True:
 
                     if self.db.GetDataField(db_info['_id'],
@@ -282,6 +282,10 @@ class UploadMongoDB():
                                             type=origin_type,
                                             host=ptr0, key='status') == 'RSEreupload':
                         skip_upload = False
+
+                if helper.global_dictionary['force'] == True:
+                    helper.global_dictionary['logger'].Info("Enable forced upload to Rucio")
+                    skip_upload = False
 
 
                 #elif db_dest_status == True and self.db.GetDataField(db_info['_id'], type=origin_type, host=ptr0, key='status') == 'RSEreupload':

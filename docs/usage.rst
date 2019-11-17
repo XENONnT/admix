@@ -38,6 +38,11 @@ Further command arguments are:
     entry with the field 'start'. A correct definition of the run time is "<Date>_<Time>-<Date>_<Time>".
     No single time stamps are allowed. Separators are '_' between <Date> and <Time> and '-' between two timestamps.
 
+  - '--force':
+    Force to execute Rucio uploads even if all file/folder pre-checks and Rucio pre-checks fail. This option is only
+    suggested to use in exceptional cases when upload tries with aDMIX fail due to wrong database entries or single
+    files are not yet uploaded/attached to a Rucio data set. Suggestion: run own Rucio pre-checks first.
+
 You can run the aDMIX upload command from any machine where the data are located. The database needs to hold a list of
 dictionaries and each dictionary presents a data type with location, status, rse (if Rucio) and destinations.
 An overview example could be:
