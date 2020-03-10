@@ -48,6 +48,7 @@ class RucioAPI():
         self._print_to_screen = enable_print
         self._rucio_ping = None
         self._rucio_account = None
+        self.ConfigHost()
 
     def __del__(self):
         """Function: __del__()
