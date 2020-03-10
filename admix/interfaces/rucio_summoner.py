@@ -554,7 +554,7 @@ class RucioSummoner():
             return (False, diff_rucio, diff_disk)
 
     #Rucio download section
-    def DownloadDids(self, dids=None, download_path=None, rse=None,
+    def DownloadDids(self, dids=None, download_path=".", rse=None,
                      no_subdir=False, transfer_timeout=None,
                      num_threads=2, trace_custom_fields={}):
         """Function: DownloadDids(...)
@@ -598,7 +598,7 @@ class RucioSummoner():
 
         return result
 
-    def DownloadChunks(self, download_structure=None, chunks=None, download_path=None,
+    def DownloadChunks(self, download_structure=None, chunks=None, download_path=".",
                        rse=None, no_subdir=False, transfer_timeout=None,
                        num_threads=2, trace_custom_fields={}, level=-1):
         """Function: DownloadChunks(...)
@@ -637,7 +637,7 @@ class RucioSummoner():
 
         return result
 
-    def Download(self, download_structure=None, download_path=None,
+    def Download(self, download_structure=None, download_path=".",
                  rse=None, no_subdir=False, transfer_timeout=None,
                  num_threads=2, trace_custom_fields={}, level=-1):
         """Function: Download(...)
