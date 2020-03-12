@@ -30,6 +30,8 @@ class ConnectMongoDB():
 
         #Define the basic projections for mongoDB
         self.SetProjection(projection=None, from_config=True)
+        # make connection to runDB
+        self.Connect()
 
     def _make_connection_string(self):
         if "mongodb://" not in self.db_mongodb_address:

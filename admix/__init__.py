@@ -11,6 +11,9 @@ from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.destination import Destination
 from admix.interfaces.keyword import Keyword
 from admix.interfaces.templater import Templater
+from utilix.config import Config
 
 #tasks:
-#no tasks so far...
+
+DEFAULT_CONFIG = Config().get('Admix', 'config_file')
+
