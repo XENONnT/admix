@@ -5,20 +5,10 @@ import os
 
 from admix.helper.logger import Logger
 import admix.helper.helper as helper
+from admix import DEFAULT_CONFIG
 
-#from admix.runDB import xenon_runDB as XenonRunDatabase
-#from admix.tasks import tester as TestaDMIX
-
-#import the decorators:
 from admix.helper.decorator import NameCollector, ClassCollector
-#import all your tasks:
-from admix.tasks.example_task import RunExampleTask
-from admix.tasks.upload_with_mongodb import UploadMongoDB
-from admix.tasks.update_runDB import UpdateRunDBMongoDB
-from admix.tasks.init_transfers_with_mongodb import InitTransfersMongoDB
-from admix.tasks.download_with_mongodb import DownloadMongoDB
-from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
-from admix.tasks.purge_with_mongodb import PurgeMongoDB
+
 
 def version():
     import admix
@@ -35,7 +25,7 @@ def your_admix():
     parser.add_argument('task', nargs="?", default="default",
                         help="Select an aDMIX task")
     # Add arguments for the process manager:
-    parser.add_argument('--admix-config', dest="admix_config", type=str,
+    parser.add_argument('--admix-config', dest="admix_config", type=str, default=DEFAULT_CONFIG,
                         help="Load your host configuration")
     parser.add_argument('--no-update', dest='no_update', action='store_false',
                         help="Add this option to prevent aDMIX updating the Xenon database")
