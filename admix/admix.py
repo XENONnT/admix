@@ -8,7 +8,13 @@ import admix.helper.helper as helper
 from admix import DEFAULT_CONFIG
 
 from admix.helper.decorator import NameCollector, ClassCollector
-
+from admix.tasks.example_task import RunExampleTask
+from admix.tasks.upload_with_mongodb import UploadMongoDB
+from admix.tasks.update_runDB import UpdateRunDBMongoDB
+from admix.tasks.init_transfers_with_mongodb import InitTransfersMongoDB
+from admix.tasks.download_with_mongodb import DownloadMongoDB
+from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
+from admix.tasks.purge_with_mongodb import PurgeMongoDB
 
 def version():
     import admix
@@ -95,6 +101,7 @@ def your_admix():
         task_list = [args.task]
 
     #test if the list of tasks is available from the decorator
+    print(NameCollector)
     task_test = [True if i_task in NameCollector else False for i_task in task_list]
     task_list = np.array(task_list)[task_test]
 
