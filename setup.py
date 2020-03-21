@@ -36,6 +36,7 @@ setup(
                                     'admix.interfaces',
                                     'admix.tasks',
                                     'admix.helper',
+                                    'admix.utils'
                                     ]),
     package_data={'admix.helper': ['defunc_']},
     include_package_data=True,
@@ -44,6 +45,7 @@ setup(
         'console_scripts': [
             'admix-version=admix.admix:version',
             'admix=admix.admix:your_admix',
+            'admix-download=scripts.download:main'
         ]
     },
     license="BSD license",
