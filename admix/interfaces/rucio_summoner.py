@@ -253,6 +253,9 @@ class RucioSummoner():
 
         return result
 
+    def DeleteRule(self, rule_id):
+        self._rucio.DeleteRule(rule_id)
+
     def _rule_status_dictionary(self):
         """This dictionary defines the full set of rule information
         what is returned from Rucio and dedicated to further usage.
@@ -821,7 +824,7 @@ class RucioSummoner():
         return (result, result_rule)
 
 
-    def Upload(self, did, upload_path, rse=None, lifetime=None):
+    def Upload(self, did, upload_path, rse, lifetime=None):
         """Function: Upload(...)
         The data files of the upload_path are always uploaded to the last Rucio dataset.
 

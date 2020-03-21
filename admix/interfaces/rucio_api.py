@@ -477,6 +477,14 @@ class RucioAPI():
             print("No replication rule to get")
         return result
 
+    def DeleteRule(self, rule_id):
+        """Function: DeleteRule(...)
+        
+        Deletes a replication rule.
+        :param rule_id: A rucio rule id string
+        """
+        self._rucio_client.delete_replication_rule(rule_id, purge_replicas=True)
+
     #Metadata:
     def GetMetadata(self, scope, name):
         try:
