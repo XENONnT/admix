@@ -550,7 +550,7 @@ class RucioSummoner():
     #Rucio download section
     def DownloadDids(self, dids=None, download_path=".", rse=None,
                      no_subdir=False, transfer_timeout=None,
-                     num_threads=2, trace_custom_fields={}):
+                     num_threads=3, trace_custom_fields={}):
         """Function: DownloadDids(...)
 
         This functions offers to download a list if Rucio DIDs which are given by a list.

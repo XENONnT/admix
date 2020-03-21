@@ -1,25 +1,17 @@
 import os
 import time
+import shutil
 from admix.interfaces.rucio_dataformat import ConfigRucioDataFormat
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.keyword import Keyword
-from admix.interfaces.database import ConnectMongoDB
+from admix.interfaces.database import MongoDB
 from admix.utils import make_did
 
-DB = ConnectMongoDB()
+DB = MongoDB()
 
 DTYPES = ['raw_records', 'raw_records_lowgain', 'raw_records_aqmon', 'raw_records_mv']
 DATADIR = '/eb/ebdata'
 
-
-def get_did(run_number, dtype):
-    return DB.db.find_one({'number': run_number}, {'dids': 1})['dids'][dtype]
-
-
-def set_status(docid, status):
-    DB.db.find_one_and_update({'_id': docid},
-                              {'$set': {'status': status}}
-                              )
 
 def find_new_data():
     """"""
@@ -30,7 +22,7 @@ def find_new_data():
     cursor = DB.db.find(query, {'number': 1})
 
     for r in cursor:
-        set_status(r['_id'], 'needs_upload')
+        DB.SetStatus(r['number'], 'needs_upload')
 
 
 def find_data_to_upload():
@@ -87,31 +79,26 @@ def do_upload(periodic_check=300):
 
             file = datum['location'].split('/')[-1]
 
-            #Init a class to handle keyword strings:
-            #keyw = Keyword()
+
             hash = file.split('-')[-1]
-            # Apparently the GetPlugin method is stateful. It will remember previous run information
-            # if you don't pass reset=True... #$%#$W^$
-            #rucio_template = rc_reader.GetPlugin(dtype, reset=True)
+
             upload_path = os.path.join(DATADIR, file)
 
-            #keyw.SetTemplate({'hash': hash, 'plugin': dtype, 'number':'%06d' % number})
-
-            #rucio_template = keyw.CompleteTemplate(rucio_template)
-
-            #rucio_template_sorted = [key for key in sorted(rucio_template.keys())]
-
+            # create a DID to upload
             did = make_did(number, dtype, hash)
 
+            # check if a rule already exists for this DID on LNGS
             rucio_rule = rc.GetRule(upload_structure=did, rse="LNGS_USERDISK")
 
+            # if not in rucio already and no rule exists, upload into rucio
             if not in_rucio and not rucio_rule['exists']:
                 result = rc.Upload(did,
                                    upload_path,
                                    'LNGS_USERDISK',
                                    lifetime=None)
 
-                print("Dataset uploaded")
+                print("Dataset uploaded.")
+
             # if upload was successful, tell runDB
             rucio_rule = rc.GetRule(upload_structure=did, rse="LNGS_USERDISK")
             data_dict = {'host': "rucio-catalogue",
@@ -127,7 +114,7 @@ def do_upload(periodic_check=300):
                 if not in_rucio:
                     DB.AddDatafield(run['_id'], data_dict)
 
-                # add a DID list?
+                # add a DID list that's easy to query by DB.GetDid
                 # check if did field exists yet or not
                 if not run.get('dids'):
                     DB.db.find_one_and_update({'_id': run['_id']},
@@ -140,8 +127,12 @@ def do_upload(periodic_check=300):
                                               )
 
             # add rule to OSG and Nikhef
+            # TODO make this configurable
             for rse in ['UC_OSG_USERDISK', 'UC_DALI_USERDISK']:
                 add_rule(number, dtype, rse)
+
+            # finally, delete the eb copy
+            #remove_from_eb(number, dtype)
 
         if time.time() - last_check > periodic_check:
             check_transfers()
@@ -149,7 +140,7 @@ def do_upload(periodic_check=300):
 
 
 def add_rule(run_number, dtype, rse, lifetime=None, update_db=True):
-    did = get_did(run_number, dtype)
+    did = DB.GetDid(run_number, dtype)
     rc = RucioSummoner()
     result = rc.AddRule(did, rse, lifetime=lifetime)
     #if result == 1:
@@ -212,7 +203,7 @@ def check_transfers():
 
         # are there any other rucio rules transferring?
         if len(rucio_stati) > 0 and all([s == 'transferred' for s in rucio_stati]):
-            set_status(run['_id'], 'transferred')
+            DB.SetStatus(run['number'], 'transferred')
 
 
 def clear_db():
@@ -227,7 +218,7 @@ def clear_db():
                 DB.RemoveDatafield(docid, d)
                 time.sleep(1)
 
-        set_status(docid, 'needs_upload')
+        DB.SetStatus(run, 'needs_upload')
 
 
 def purge():
@@ -238,12 +229,14 @@ def purge():
 
     print("Checking %d runs if they can be purged from LNGS" % len(cursor))
     for run in cursor:
+        print(run['number'])
         # get datatypes that are still at LNGS, according to runDB
         dtypes = set()
         for d in run['data']:
             if d['host'] == 'rucio-catalogue' and d['location'] == 'LNGS_USERDISK':
                 dtypes.add(d['type'])
 
+        print(dtypes)
         # now loop over the LNGS dtypes to see if we can purge anything
         # require 2 rucio copies outside LNGS to purge
         lngs_datum = None
@@ -263,12 +256,8 @@ def purge():
 
 
             if rucio_copies >= 2:
-                # remove the non-rucio copy in /eb
-                #remove_from_eb(run['number'], dtype)
-                print("=== REMOVE FROM EB ===")
-
                 # remove the LNGS rule
-                did = get_did(run['number'], dtype)
+                did = DB.GetDid(run['number'], dtype)
                 scope, dset = did.split(':')
                 rules = rc._rucio.ListDidRules(scope, dset)
                 # get the rule id
@@ -284,14 +273,32 @@ def purge():
                     print("Deleting LNGS rule for %d %s" % (run['number'], dtype))
                     DB.RemoveDatafield(run['_id'], lngs_datum)
                     rc.DeleteRule(rule_id)
+
+                # TEMPORARY: check if there are still copies on eb, if so remove them.
+                # remove_from_eb(run['number'], dtype)
         break
 
 
 def remove_from_eb(number, dtype):
     query = {'number': number}
-    cursor = list(DB.db.find(query, {'number': 1, 'data': 1}))
+    cursor = DB.db.find_one(query, {'number': 1, 'data': 1})
+    ebdict = None
+    for d in cursor['data']:
+        if '.xenon.local' in d['host'] and d['type'] == dtype:
+            ebdict = d
 
+    # get name of file (really directory) of this dtype in eb storage
+    if ebdict is None:
+        print(f"No eventbuilder datum found for run {number} {dtype} Exiting.")
+        return
 
+    file = ebdict['location'].split('/')[-1]
+    path_to_rm = os.path.join(DATADIR, file)
+
+    print(path_to_rm)
+    print(ebdict)
+    shutil.rmtree(path_to_rm)
+    DB.RemoveDatafield(cursor['_id'], ebdict)
 
 
 def main():
