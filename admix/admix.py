@@ -5,7 +5,7 @@ import os
 
 from admix.helper.logger import Logger
 import admix.helper.helper as helper
-from admix import DEFAULT_CONFIG
+from admix import DEFAULT_CONFIG, __version__
 
 from admix.helper.decorator import NameCollector, ClassCollector
 from admix.tasks.example_task import RunExampleTask
@@ -15,11 +15,10 @@ from admix.tasks.init_transfers_with_mongodb import InitTransfersMongoDB
 from admix.tasks.download_with_mongodb import DownloadMongoDB
 from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
 from admix.tasks.purge_with_mongodb import PurgeMongoDB
+from admix.tasks.upload_from_lngs import UploadFromLNGS
 
 def version():
-    import admix
-    print("aDMIX is ready for Python3...")
-    print("Version:", admix.__version__)
+    print(__version__)
 
 def your_admix():
     print("advanced Data Management in XENON")
@@ -101,7 +100,6 @@ def your_admix():
         task_list = [args.task]
 
     #test if the list of tasks is available from the decorator
-    print(NameCollector)
     task_test = [True if i_task in NameCollector else False for i_task in task_list]
     task_list = np.array(task_list)[task_test]
 
@@ -113,21 +111,16 @@ def your_admix():
         print("file: {0}".format(helper.global_dictionary["admix_config"]))
         exit()
 
+    #Loop over the inizialization of all classes
+    for i_task in task_list:
+        ClassCollector[i_task].init()
+
     #Go for the loop
     while True:
 
         for i_task in task_list:
-            ClassCollector[i_task].init()
             ClassCollector[i_task].run()
-            #except:
-            #    helper.global_dictionary['logger'].Error(f" > Task {i_task} shows an exception")
-            #    pass
 
-            #lg.Error("Module did not start")
-
-            #We might need this later:
-            #ClassCollector[i_task].__del__()
 
         if args.once == True:
             break
-

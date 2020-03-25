@@ -6,7 +6,7 @@ import requests
 import admix.helper.helper as helper
 
 
-class MongoDB():
+class ConnectMongoDB():
 
     def __init__(self):
         self.db_mongodb_address = helper.get_hostconfig()['database']['address']
@@ -259,6 +259,37 @@ class MongoDB():
 
         return col
 
+    def GetDestinationTest(self, ts_beg=None, ts_end=None, sort="ascending"):
+
+        if ts_beg == None:
+            ts_beg = self.GetSmallest("start")
+        if ts_end == None:
+            ts_end = self.GetLargest("start")
+
+        #evaluate sort direction:
+        if sort == "ascending":
+            sort = -1 #ascending means from latest to earliest run
+        else:
+            sort = 1
+
+        col = self.db.aggregate(
+                    [
+                        {"$match": {'$and': [ {'start': {'$gte':ts_beg}}, {'start': {'$lte':ts_end}} ]}},
+                        {"$unwind": "$data"},
+                        {"$project": {
+                                        "name": 1, "number": 1, "destination": "$data.location",
+                                        "ndest": { "$cond": [{ "$isArray": "$data.location"}, {"$size": "$data.location"}, 0]},
+                                    }},
+#                        {"$match": {"ndest": {"$gt": 0}}},
+                        {"$project": {"name":1, "number":1}},
+                        {"$sort": {"start": sort}}
+
+                    ]
+                )
+
+        return col
+
+
     def GetHosts(self, host, ts_beg=None, ts_end=None, sort="ascending"):
         """Function: GetLocations
         Get a selection of events between two timestamps (ts_beg, ts_end) for a pre-selected host
@@ -472,5 +503,3 @@ class MongoDB():
 
     def GetDid(self, run_number, dtype):
         return self.db.find_one({'number': run_number}, {'dids': 1}).get('dids').get(dtype)
-
-

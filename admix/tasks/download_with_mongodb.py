@@ -382,4 +382,5 @@ class DownloadMongoDB():
 
 
     def __del__(self):
-        print( 'Upload mongoDB stops')
+        pass
+#        print( 'Download mongoDB stops')

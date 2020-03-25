@@ -4,10 +4,10 @@ import shutil
 from admix.interfaces.rucio_dataformat import ConfigRucioDataFormat
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.keyword import Keyword
-from admix.interfaces.database import MongoDB
+from admix.interfaces.database import ConnectMongoDB
 from admix.utils import make_did
 
-DB = MongoDB()
+DB = ConnectMongoDB()
 
 DTYPES = ['raw_records', 'raw_records_lowgain', 'raw_records_aqmon', 'raw_records_mv']
 DATADIR = '/eb/ebdata'
@@ -313,8 +313,8 @@ def main():
 
 
 if __name__ == "__main__":
-    #main()
+    main()
     # clear_db()
-    purge()
+    #purge()
     #check_transfers()
 

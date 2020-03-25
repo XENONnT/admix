@@ -93,11 +93,16 @@ class UploadMongoDB():
         #Get your collection of run numbers and run names
         collection = self.db.GetDestination(ts_beg, ts_end)
 
+        print(collection)
+
         #Run through the overview collection:
         for i_run in collection:
+
             #Extract run number and name from overview collection
             r_name = i_run['name']
             r_number = i_run['number']
+            #print("test")
+
             #Pull the full run information (according to projection which is pre-defined) by the run name
             db_info = self.db.GetRunByName(r_name)[0]
 
