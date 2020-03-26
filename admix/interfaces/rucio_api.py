@@ -49,7 +49,7 @@ class RucioAPI():
         self._print_to_screen = enable_print
         self._rucio_ping = None
         self._rucio_account = os.environ.get("RUCIO_ACCOUNT")
-        #self.ConfigHost()
+        self.ConfigHost()
 
     def __del__(self):
         """Function: __del__()
