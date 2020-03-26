@@ -55,7 +55,8 @@ def download(number, dtype, chunks=None, location='.',  tries=2, **kwargs):
         else:
             success = True
 
-    print(f"Download successful to {location}")
+    if success:
+        print(f"Download successful to {location}")
 
 
 def main():
@@ -66,6 +67,7 @@ def main():
     parser.add_argument("--chunks", nargs="*", help="Space-separated list of chunks to download.")
     parser.add_argument("--location", help="Path to put the downloaded data.", default='.')
     parser.add_argument('--tries', type=int, help="Number of tries to download the data.", default=2)
+    parser.add_argument('--rse', help='RSE to download from')
 
     args = parser.parse_args()
 
@@ -75,7 +77,8 @@ def main():
         chunks=None
 
 
-    download(args.number, args.dtype, chunks=chunks, location=args.location, tries=args.tries)
+    download(args.number, args.dtype, chunks=chunks, location=args.location, tries=args.tries,
+             rse=args.rse)
 
 
 if __name__ == "__main__":
