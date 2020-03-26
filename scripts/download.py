@@ -1,15 +1,9 @@
 import os
-import time
-import shutil
 from argparse import ArgumentParser
-
-from admix.interfaces.rucio_dataformat import ConfigRucioDataFormat
 from admix.interfaces.rucio_summoner import RucioSummoner
-from admix.interfaces.keyword import Keyword
-from admix.interfaces.database import MongoDB
-from admix.utils import make_did
+from admix.interfaces.database import ConnectMongoDB
 
-DB = MongoDB()
+DB = ConnectMongoDB()
 
 
 def download(number, dtype, chunks=None, location='.',  tries=2, **kwargs):
