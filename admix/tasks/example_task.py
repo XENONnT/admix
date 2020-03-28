@@ -27,29 +27,29 @@ class RunExampleTask():
         """
 
         #Init the runDB
-        #self.db = ConnectMongoDB()
-        #self.db.Connect()
+        self.db = ConnectMongoDB()
+        self.db.Connect()
 
         #We want the first and the last run:
-        #self.gboundary = self.db.GetBoundary()
-        #self.run_nb_min = self.gboundary['min_number']
-        #self.run_nb_max = self.gboundary['max_number']
-        #self.run_ts_min = self.gboundary['min_start_time']
-        #self.run_ts_max = self.gboundary['max_start_time']
+        self.gboundary = self.db.GetBoundary()
+        self.run_nb_min = self.gboundary['min_number']
+        self.run_nb_max = self.gboundary['max_number']
+        self.run_ts_min = self.gboundary['min_start_time']
+        self.run_ts_max = self.gboundary['max_start_time']
 
         #Init the Rucio data format evaluator in three steps:
         #self.rc_reader = ConfigRucioDataFormat()
         #self.rc_reader.Config(helper.get_hostconfig('rucio_template'))
 
         #This class will evaluate your destinations:
-        #self.destination = Destination()
+        self.destination = Destination()
 
         #Since we deal with an experiment, everything is predefine:
-        #self.exp_temp = Templater()
-        #self.exp_temp.Config(helper.get_hostconfig()['template'])
+        self.exp_temp = Templater()
+        self.exp_temp.Config(helper.get_hostconfig()['template'])
 
         #Init a class to handle keyword strings:
-        #self.keyw = Keyword()
+        self.keyw = Keyword()
 
         #Init Rucio for later uploads and handling:
         #self.rc = RucioSummoner(helper.get_hostconfig("rucio_backend"))
@@ -112,9 +112,26 @@ class RunExampleTask():
         #Here begins your task:
         ...
 
+        print(ts_beg,ts_end)
+
+        #Get your collection of run numbers and run names
+        collection = self.db.GetDestinationTest(ts_beg, ts_end)
+
+        #print(collection)
+
+        #Run through the overview collection:
+        for i_run in collection:
+
+            #Extract run number and name from overview collection
+#            r_name = i_run['name']
+#            r_number = i_run['number']
+            print(i_run)
+
+
         return 0
 
     def __del__(self):
         """Use this function to clean up your class settings if necessary"""
 
-        print('dummy stop')
+#        print('dummy stop')
+        pass

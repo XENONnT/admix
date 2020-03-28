@@ -30,6 +30,8 @@ class ConnectMongoDB():
 
         #Define the basic projections for mongoDB
         self.SetProjection(projection=None, from_config=True)
+        # make connection to runDB
+        self.Connect()
 
     def _make_connection_string(self):
         if "mongodb://" not in self.db_mongodb_address:
@@ -185,26 +187,6 @@ class ConnectMongoDB():
         query = {key:value}
         return list(self.db.find(query, projection={key: True, '_id':True, runDB_tag_timestamp:True}))[0][runDB_tag_timestamp]
 
-    def SetStatus(self, id_field, type=None, host=None, status=None):
-        #This function is database entry specific:
-        #It changes a list (data) which contains dictionaries
-        #In particular you can change here the status field
-        run = self.GetRunByID(id_field)[0]
-
-        old_data = run['data']
-        new_data = old_data.copy()
-
-        if type != None and host!=None and status != None:
-            for i_run in new_data:
-                if i_run['type'] != type:
-                    continue
-                if i_run['host'] != host:
-                    continue
-                if status != None:
-                    i_run['status'] = status
-
-        self.db.find_one_and_update({"_id": id_field},
-                                        {"$set": {"data": new_data}})
 
     def SetDestination(self, id_field, type=None, host=None, destination=None):
         #This function is database entry specific:
@@ -276,6 +258,37 @@ class ConnectMongoDB():
                 )
 
         return col
+
+    def GetDestinationTest(self, ts_beg=None, ts_end=None, sort="ascending"):
+
+        if ts_beg == None:
+            ts_beg = self.GetSmallest("start")
+        if ts_end == None:
+            ts_end = self.GetLargest("start")
+
+        #evaluate sort direction:
+        if sort == "ascending":
+            sort = -1 #ascending means from latest to earliest run
+        else:
+            sort = 1
+
+        col = self.db.aggregate(
+                    [
+                        {"$match": {'$and': [ {'start': {'$gte':ts_beg}}, {'start': {'$lte':ts_end}} ]}},
+                        {"$unwind": "$data"},
+                        {"$project": {
+                                        "name": 1, "number": 1, "destination": "$data.location",
+                                        "ndest": { "$cond": [{ "$isArray": "$data.location"}, {"$size": "$data.location"}, 0]},
+                                    }},
+#                        {"$match": {"ndest": {"$gt": 0}}},
+                        {"$project": {"name":1, "number":1}},
+                        {"$sort": {"start": sort}}
+
+                    ]
+                )
+
+        return col
+
 
     def GetHosts(self, host, ts_beg=None, ts_end=None, sort="ascending"):
         """Function: GetLocations
@@ -483,67 +496,10 @@ class ConnectMongoDB():
             #for i_run in run['data']:
                 #print(" <new> -", i_run['host'], i_run['location'], i_run['destination'])
 
-class RestAPI():
+    def SetStatus(self, number, status):
+        self.db.find_one_and_update({'number': number},
+                                  {'$set': {'status': status}}
+                                  )
 
-    def __init__(self):
-        self.db_restapi_string = helper.get_hostconfig()['database']['address']
-        self.db_restapi_token  = helper.get_hostconfig()['database']['token']
-
-    def Request(self, thing):
-        try:
-            conn = http.client.HTTPConnection(self.db_restapi_string)
-
-            headers = {
-                    'Content-Type': "application/json",
-                    'cache-control': "no-cache",
-                    'Authorization': "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE1NDAzMTIzNzEsImV4cCI6MTU0MDM5ODc3MSwicmZfZXhwIjoxNTQyOTA0MzcxLCJqdGkiOiI5MTBhMTNjOC05YzU0LTRhNzMtOTg1My04MzgyM2E4YTBiZDciLCJpZCI6MiwicmxzIjoiYWRtaW4scHJvZHVjdGlvbix1c2VyIn0.xgaDNGKukAd8bCBSjQnsT8Ss1y7vCImBLPMuqWOO52E"
-                    }
-
-            conn.request("GET", "run,number,10144,data,dids,", headers=headers)
-
-            res = conn.getresponse()
-            data = res.read()
-            print(data)
-
-            #r = requests.get(self.db_restapi_string)
-            return r
-        except requests.exceptions.RequestException as e:  # This is the correct syntax
-            return None
-
-    def ShowSitemap(self):
-        print("sitemap")
-        print(self.db_restapi_string)
-        r = self.Request("sitemap")
-        print(r)
-
-    def GetRunByNumber(self, run_number):
-        return 2
-
-    def GetQuery(self, query):
-        return 3
-
-#def DatabaseStyle(f):
-    #def Select(f):
-        #print("f in")
-        #f.Run()
-        #print("f out")
-    #return Select
-
-
-class DataBase(ConnectMongoDB, RestAPI):
-    def __init__(self):
-        print("I am your database")
-        self.db_type     = helper.get_hostconfig()['database']['type']
-
-        if self.db_type == "MongoDB":
-            self.cdb = ConnectMongoDB()
-            self.cdb.Connect()
-        elif self.db_type == "RestAPI":
-            self.cdb = RestAPI()
-
-
-    def GetRunByNumber(self, number):
-        return self.cdb.GetRunByNumber(number)
-
-    def GetQuery(self, query):
-        return self.cdb.GetQuery(query)
+    def GetDid(self, run_number, dtype):
+        return self.db.find_one({'number': run_number}, {'dids': 1}).get('dids').get(dtype)

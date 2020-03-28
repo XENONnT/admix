@@ -7,6 +7,7 @@
 
 """
 #from __future__ import with_statement
+import os
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.client.downloadclient import DownloadClient
@@ -47,7 +48,8 @@ class RucioAPI():
         """
         self._print_to_screen = enable_print
         self._rucio_ping = None
-        self._rucio_account = None
+        self._rucio_account = os.environ.get("RUCIO_ACCOUNT")
+        self.ConfigHost()
 
     def __del__(self):
         """Function: __del__()
@@ -125,7 +127,7 @@ class RucioAPI():
         return self._rucio_client.ping
 
     #The scope section:
-    def CreateScope(self, account, scope):
+    def CreateScope(self, account, scope, verbose=False):
         """Function: CreateScope()
 
         Create a new Rucio scope what does not yet exists yet.
@@ -143,7 +145,10 @@ class RucioAPI():
         except AccessDenied as e:
             print(e)
         except Duplicate as e:
-            print(e)
+            if verbose:
+                print(e)
+            else:
+                pass
         return result
 
         #Several list commands
@@ -367,7 +372,8 @@ class RucioAPI():
             print(e)
         return result
 
-    def CreateDataset(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None, files=None, rse=None):
+    def CreateDataset(self, scope, name, statuses=None, meta=None,
+                      rules=None, lifetime=None, files=None, rse=None, verbose=False):
         """Function CreateDataset(...)
 
         Follows the Rucio API to create a Rucio dataset based on scope and dataset name. It accept also further
@@ -380,6 +386,7 @@ class RucioAPI():
         :param meta:     Put in further meta data which are going to be connected to the container. (optional)
         :param rules:    Define transfer rules which apply to the container immediately. (optional)
         :param lifetime: Set a Rucio lifetime to the container if you with (optional)
+        :param verbose:  Flag to print DataIdentifierAlreadyExists exceptions
         :return result:  0 if successful, 1 for failure
         """
         result = 1
@@ -388,7 +395,8 @@ class RucioAPI():
                                            files=None, rse=None)
             result = 0
         except DataIdentifierAlreadyExists as e:
-            print(e)
+            if verbose:
+                print(e)
         return result
 
     #Rules:
@@ -468,6 +476,14 @@ class RucioAPI():
         except:
             print("No replication rule to get")
         return result
+
+    def DeleteRule(self, rule_id):
+        """Function: DeleteRule(...)
+        
+        Deletes a replication rule.
+        :param rule_id: A rucio rule id string
+        """
+        self._rucio_client.delete_replication_rule(rule_id, purge_replicas=True)
 
     #Metadata:
     def GetMetadata(self, scope, name):

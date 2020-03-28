@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import with_statement
-#Logger:
-import logging
 import os
-import time
 import json
 import datetime
 import time
 import numpy as np
+from .. import DEFAULT_CONFIG
 
 #Create global variables:
 global_dictionary = {}
@@ -23,24 +21,19 @@ def make_global(dict_key, dict_value):
     if dict_key not in global_dictionary:
         global_dictionary[dict_key]=dict_value
 
+
 def get_hostconfig(key=None):
-    with open(global_dictionary['admix_config'], 'r') as data_file:
+    with open(global_dictionary.get('admix_config', DEFAULT_CONFIG), 'r') as data_file:
         data = json.load(data_file)
         if key in data:
             return data[key]
         else:
             return data
-    #try:
-        #with open(global_dictionary['admix_config'], 'r') as data_file:
-            #data = json.load(data_file)
-            #return data
-    #except:
-        #print("aDMIX host configuration is not loaded")
-        #exit()
 
 
 def get_hostname():
     return os.environ.get('HOSTNAME')
+
 
 def run_number_converter_full(run_number=None):
     #convert the run number input from terminal by two
@@ -72,6 +65,7 @@ def run_number_converter_full(run_number=None):
         nb_array = None
 
     return nb_array
+
 
 def eval_run_numbers(run_numbers=None, run_number_min=None, run_number_max=None):
     """Function: eval_run_numbers

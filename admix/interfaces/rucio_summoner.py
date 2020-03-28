@@ -22,6 +22,7 @@ import hashlib
 class RucioSummoner():
     def __init__(self, rucio_backend="API"):
         self.rucio_backend=rucio_backend
+        self.rucio_account = os.environ.get("RUCIO_ACCOUNT")
         self._rucio = None
         if self.rucio_backend=="API":
             self._rucio = ClassCollector["RucioAPI"]
@@ -172,48 +173,38 @@ class RucioSummoner():
 #                print(i_rucio['type'])
 #        print(upload_structure)
 
-    def AddRules(self, upload_structure=None, rse_rules=None, level=-1):
+    def AddRule(self, did, rse, lifetime=None, protocol='rucio-catalogue'):
         """Add rules for a Rucio DID or dictionary template.
 
-        :param: upload_structure: A string (Rucio DID form of "scope:name") or a template dictionary
-        :param: rse_rules: A list of strings which follow a certain template of ["{protocol}:{rse}:{lifetime}",...]
-                           With:
-                           protocol: rucio-catalogue
-                           rse: An existing Rucio storage element (RSE)
-                           lifetime: Choose a lifetime of the transfer rule in seconds or None
-        :param: level: If a template dictionary is used, the level refers to the depth of the sorted dictionary at
-                which the 'did' is chosen from.
+        :param: did: Rucio DID form of "scope:name"
+        :param: rse: An existing Rucio storage element (RSE)
+        :param: lifetime: Choose a lifetime of the transfer rule in seconds or None
+        :param: protocol: Should always be 'rucio-catalogue'?
         :return:
         """
 
-        #analyse the function input regarding its allowed definitions:
-        val_scope, val_dname = self._VerifyStructure(upload_structure, level)
+        # analyse the function input regarding its allowed definitions:
+        val_scope, val_dname = self._VerifyStructure(did)
 
-        #Get Rules:
-        r_rules = self._rucio.ListDidRules(val_scope, val_dname)
-        r_rse_list = []
-        for i_rule in r_rules:
-            r_rse = i_rule['rse_expression']
-            r_rse_list.append(r_rse)
+        # Get current rules for this did
+        rules = self._rucio.ListDidRules(val_scope, val_dname)
+        current_rses = [r['rse_expression'] for r in rules]
 
-        for i_rule in rse_rules:
-            g_ptr = i_rule.split(":")[0]
-            g_rse = i_rule.split(":")[1]
-            g_rlt = i_rule.split(":")[2]
-            if g_rlt == "None":
-                g_rlt = None
-            else:
-                g_rlt = int(g_rlt)
-            if g_rse in r_rse_list:
-                continue
+        # if a rule already exists, exit
+        if rse in current_rses:
+            print("There already exists a rule for DID %s at RSE %s" % (did, rse))
+            return 1
 
-            dids = {}
-            dids['scope'] = val_scope
-            dids['name']  = val_dname
-            self._rucio.AddRule( [dids],
-                                 copies=1,
-                                 rse_expression=g_rse,
-                                 lifetime=g_rlt)
+        # add rule
+        did_dict= {}
+        did_dict['scope'] = val_scope
+        did_dict['name']  = val_dname
+
+        self._rucio.AddRule( [did_dict],
+                             copies=1,
+                             rse_expression=rse,
+                             lifetime=lifetime)
+        return 0
 
     def UpdateRules(self, upload_structure=None, rse_rules=None, level=-1):
         """Update existing rules for a Rucio DID or dictionary template.
@@ -261,6 +252,9 @@ class RucioSummoner():
             result[g_rse]['lifetime'] = g_rlt
 
         return result
+
+    def DeleteRule(self, rule_id):
+        self._rucio.DeleteRule(rule_id)
 
     def _rule_status_dictionary(self):
         """This dictionary defines the full set of rule information
@@ -452,7 +446,7 @@ class RucioSummoner():
             rule['cnt_repl'] = i_rule['locks_replicating_cnt']
             rule['cnt_stuck'] = i_rule['locks_stuck_cnt']
             rule['id'] = i_rule['id']
-            print("_", i_rule['expires_at'], type(i_rule['expires_at']))
+            #print("_", i_rule['expires_at'], type(i_rule['expires_at']))
             if i_rule['expires_at'] == None:
                 rule['expires'] = None
             else:
@@ -480,7 +474,7 @@ class RucioSummoner():
         #upload destination already a rule exists in Rucio
 
         #HINT: GetRule returns None if no rule found now!
-        print(rule)
+        #print(rule)
 
         r_status = None
         if rule['exists'] == False:
@@ -554,9 +548,9 @@ class RucioSummoner():
             return (False, diff_rucio, diff_disk)
 
     #Rucio download section
-    def DownloadDids(self, dids=None, download_path=None, rse=None,
+    def DownloadDids(self, dids=None, download_path=".", rse=None,
                      no_subdir=False, transfer_timeout=None,
-                     num_threads=2, trace_custom_fields={}):
+                     num_threads=3, trace_custom_fields={}):
         """Function: DownloadDids(...)
 
         This functions offers to download a list if Rucio DIDs which are given by a list.
@@ -598,7 +592,7 @@ class RucioSummoner():
 
         return result
 
-    def DownloadChunks(self, download_structure=None, chunks=None, download_path=None,
+    def DownloadChunks(self, download_structure=None, chunks=None, download_path=".",
                        rse=None, no_subdir=False, transfer_timeout=None,
                        num_threads=2, trace_custom_fields={}, level=-1):
         """Function: DownloadChunks(...)
@@ -637,7 +631,7 @@ class RucioSummoner():
 
         return result
 
-    def Download(self, download_structure=None, download_path=None,
+    def Download(self, download_structure=None, download_path=".",
                  rse=None, no_subdir=False, transfer_timeout=None,
                  num_threads=2, trace_custom_fields={}, level=-1):
         """Function: Download(...)
@@ -830,35 +824,8 @@ class RucioSummoner():
         return (result, result_rule)
 
 
-    def Upload(self, upload_structure=None, upload_path=None,
-               rse=None, rse_lifetime=None, level=-1):
+    def Upload(self, did, upload_path, rse, lifetime=None):
         """Function: Upload(...)
-
-        inputs: upload_structure - a dictionary
-         - The key words are not import. It is important that
-           you can sort them: A1, A8, A6 -> A1, A6, A8
-         - The value field must include:
-           - did: The data identifier for the the structure
-           - type: Describes what kind of upload structure (Container, dataset, files)
-         - Data structures are created along the way
-           of THE SORTED KEYs
-         - The LAST data structure receives always the upload
-
-        An example from a sorted template dictionary is:
-
-        |   Level: L0
-        |    ├── type rucio_container
-        |    ├── did x1t_SR001:x1t_SR001_data
-        |    └── tag_words ['science_run']
-        |   Level: L1
-        |    ├── type rucio_container
-        |    ├── did x1t_SR001:x1t_SR001_190101_1300_tpc
-        |    └── tag_words ['science_run', 'date', 'time', 'detector']
-        |   Level: L2
-        |    ├── type rucio_dataset
-        |    ├── did x1t_SR001_190101_1300_tpc:raw_records-58340a130a541c95997fd1c442930427b04eac30
-        |    └── tag_words ['science_run', 'date', 'time', 'detector', 'plugin', 'hash']
-
         The data files of the upload_path are always uploaded to the last Rucio dataset.
 
         :param upload_structure: A string (Rucio DID form of "scope:name") or a template dictionary
@@ -871,65 +838,33 @@ class RucioSummoner():
         :return result: 0 for success, 1 for failure
         """
 
-        result = 1
 
-        #Check first if the template dictionary has the correct level structure
-        is_template_dictionary = self._IsTemplate(upload_structure)
-        if is_template_dictionary == False:
-            #the input template might be wrong, no further upload is triggered
-            return result
+        scope, dataset = did.split(':')
 
-        #Begin to create the upload structure in Rucio according to the input template dictionary:
-        #-----
-        #Sort the keys of the template dictionary by string value:
-        sorted_keys = [key for key in sorted(upload_structure.keys())]
+
+        # create scope. If scope exists already, exception will be handled silently unless verbose=True is passed
+        self._rucio.CreateScope(account=self.rucio_account, scope=scope)
+
+        # create dataset
+        self._rucio.CreateDataset(scope, dataset)
+
+        # add a rule for this dataset
+        self._rucio.AddRule([dict(scope=scope, name=dataset)], 1, rse, lifetime=lifetime)
+
+
+        # smallest lifetime is 1 day?
+        if lifetime != None and int(lifetime) < 86400:
+            lifetime = 86400
 
         #Prepare an upload dictionary which is used later to upload to Rucio
-        upload_dict = {}
-        upload_dict['path'] = upload_path + "/"     #define path to data
-        upload_dict['rse'] = rse                    #define RSE
-        #upload_dict['lifetime'] = rse_lifetime      #define Lifetime
-        upload_dict['did_scope'] = None             #define did_scope -> fill later
+        upload_dict = dict(path=upload_path + "/",
+                           rse=rse,
+                           lifetime=lifetime,
+                           did_scope=scope,
+                           dataset_scope=scope,
+                           dataset_name=dataset
+                           )
 
-        #Loop over level-sorted upload_structure:
-        for i_nb, i_key in enumerate(sorted_keys):
-
-            # Extract Rucio information according to level in the template dictionary
-            val_did = upload_structure[i_key]['did']
-            val_type = upload_structure[i_key]['type']
-            val_scope = val_did.split(":")[0]
-            val_dname = val_did.split(":")[1]
-
-            # Create scope:
-            self._rucio.CreateScope(account=self.rucio_account,
-                                    scope=val_scope)
-
-            # Create container or dataset, depending on 'type' in template dictionary
-            if val_type == "rucio_container":
-                self._rucio.CreateContainer(val_scope, val_dname)
-            elif val_type == "rucio_dataset":
-                self._rucio.CreateDataset(val_scope, val_dname)
-                upload_dict['dataset_scope'] = val_scope
-                upload_dict['dataset_name'] = val_dname
-                upload_dict['did_scope'] = val_scope
-
-            #In addition to creating the container and dataset we are going to assemble everything by attaching it
-            attach = {}
-            attach['scope'] = val_scope
-            attach['name'] = val_dname
-            if i_nb > 0 and val_before != None:
-                self._rucio.AttachDids(val_before.split(":")[0],
-                                       val_before.split(":")[1],
-                                       attach, rse=rse)
-
-            # Create a rule for the last element:
-            if i_nb + 1 == len(sorted_keys):
-                if rse_lifetime != None and int(rse_lifetime) < 86400:
-                    rse_lifetime = 86400
-                self._rucio.AddRule([attach], 1, rse, lifetime=rse_lifetime)
-
-            # Set previous scope:dname for attachments
-            val_before = val_did
-
+        # finally, upload the dataset
         result = self._rucio.Upload(upload_dict=[upload_dict])
         return result

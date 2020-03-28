@@ -5,13 +5,9 @@ import os
 
 from admix.helper.logger import Logger
 import admix.helper.helper as helper
+from admix import DEFAULT_CONFIG, __version__
 
-#from admix.runDB import xenon_runDB as XenonRunDatabase
-#from admix.tasks import tester as TestaDMIX
-
-#import the decorators:
 from admix.helper.decorator import NameCollector, ClassCollector
-#import all your tasks:
 from admix.tasks.example_task import RunExampleTask
 from admix.tasks.upload_with_mongodb import UploadMongoDB
 from admix.tasks.update_runDB import UpdateRunDBMongoDB
@@ -19,11 +15,10 @@ from admix.tasks.init_transfers_with_mongodb import InitTransfersMongoDB
 from admix.tasks.download_with_mongodb import DownloadMongoDB
 from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
 from admix.tasks.purge_with_mongodb import PurgeMongoDB
+from admix.tasks.upload_from_lngs import UploadFromLNGS
 
 def version():
-    import admix
-    print("aDMIX is ready for Python3...")
-    print("Version:", admix.__version__)
+    print(__version__)
 
 def your_admix():
     print("advanced Data Management in XENON")
@@ -35,7 +30,7 @@ def your_admix():
     parser.add_argument('task', nargs="?", default="default",
                         help="Select an aDMIX task")
     # Add arguments for the process manager:
-    parser.add_argument('--admix-config', dest="admix_config", type=str,
+    parser.add_argument('--admix-config', dest="admix_config", type=str, default=DEFAULT_CONFIG,
                         help="Load your host configuration")
     parser.add_argument('--no-update', dest='no_update', action='store_false',
                         help="Add this option to prevent aDMIX updating the Xenon database")
@@ -116,21 +111,16 @@ def your_admix():
         print("file: {0}".format(helper.global_dictionary["admix_config"]))
         exit()
 
+    #Loop over the inizialization of all classes
+    for i_task in task_list:
+        ClassCollector[i_task].init()
+
     #Go for the loop
     while True:
 
         for i_task in task_list:
-            ClassCollector[i_task].init()
             ClassCollector[i_task].run()
-            #except:
-            #    helper.global_dictionary['logger'].Error(f" > Task {i_task} shows an exception")
-            #    pass
 
-            #lg.Error("Module did not start")
-
-            #We might need this later:
-            #ClassCollector[i_task].__del__()
 
         if args.once == True:
             break
-
