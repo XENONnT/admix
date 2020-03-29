@@ -48,7 +48,9 @@ def download(number, dtype, hash=None, chunks=None, location='.',  tries=3, **kw
         dids = [did]
 
     # rename the folder that will be downloaded
-    path = did.replace(':', '_')
+    path = did.replace(':', '-')
+    # drop the xnt at the beginning
+    path = path.replace('xnt_', '')
 
     location = os.path.join(location, path)
     os.makedirs(location, exist_ok=True)
