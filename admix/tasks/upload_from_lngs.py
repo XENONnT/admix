@@ -27,7 +27,7 @@ class UploadFromLNGS():
 
 
         #Define data types
-        self.DTYPES = ['raw_records', 'raw_records_lowgain', 'raw_records_aqmon', 'raw_records_mv']
+        self.DTYPES = ['raw_records', 'raw_records_he', 'raw_records_aqmon', 'raw_records_mv']
         self.DATADIR = '/eb/ebdata'
         self.periodic_check = 300
 
