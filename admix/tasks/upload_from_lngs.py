@@ -62,6 +62,7 @@ class UploadFromLNGS():
         self.rc.SetProxyTicket(helper.get_hostconfig('rucio_x509'))
         self.rc.SetHost(helper.get_hostconfig('host'))
         self.rc.ConfigHost()
+#        print(self.rc.Whoami())
 
 
     def find_data_to_upload(self):
