@@ -27,7 +27,7 @@ class UploadFromLNGS():
 
 
         #Define data types
-        self.DTYPES = ['raw_records', 'raw_records_lowgain', 'raw_records_aqmon', 'raw_records_mv']
+        self.DTYPES = ['raw_records', 'raw_records_he', 'raw_records_aqmon', 'raw_records_mv']
         self.DATADIR = '/eb/ebdata'
         self.periodic_check = 300
 
@@ -65,7 +65,8 @@ class UploadFromLNGS():
 
 
     def find_data_to_upload(self):
-        cursor = self.db.db.find({'status': 'needs_upload'}, {'number': 1, 'data': 1})
+#        cursor = self.db.db.find({'status': 'needs_upload'}, {'number': 1, 'data': 1})
+        cursor = self.db.db.find({'status': 'eb_ready_to_upload'}, {'number': 1, 'data': 1})
         ids = []
 
         for r in cursor:
@@ -173,14 +174,14 @@ class UploadFromLNGS():
 
         # Finds new data
 #        query = {'number': {'$gte': 7158},
-        query = {'number': {'$gte': 7150},
-                 "status": {"$exists": False},
-             }
+#        query = {'number': {'$gte': 7150},
+#                 "status": {"$exists": False},
+#             }
 
-        cursor = self.db.db.find(query, {'number': 1})
+#        cursor = self.db.db.find(query, {'number': 1})
 
-        for r in cursor:
-            self.db.SetStatus(r['number'], 'needs_upload')
+#        for r in cursor:
+#            self.db.SetStatus(r['number'], 'needs_upload')
 
 
         # List runs to upload
@@ -188,11 +189,13 @@ class UploadFromLNGS():
 
         cursor = self.db.db.find({'_id': {"$in": ids_to_upload},
 #                             'number': 7157
-                             'number': 7126
+#                             'number': 7125
                          },
                             {'number': 1, 'data': 1, 'dids': 1})
 
         cursor = list(cursor)
+
+        helper.global_dictionary['logger'].Info('Runs that will be processed are {0}'.format([c["number"] for c in cursor]))
 
         # Check transfers
         self.check_transfers()
