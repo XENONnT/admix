@@ -2,11 +2,13 @@ import os
 from argparse import ArgumentParser
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
+from admix.utils.naming import make_did
+from utilix.config import Config
 
 DB = ConnectMongoDB()
 
 
-def download(number, dtype, chunks=None, location='.',  tries=2, **kwargs):
+def download(number, dtype, hash=None, chunks=None, location='.',  tries=3, **kwargs):
     """Function download()
     
     Downloads a given run number using rucio
@@ -21,9 +23,18 @@ def download(number, dtype, chunks=None, location='.',  tries=2, **kwargs):
     # setup rucio client
     rc = RucioSummoner()
 
-    # Get the DID from the runsDB using the number and data type
-    # Warning: be mindful of different versions. This assumes we maintain the runDB 'dids' field correctly.
-    did = DB.GetDid(number, dtype)
+    # get the DID
+    # this assumes we always keep the same naming scheme
+    # if no hash is passed, get it from the utilix config
+    if not hash:
+        cfg = Config()
+        # all 'raw_record' dtypes will have same hash, according to Joran
+        dt = dtype
+        if 'raw_records' in dtype:
+            dt = 'raw_records'
+        hash = cfg.get('Lineages', dt)
+
+    did = make_did(number, dtype, hash)
 
     # TODO determine which rse to download from?
 
@@ -37,7 +48,9 @@ def download(number, dtype, chunks=None, location='.',  tries=2, **kwargs):
         dids = [did]
 
     # rename the folder that will be downloaded
-    path = did.replace(':', '_')
+    path = did.replace(':', '-')
+    # drop the xnt at the beginning
+    path = path.replace('xnt_', '')
 
     location = os.path.join(location, path)
     os.makedirs(location, exist_ok=True)
