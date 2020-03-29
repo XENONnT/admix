@@ -38,7 +38,7 @@ setup(
                                     'admix.helper',
                                     'admix.utils'
                                     ]),
-    package_data={'admix.helper': ['defunc_']},
+    package_data={'admix.helper': ['defunc_'], 'scripts': ['download.py']},
     include_package_data=True,
     install_requires=requirements,
     entry_points={
