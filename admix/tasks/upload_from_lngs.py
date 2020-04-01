@@ -81,7 +81,10 @@ class UploadFromLNGS():
 
 
     def check_transfers(self):
-        cursor = self.db.db.find({'status': 'transferring'}, {'number': 1, 'data': 1})
+        cursor = self.db.db.find(
+            {'status': 'transferring'},
+#            {'number':7185},
+            {'number': 1, 'data': 1})
 
         cursor = list(cursor)
 
@@ -114,8 +117,8 @@ class UploadFromLNGS():
                             rucio_stati.append('error')
 
                             # are there any other rucio rules transferring?
-                if len(rucio_stati) > 0 and all([s == 'transferred' for s in rucio_stati]):
-                    self.db.SetStatus(run['number'], 'transferred')
+            if len(rucio_stati) > 0 and all([s == 'transferred' for s in rucio_stati]):
+                self.db.SetStatus(run['number'], 'transferred')
 
 
 
@@ -190,7 +193,7 @@ class UploadFromLNGS():
 
         cursor = self.db.db.find({'_id': {"$in": ids_to_upload},
 #                             'number': 7157
-#                             'number': 7125
+#                             'number': 7177
                          },
                             {'number': 1, 'data': 1, 'dids': 1})
 
@@ -233,8 +236,8 @@ class UploadFromLNGS():
 
                 # check if a rule already exists for this DID on LNGS
                 rucio_rule = self.rc.GetRule(upload_structure=did, rse="LNGS_USERDISK")
-                helper.global_dictionary['logger'].Info('{0}'.format(in_rucio))
-                helper.global_dictionary['logger'].Info('{0}'.format(rucio_rule))
+                helper.global_dictionary['logger'].Info('It was already in Rucio : {0}'.format(in_rucio))
+                helper.global_dictionary['logger'].Info('Rucio rule : {0}'.format(rucio_rule))
 
                 # if not in rucio already and no rule exists, upload into rucio
                 if not in_rucio and not rucio_rule['exists']:
@@ -273,7 +276,9 @@ class UploadFromLNGS():
 
                 # add rule to OSG and Nikhef
                 # TODO make this configurable
-                for rse in ['UC_OSG_USERDISK', 'UC_DALI_USERDISK']:
+#                for rse in ['UC_OSG_USERDISK', 'UC_DALI_USERDISK']:
+#                for rse in ['UC_OSG_USERDISK', 'UC_DALI_USERDISK','CNAF_TAPE2_USERDISK','CNAF_USERDISK','NIKHEF2_USERDISK','CCIN2P3_USERDISK']:
+                for rse in ['UC_OSG_USERDISK', 'UC_DALI_USERDISK','NIKHEF2_USERDISK']:
                     self.add_rule(number, dtype, rse)
 
                 # finally, delete the eb copy
