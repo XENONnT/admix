@@ -27,9 +27,12 @@ class UploadFromLNGS():
 
 
         #Define data types
-        self.DTYPES = ['raw_records', 'raw_records_he', 'raw_records_aqmon', 'raw_records_mv']
-        self.DATADIR = '/eb/ebdata'
-        self.periodic_check = 300
+        self.DTYPES = helper.get_hostconfig()['rawtype']
+        self.DATADIR = helper.get_hostconfig()['path_data_to_upload']
+        self.periodic_check = helper.get_hostconfig()['upload_periodic_check']
+#        self.DTYPES = ['raw_records', 'raw_records_he', 'raw_records_aqmon', 'raw_records_mv']
+#        self.DATADIR = '/eb/ebdata'
+#        self.periodic_check = 300
 
         #Init the runDB
         self.db = ConnectMongoDB()
@@ -122,8 +125,8 @@ class UploadFromLNGS():
 
 
 
-    def add_rule(self,run_number, dtype, rse, lifetime=None, update_db=True):
-        did = self.db.GetDid(run_number, dtype)
+    def add_rule(self,run_number, dtype, hash, rse, lifetime=None, update_db=True):
+        did = make_did(run_number, dtype, hash)
         result = self.rc.AddRule(did, rse, lifetime=lifetime)
         #if result == 1:
         #   return
@@ -195,7 +198,7 @@ class UploadFromLNGS():
 #                             'number': 7157
 #                             'number': 7177
                          },
-                            {'number': 1, 'data': 1, 'dids': 1})
+                            {'number': 1, 'data': 1})
 
         cursor = list(cursor)
 
@@ -245,7 +248,7 @@ class UploadFromLNGS():
                                        upload_path,
                                        'LNGS_USERDISK',
                                        lifetime=None)
-                    helper.global_dictionary['logger'].Info('Dataset uploaded.')
+                    helper.global_dictionary['logger'].Info('Data type uploaded.')
 
                 # if upload was successful, tell runDB
                 rucio_rule = self.rc.GetRule(upload_structure=did, rse="LNGS_USERDISK")
@@ -264,15 +267,15 @@ class UploadFromLNGS():
 
                     # add a DID list that's easy to query by DB.GetDid
                     # check if did field exists yet or not
-                    if not run.get('dids'):
-                        self.db.db.find_one_and_update({'_id': run['_id']},
-                                                  {'$set': {'dids': {dtype: did}}}
-                        )
-                    else:
-                        helper.global_dictionary['logger'].Info('Updating DID list')
-                        self.db.db.find_one_and_update({'_id': run['_id']},
-                                                  {'$set': {'dids.%s' % dtype: did}}
-                        )
+#                    if not run.get('dids'):
+#                        self.db.db.find_one_and_update({'_id': run['_id']},
+#                                                  {'$set': {'dids': {dtype: did}}}
+#                        )
+#                    else:
+#                        helper.global_dictionary['logger'].Info('Updating DID list')
+#                        self.db.db.find_one_and_update({'_id': run['_id']},
+#                                                  {'$set': {'dids.%s' % dtype: did}}
+#                        )
 
                 # add rule to OSG and Nikhef
                 # TODO make this configurable

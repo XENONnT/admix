@@ -2,6 +2,7 @@ import argparse
 import logging
 import numpy as np
 import os
+import time
 
 from admix.helper.logger import Logger
 import admix.helper.helper as helper
@@ -81,7 +82,7 @@ def your_admix():
         print("You are at {0}".format( helper.get_hostname()))
         exit()
 
-    helper.functdef()
+#    helper.functdef()
 
     #Setup the logger in a very basic modi
     lg = Logger(logpath=helper.get_hostconfig()['log_path'],
@@ -115,12 +116,17 @@ def your_admix():
     for i_task in task_list:
         ClassCollector[i_task].init()
 
+    #Gets the sleep time for loops
+    sleep_time = helper.get_hostconfig()['sleep_time']
+
     #Go for the loop
     while True:
 
         for i_task in task_list:
             ClassCollector[i_task].run()
 
-
         if args.once == True:
             break
+
+        helper.global_dictionary['logger'].Info('Waiting for {0} seconds'.format(sleep_time))
+        time.sleep(sleep_time)

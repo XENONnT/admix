@@ -501,5 +501,5 @@ class ConnectMongoDB():
                                   {'$set': {'status': status}}
                                   )
 
-    def GetDid(self, run_number, dtype):
-        return self.db.find_one({'number': run_number}, {'dids': 1}).get('dids').get(dtype)
+#    def GetDid(self, run_number, dtype):
+#        return self.db.find_one({'number': run_number}, {'dids': 1}).get('dids').get(dtype)
