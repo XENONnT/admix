@@ -8,7 +8,8 @@ from utilix.config import Config
 DB = ConnectMongoDB()
 
 
-def download(number, dtype, hash=None, chunks=None, location='.',  tries=3, **kwargs):
+def download(number, dtype, hash=None, chunks=None, location='.',  tries=3,
+             test=False, **kwargs):
     """Function download()
     
     Downloads a given run number using rucio
@@ -22,6 +23,10 @@ def download(number, dtype, hash=None, chunks=None, location='.',  tries=3, **kw
 
     # setup rucio client
     rc = RucioSummoner()
+
+    if test:
+        print("Test successful. Exiting.")
+        return
 
     # get the DID
     # this assumes we always keep the same naming scheme
@@ -81,6 +86,8 @@ def main():
     parser.add_argument("--location", help="Path to put the downloaded data.", default='.')
     parser.add_argument('--tries', type=int, help="Number of tries to download the data.", default=2)
     parser.add_argument('--rse', help='RSE to download from')
+    parser.add_argument('--test', help='Tests that we can instantiate a RucioSummoner object',
+                         action='store_true')
 
     args = parser.parse_args()
 
@@ -89,7 +96,6 @@ def main():
     else:
         chunks=None
 
-
     download(args.number, args.dtype, chunks=chunks, location=args.location, tries=args.tries,
-             rse=args.rse)
+             rse=args.rse, test=args.test)
 
