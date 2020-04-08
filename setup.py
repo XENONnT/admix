@@ -11,10 +11,9 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = [
-    'pymongo', 'utilix'
-
-]
+requirements = ['pymongo',
+                'utilix'
+                ]
 
 setup_requirements = [
     # TODO(XeBoris): put setup requirements (distutils extensions, etc.) here
@@ -38,14 +37,15 @@ setup(
                                     'admix.helper',
                                     'admix.utils'
                                     ]),
-    package_data={'admix.helper': ['defunc_'], 'scripts': ['download.py']},
+    package_data={'admix.helper': ['defunc_'],
+                  'admix.config': ['*.*']},
     include_package_data=True,
     install_requires=requirements,
     entry_points={
         'console_scripts': [
             'admix-version=admix.admix:version',
             'admix=admix.admix:your_admix',
-            'admix-download=scripts.download:main'
+            'admix-download=admix.download:main'
         ]
     },
     license="BSD license",

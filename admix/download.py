@@ -93,10 +93,3 @@ def main():
     download(args.number, args.dtype, chunks=chunks, location=args.location, tries=args.tries,
              rse=args.rse)
 
-
-if __name__ == "__main__":
-
-    number = 7158
-    dtype = 'raw_records_mv'
-    location = '/home/datamanager'
-    download(number, dtype, location=location)
