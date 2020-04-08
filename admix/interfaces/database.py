@@ -1,44 +1,19 @@
-import http.client
-
 import pymongo
-import requests
-
+from utilix.rundb import pymongo_collection
 import admix.helper.helper as helper
 
 
 class ConnectMongoDB():
 
     def __init__(self):
-        self.db_mongodb_address = helper.get_hostconfig()['database']['address']
-        self.db_mongodb_user = helper.get_hostconfig()['database']['user']
-        self.db_mongodb_pw     = helper.get_hostconfig()['database']['password']
-        self.db_mongodb_string = None
-        self.db = None
 
-        #bulid the mongodb address string:
-        self._make_connection_string()
-
-        if 'collection' not in helper.get_hostconfig()['database']:
-            self.collection_string = []
-            print("Define a collection in your configuration first (separated by -)")
-            exit()
-        else:
-            try:
-                self.collection_string = helper.get_hostconfig()['database']['collection'].split("-")
-            except:
-                self.collection_string = helper.get_hostconfig()['database']['collection']
+        # instantiates self.db and self.hash_db
+        # do it this way so that we can use this method to reconnect if needed
+        self.Connect()
 
         #Define the basic projections for mongoDB
         self.SetProjection(projection=None, from_config=True)
-        # make connection to runDB
-        self.Connect()
 
-    def _make_connection_string(self):
-        if "mongodb://" not in self.db_mongodb_address:
-            print("Not a mongoDB address!")
-        else:
-            taddress = self.db_mongodb_address.replace("mongodb://", "")
-            self.db_mongodb_string = f'mongodb://{self.db_mongodb_user}:{self.db_mongodb_pw}@{taddress}'
 
     def SetProjection(self, projection=None, from_config=False):
 
@@ -52,11 +27,11 @@ class ConnectMongoDB():
 
 
     def Connect(self):
-        c = pymongo.MongoClient(self.db_mongodb_string)
+        # nT runs DB
+        self.db = pymongo_collection('runs')
 
-        self.db = c
-        for i_str in range(len(self.collection_string)):
-            self.db = self.db[self.collection_string[i_str]]
+        # for querying the hash collection for strax data types
+        self.hash_db = pymongo_collection('data_hashes')
 
     def GetQuery(self, query, reconnect=False, sort=[('_id',1)]):
         if reconnect == True:
@@ -501,5 +476,11 @@ class ConnectMongoDB():
                                   {'$set': {'status': status}}
                                   )
 
-#    def GetDid(self, run_number, dtype):
-#        return self.db.find_one({'number': run_number}, {'dids': 1}).get('dids').get(dtype)
+    def GetHash(self, dtype, version='latest'):
+        query = {}
+        if version != 'latest':
+            query['version'] = version
+        hash_data = self.hash_db.find_one(query, sort=[('version', pymongo.DESCENDING)])['hashes']
+        if dtype not in hash_data:
+            raise ValueError(f"Dtype {dtype} not found in version: {version}")
+        return hash_data[dtype]

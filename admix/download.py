@@ -3,13 +3,12 @@ from argparse import ArgumentParser
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
-from utilix.config import Config
 
 DB = ConnectMongoDB()
 
 
 def download(number, dtype, hash=None, chunks=None, location='.',  tries=3,
-             test=False, **kwargs):
+             test=False, version='latest',  **kwargs):
     """Function download()
     
     Downloads a given run number using rucio
@@ -30,14 +29,9 @@ def download(number, dtype, hash=None, chunks=None, location='.',  tries=3,
 
     # get the DID
     # this assumes we always keep the same naming scheme
-    # if no hash is passed, get it from the utilix config
+    # if no hash is passed, get it from the database
     if not hash:
-        cfg = Config()
-        # all 'raw_record' dtypes will have same hash, according to Joran
-        dt = dtype
-        if 'raw_records' in dtype:
-            dt = 'raw_records'
-        hash = cfg.get('Lineages', dt)
+        hash = DB.GetHash(dtype, version=version)
 
     did = make_did(number, dtype, hash)
 
@@ -86,8 +80,6 @@ def main():
     parser.add_argument("--location", help="Path to put the downloaded data.", default='.')
     parser.add_argument('--tries', type=int, help="Number of tries to download the data.", default=2)
     parser.add_argument('--rse', help='RSE to download from')
-    parser.add_argument('--test', help='Tests that we can instantiate a RucioSummoner object',
-                         action='store_true')
 
     args = parser.parse_args()
 
