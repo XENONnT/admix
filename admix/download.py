@@ -7,8 +7,8 @@ from admix.utils.naming import make_did
 DB = ConnectMongoDB()
 
 
-def download(number, dtype, hash=None, chunks=None, location='.',  tries=3,
-             test=False, version='latest',  **kwargs):
+def download(number, dtype, hash=None, chunks=None, location='.',  tries=3,  version='latest',
+             **kwargs):
     """Function download()
     
     Downloads a given run number using rucio
@@ -17,15 +17,13 @@ def download(number, dtype, hash=None, chunks=None, location='.',  tries=3,
     :param chunks: List of integers representing the desired chunks. If None, the whole run will be downloaded.
     :param location: String for the path where you want to put the data. Defaults to current directory.
     :param tries: Integer specifying number of times to try downloading the data. Defaults to 2.
+    :param version: Context version as listed in the data_hashes collection
     :param kwargs: Keyword args passed to DownloadDids
     """
 
     # setup rucio client
     rc = RucioSummoner()
 
-    if test:
-        print("Test successful. Exiting.")
-        return
 
     # get the DID
     # this assumes we always keep the same naming scheme
@@ -89,5 +87,5 @@ def main():
         chunks=None
 
     download(args.number, args.dtype, chunks=chunks, location=args.location, tries=args.tries,
-             rse=args.rse, test=args.test)
+             rse=args.rse)
 
