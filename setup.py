@@ -38,7 +38,7 @@ setup(
                                     'admix.utils'
                                     ]),
     package_data={'admix.helper': ['defunc_'],
-                  'admix.config': ['*.*']},
+                  'admix': ['config/*.*', 'config/rucio_cli/*.*']},
     include_package_data=True,
     install_requires=requirements,
     entry_points={
