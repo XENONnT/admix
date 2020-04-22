@@ -3,12 +3,12 @@ from argparse import ArgumentParser
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
-from utilix.config import Config
 
 DB = ConnectMongoDB()
 
 
-def download(number, dtype, hash=None, chunks=None, location='.',  tries=3, **kwargs):
+def download(number, dtype, hash=None, chunks=None, location='.',  tries=3,  version='latest',
+             **kwargs):
     """Function download()
     
     Downloads a given run number using rucio
@@ -17,22 +17,19 @@ def download(number, dtype, hash=None, chunks=None, location='.',  tries=3, **kw
     :param chunks: List of integers representing the desired chunks. If None, the whole run will be downloaded.
     :param location: String for the path where you want to put the data. Defaults to current directory.
     :param tries: Integer specifying number of times to try downloading the data. Defaults to 2.
+    :param version: Context version as listed in the data_hashes collection
     :param kwargs: Keyword args passed to DownloadDids
     """
 
     # setup rucio client
     rc = RucioSummoner()
 
+
     # get the DID
     # this assumes we always keep the same naming scheme
-    # if no hash is passed, get it from the utilix config
+    # if no hash is passed, get it from the database
     if not hash:
-        cfg = Config()
-        # all 'raw_record' dtypes will have same hash, according to Joran
-        dt = dtype
-        if 'raw_records' in dtype:
-            dt = 'raw_records'
-        hash = cfg.get('Lineages', dt)
+        hash = DB.GetHash(dtype, version=version)
 
     did = make_did(number, dtype, hash)
 
@@ -89,14 +86,6 @@ def main():
     else:
         chunks=None
 
-
     download(args.number, args.dtype, chunks=chunks, location=args.location, tries=args.tries,
              rse=args.rse)
 
-
-if __name__ == "__main__":
-
-    number = 7158
-    dtype = 'raw_records_mv'
-    location = '/home/datamanager'
-    download(number, dtype, location=location)
