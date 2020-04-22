@@ -22,13 +22,17 @@ class RunExampleTask():
     def init(self):
         helper.global_dictionary['logger'].Info(f'Init task {self.__class__.__name__}')
 
-        """Use this function to init all important functions, classes and setup variables
-        for the actual task which is later executed by run()
-        """
+
+        #Define data types
+        self.DTYPES = helper.get_hostconfig()['rawtype']
+        self.DATADIR = helper.get_hostconfig()['path_data_to_upload']
+        self.periodic_check = helper.get_hostconfig()['upload_periodic_check']
+#        self.DTYPES = ['raw_records', 'raw_records_he', 'raw_records_aqmon', 'raw_records_mv']
+#        self.DATADIR = '/eb/ebdata'
+#        self.periodic_check = 300
 
         #Init the runDB
         self.db = ConnectMongoDB()
-        self.db.Connect()
 
         #We want the first and the last run:
         self.gboundary = self.db.GetBoundary()
@@ -38,8 +42,8 @@ class RunExampleTask():
         self.run_ts_max = self.gboundary['max_start_time']
 
         #Init the Rucio data format evaluator in three steps:
-        #self.rc_reader = ConfigRucioDataFormat()
-        #self.rc_reader.Config(helper.get_hostconfig('rucio_template'))
+        self.rc_reader = ConfigRucioDataFormat()
+        self.rc_reader.Config(helper.get_hostconfig('rucio_template'))
 
         #This class will evaluate your destinations:
         self.destination = Destination()
@@ -52,80 +56,53 @@ class RunExampleTask():
         self.keyw = Keyword()
 
         #Init Rucio for later uploads and handling:
-        #self.rc = RucioSummoner(helper.get_hostconfig("rucio_backend"))
-        #self.rc.SetRucioAccount(helper.get_hostconfig('rucio_account'))
-        #self.rc.SetConfigPath(helper.get_hostconfig("rucio_cli"))
-        #self.rc.SetProxyTicket(helper.get_hostconfig('rucio_x509'))
-        #self.rc.SetHost(helper.get_hostconfig('host'))
-        #self.rc.ConfigHost()
+        self.rc = RucioSummoner(helper.get_hostconfig("rucio_backend"))
+        self.rc.SetRucioAccount(helper.get_hostconfig('rucio_account'))
+        self.rc.SetConfigPath(helper.get_hostconfig("rucio_cli"))
+        self.rc.SetProxyTicket(helper.get_hostconfig('rucio_x509'))
+        self.rc.SetHost(helper.get_hostconfig('host'))
+        self.rc.ConfigHost()
+        self.rc.SetProxyTicket("rucio_x509")
+#        print(self.rc.Whoami())
+
+
+    def GetPathsFromRunNumber(self, run_number, dtype, hash):
+
+        print("Run "+str(run_number)+", data type "+dtype+", hash "+hash)
+        
+        cursor = self.db.GetRunByNumber(run_number)        
+        if len(cursor)==0:
+            return
+        run = cursor[0]
+
+        file_replicas = {}
+
+        for d in run['data']:
+            if d['type'] != dtype:
+                continue
+            if d['host'] != 'rucio-catalogue':
+                continue
+            if d['status'] != 'transferred':
+                continue
+#            if d['location'] != 'LNGS_USERDISK': #'UC_DALI_USERDISK':
+            if d['location'] != 'UC_DALI_USERDISK':
+                continue
+            did = d['did']
+            if did.split('-')[-1] != hash:
+                continue
+            if self.rc.CheckRule(did, d['location']) != 'OK':
+                continue
+            print("Found",did)
+            file_replicas = self.rc.ListFileReplicas(did,d['location'],localpath=True)
+
+        return list(file_replicas.values())
+
 
     def run(self,*args, **kwargs):
-        """Execute your task
-
-        Obs: To simply logging, there is a logger class whose object is found in a global
-             dictionary:
-             helper.global_dictionary['logger'].Info()
-             helper.global_dictionary['logger'].Warning()
-             helper.global_dictionary['logger'].Error()
-             helper.global_dictionary['logger'].Debug()
-
-        :param args: Choose additional parameter (list) on purpose
-        :param kwargs: Choose additional parameter (dict) on purpse
-        :return: 0
-        """
         helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
 
-
-
-        #This part will help you to evaluate your command line input.
-        ts_beg = None
-        ts_end = None
-        if helper.global_dictionary.get('run_numbers') != None:
-            #Evaluate terminal input for run number assumption (terminal input == true)
-            true_nb_beg, true_nb_end = helper.eval_run_numbers(helper.global_dictionary.get('run_numbers'),
-                                                               self.run_nb_min,
-                                                               self.run_nb_max)
-            #Get the timestamps from the run numbers:
-            ts_beg = self.db.FindTimeStamp('number', int(true_nb_beg))
-            ts_end = self.db.FindTimeStamp('number', int(true_nb_end))
-
-        elif helper.global_dictionary.get('run_timestamps') != None:
-            #Evaluate terminal input for run name assumption
-            true_ts_beg, true_ts_end = helper.eval_run_timestamps(helper.global_dictionary.get('run_timestamps'),
-                                                               self.run_ts_min,
-                                                               self.run_ts_max)
-            ts_beg = true_ts_beg
-            ts_end = true_ts_end
-
-        elif helper.global_dictionary.get('run_timestamps') == None and \
-            helper.global_dictionary.get('run_numbers') == None:
-            ts_beg = self.run_ts_min
-            ts_end = self.run_ts_max
-        else:
-            helper.global_dictionary['logger'].Error("Check for your input arguments (--select-run-number or --select-run-time")
-            exit(1)
-            #exection
-
-        #After we know the times:
-        helper.global_dictionary['logger'].Info(f"Run between {ts_beg} and {ts_end}")
-
-        #Here begins your task:
-        ...
-
-        print(ts_beg,ts_end)
-
-        #Get your collection of run numbers and run names
-        collection = self.db.GetDestinationTest(ts_beg, ts_end)
-
-        #print(collection)
-
-        #Run through the overview collection:
-        for i_run in collection:
-
-            #Extract run number and name from overview collection
-#            r_name = i_run['name']
-#            r_number = i_run['number']
-            print(i_run)
+        paths = self.GetPathsFromRunNumber(7177,"raw_records","rfzvpzj4mf")
+        print(paths)
 
 
         return 0

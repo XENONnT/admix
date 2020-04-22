@@ -17,6 +17,7 @@ from admix.tasks.download_with_mongodb import DownloadMongoDB
 from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
 from admix.tasks.purge_with_mongodb import PurgeMongoDB
 from admix.tasks.upload_from_lngs import UploadFromLNGS
+from admix.tasks.fix_upload import FixUpload
 
 def version():
     print(__version__)
@@ -124,6 +125,7 @@ def your_admix():
 
         for i_task in task_list:
             ClassCollector[i_task].run()
+            
 
         if args.once == True:
             break

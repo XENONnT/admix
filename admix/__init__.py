@@ -14,6 +14,8 @@ from admix.interfaces.templater import Templater
 from utilix.config import Config
 
 #tasks:
-
-DEFAULT_CONFIG = Config().get('Admix', 'config_file')
+try:
+    DEFAULT_CONFIG = Config().get('Admix', 'config_file')
+except:
+    pass
 

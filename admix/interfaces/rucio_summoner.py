@@ -290,7 +290,7 @@ class RucioSummoner():
 
         return r_rules
 
-    def ListFileReplicas(self, upload_structure=None, rse=None, level=-1):
+    def ListFileReplicas(self, upload_structure=None, rse=None, level=-1, localpath=False):
         """Function: ListFileReplicas(...)
 
         List all your file replicas which are attached to a dataset or container.
@@ -340,6 +340,7 @@ class RucioSummoner():
         # Prepare basic scheme for RSE locations:
         lfn = None
         lfn_disk = "{protocol}://{hostname}:{port}{prefix}/{scope}/{h1}/{h2}/{fname}"
+        lfn_local_disk = "{prefix}/{scope}/{h1}/{h2}/{fname}"
         lfn_tape = "{protocol}://{hostname}:{port}{prefix}/{scope}/{fname}"
 
 
@@ -353,15 +354,24 @@ class RucioSummoner():
                 t1 = self._md5_hash(rucio_did)[0:2]
                 t2 = self._md5_hash(rucio_did)[2:4]
 
-                lfn = lfn_disk.format(protocol=rse_scheme,
-                                      hostname=rse_hostname,
-                                      port=rse_port,
-                                      prefix=rse_prefix,
-                                      scope=val_scope,
-                                      h1=t1,
-                                      h2=t2,
-                                      fname=i_filename)
-                result[i_filename] = lfn
+                if localpath:
+                    lfn = lfn_local_disk.format(prefix=rse_prefix,
+                                          scope=val_scope,
+                                          h1=t1,
+                                          h2=t2,
+                                          fname=i_filename)
+                    result[i_filename] = lfn
+                else:
+                    lfn = lfn_disk.format(protocol=rse_scheme,
+                                          hostname=rse_hostname,
+                                          port=rse_port,
+                                          prefix=rse_prefix,
+                                          scope=val_scope,
+                                          h1=t1,
+                                          h2=t2,
+                                          fname=i_filename)
+                    result[i_filename] = lfn
+                    
 
         else:
             #assume tape storage (non-deterministic paths)

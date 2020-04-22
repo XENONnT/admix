@@ -17,7 +17,7 @@ from admix.interfaces.templater import Templater
 from admix.utils import make_did
 
 @Collector
-class UploadFromLNGS():
+class FixUpload():
 
     def __init__(self):
         pass
@@ -181,41 +181,27 @@ class UploadFromLNGS():
     def run(self,*args, **kwargs):
         helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
 
-
-        # Finds new data
-#        query = {'number': {'$gte': 7158},
-#        query = {'number': {'$gte': 7150},
-#                 "status": {"$exists": False},
-#             }
-
-#        cursor = self.db.db.find(query, {'number': 1})
-
-#        for r in cursor:
-#            self.db.SetStatus(r['number'], 'needs_upload')
-
+        # type here the specific info of data to fix
+        number = 7273
+        dtype = "raw_records"
+        hash = "rfzvpzj4mf"
 
         # List runs to upload
-        ids_to_upload = self.find_data_to_upload()
-
-        cursor = self.db.db.find({'_id': {"$in": ids_to_upload},
-#                             'number': 7157
-#                             'number': 7177
+        run = self.db.db.find_one({
+                            'number': my_number
                          },
                             {'number': 1, 'data': 1})
 
-        cursor = list(cursor)
+        helper.global_dictionary['logger'].Info('Fixing run {0}'.format(run["number"]))
 
-        helper.global_dictionary['logger'].Info('Runs that will be processed are {0}'.format([c["number"] for c in cursor]))
 
-        # Check transfers
-        self.check_transfers()
-        last_check = time.time()
+        # Set the run number back to status "transferring"
+        self.db.SetStatus(run['number'], 'transferring')
 
         # Performs uploads to all listed runs
-        for run in cursor:
-            number = run['number']
+        if 'number' in run:
             helper.global_dictionary['logger'].Info('Uploading run {0}'.format(number))
-            for dtype in self.DTYPES:
+            if my_dtype in self.DTYPES:
                 helper.global_dictionary['logger'].Info('\t==> Uploading {0}'.format(dtype))
                 # get the datum for this datatype
                 datum = None

@@ -9,24 +9,25 @@ from admix.utils import make_did
 
 DB = ConnectMongoDB()
 
-DTYPES = ['raw_records', 'raw_records_lowgain', 'raw_records_aqmon', 'raw_records_mv']
+DTYPES = ['raw_records', 'raw_records_he', 'raw_records_aqmon', 'raw_records_mv']
 DATADIR = '/eb/ebdata'
 
 
 def find_new_data():
     """"""
-    query = {'number': {'$gte': 7158},
+    query = {'number': {'$gte': 7150},
              "status": {"$exists": False},
+             "bootstrax.state": "done",
              }
 
     cursor = DB.db.find(query, {'number': 1})
 
     for r in cursor:
-        DB.SetStatus(r['number'], 'needs_upload')
+        DB.SetStatus(r['number'], 'eb_ready_to_upload')
 
 
 def find_data_to_upload():
-    cursor = DB.db.find({'status': 'needs_upload'}, {'number': 1, 'data': 1})
+    cursor = DB.db.find({'status': 'eb_ready_to_upload'}, {'number': 1, 'data': 1})
     ids = []
 
     for r in cursor:
@@ -116,19 +117,19 @@ def do_upload(periodic_check=300):
 
                 # add a DID list that's easy to query by DB.GetDid
                 # check if did field exists yet or not
-                if not run.get('dids'):
-                    DB.db.find_one_and_update({'_id': run['_id']},
-                                              {'$set': {'dids': {dtype: did}}}
-                                              )
-                else:
-                    print("Updating DID list")
-                    DB.db.find_one_and_update({'_id': run['_id']},
-                                              {'$set': {'dids.%s' % dtype: did}}
-                                              )
+                # if not run.get('dids'):
+                #     DB.db.find_one_and_update({'_id': run['_id']},
+                #                               {'$set': {'dids': {dtype: did}}}
+                #                               )
+                # else:
+                #     print("Updating DID list")
+                #     DB.db.find_one_and_update({'_id': run['_id']},
+                #                               {'$set': {'dids.%s' % dtype: did}}
+                #                               )
 
             # add rule to OSG and Nikhef
             # TODO make this configurable
-            for rse in ['UC_OSG_USERDISK', 'UC_DALI_USERDISK']:
+            for rse in ['UC_OSG_USERDISK']:
                 add_rule(number, dtype, rse)
 
             # finally, delete the eb copy
@@ -139,8 +140,8 @@ def do_upload(periodic_check=300):
             last_check = time.time()
 
 
-def add_rule(run_number, dtype, rse, lifetime=None, update_db=True):
-    did = DB.GetDid(run_number, dtype)
+def add_rule(run_number, dtype, hash, rse, lifetime=None, update_db=True):
+    did = make_did(run_number, dtype, hash)
     rc = RucioSummoner()
     result = rc.AddRule(did, rse, lifetime=lifetime)
     #if result == 1:
@@ -208,7 +209,7 @@ def check_transfers():
 
 def clear_db():
     dtypes = ['raw_records'] #, 'raw_records_mv', 'raw_records_aqmon', 'raw_records_lowgain']
-    numbers = [7157]
+    numbers = [7155, 7156]
     for run in numbers:
         doc = DB.GetRunByNumber(run)[0]
         docid = doc['_id']
@@ -218,7 +219,7 @@ def clear_db():
                 DB.RemoveDatafield(docid, d)
                 time.sleep(1)
 
-        DB.SetStatus(run, 'needs_upload')
+        DB.SetStatus(run, 'eb_ready_to_upload')
 
 
 def purge():
