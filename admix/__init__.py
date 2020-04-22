@@ -15,9 +15,6 @@ from admix.interfaces.templater import Templater
 
 
 #tasks:
-try:
-    DEFAULT_CONFIG = Config().get('Admix', 'config_file')
-except:
-    pass
-
 PKGDIR = os.path.dirname(__file__)
+
+DEFAULT_CONFIG = os.path.join(PKGDIR, 'config', 'default.config')

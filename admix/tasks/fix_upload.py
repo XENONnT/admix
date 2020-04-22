@@ -215,7 +215,7 @@ class FixUpload():
 
                 if datum is None:
                     helper.global_dictionary['logger'].Info('Data type {0} not found for run {1}'.format(dtype,number))
-                    continue
+                    return
 
                 file = datum['location'].split('/')[-1]
 
