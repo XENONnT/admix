@@ -1,14 +1,63 @@
 import os
+import sys
 from argparse import ArgumentParser
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
+import time
 
 DB = ConnectMongoDB()
 
+def determine_rse(rse_list, glidein_country):
+    # TODO put this in config or something?
+    EURO_SITES = ["CCIN2P3_USERDISK",
+                  "NIKHEF_USERDISK",
+                  "NIKHEF2_USERDISK",
+                  "WEIZMANN_USERDISK",
+                  "CNAF_USERDISK",
+                  "SURFSARA_USERDISK"]
+
+    US_SITES = ["UC_OSG_USERDISK", "UC_DALI_USERDISK"]
+
+
+    if glidein_country == "US":
+        in_US = False
+        for site in US_SITES:
+            if site in rse_list:
+                return site
+
+        if not in_US:
+            print("This run is not in the US so can't be processed here. Exit 255")
+            sys.exit(255)
+
+    elif glidein_country == "FR":
+        for site in EURO_SITES:
+            if site in rse_list:
+                return site
+
+    elif glidein_country == "NL":
+        for site in reversed(EURO_SITES):
+            if site in rse_list:
+                return site
+
+    elif glidein_country == "IL":
+        for site in EURO_SITES:
+            if site in rse_list:
+                return site
+
+    elif glidein_country == "IT":
+        for site in EURO_SITES:
+            if site in rse_list:
+                return site
+
+    if US_SITES[0] in rse_list:
+        return US_SITES[0]
+    else:
+        raise AttributeError("cannot download data")
+
 
 def download(number, dtype, hash=None, chunks=None, location='.',  tries=3,  version='latest',
-             **kwargs):
+             metadata=True, **kwargs):
     """Function download()
     
     Downloads a given run number using rucio
@@ -33,13 +82,26 @@ def download(number, dtype, hash=None, chunks=None, location='.',  tries=3,  ver
 
     did = make_did(number, dtype, hash)
 
-    # TODO determine which rse to download from?
+    # if we didn't pass an rse, determine the best one
+    rse = kwargs.get('rse')
+    if not rse:
+        # determine which rses this did is on
+        rules = rc.ListDidRules(did)
+        rses = []
+        for r in rules:
+            if r['state'] == 'OK':
+                rses.append(r['rse_expression'])
+        # find closest one
+        rse = determine_rse(rses, os.environ.get('GLIDEIN_Country', 'US'))
 
     if chunks:
         dids = []
         for c in chunks:
             cdid = did + '-' + str(c).zfill(6)
             dids.append(cdid)
+        # also download metadata
+        if metadata:
+            dids.append(did + '-metadata.json')
 
     else:
         dids = [did]
@@ -58,7 +120,9 @@ def download(number, dtype, hash=None, chunks=None, location='.',  tries=3,  ver
     success = False
 
     while _try <= tries and not success:
-        result = rc.DownloadDids(dids, download_path=location, no_subdir=True, **kwargs)
+        if _try > 0:
+            rse = None
+        result = rc.DownloadDids(dids, download_path=location, no_subdir=True, rse=rse, **kwargs)
         if isinstance(result, int):
             print(f"Download try #{_try} failed.")
             _try += 1

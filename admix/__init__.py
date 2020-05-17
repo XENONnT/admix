@@ -18,3 +18,6 @@ from admix.interfaces.templater import Templater
 PKGDIR = os.path.dirname(__file__)
 
 DEFAULT_CONFIG = os.path.join(PKGDIR, 'config', 'default.config')
+
+from admix.download import download
+
