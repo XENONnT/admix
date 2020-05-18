@@ -475,12 +475,3 @@ class ConnectMongoDB():
         self.db.find_one_and_update({'number': number},
                                   {'$set': {'status': status}}
                                   )
-
-    def GetHash(self, dtype, version='latest'):
-        query = {}
-        if version != 'latest':
-            query['version'] = version
-        hash_data = self.hash_db.find_one(query, sort=[('version', pymongo.DESCENDING)])['hashes']
-        if dtype not in hash_data:
-            raise ValueError(f"Dtype {dtype} not found in version: {version}")
-        return hash_data[dtype]
