@@ -1,6 +1,7 @@
 import pymongo
 from utilix.rundb import pymongo_collection
 import admix.helper.helper as helper
+import datetime
 
 
 class ConnectMongoDB():
@@ -377,49 +378,55 @@ class ConnectMongoDB():
 
     def SetDataField(self, id_field, type=None, host=None,
                      key=None, value=None, new=False):
-        #This function is database entry specific:
-        #It changes a list (data) which contains dictionaries
-        #In particular you can change here the destination field
-        run = self.GetRunByID(id_field)[0]
+        """
+        Updates data entries for the given run to have `key` == `value`, where the `type`
+        and `host` fields match. If `new` is False, only entries with the key are changed
 
-        new_data = run['data']
+        :param id_field: the ObjectId of the run to update
+        :param type: str, the `type` field of entries to update
+        :param host: str, the `host` field of entries to update
+        :param key: str, the key to be changed or added
+        :param value: the value to be set
+        :param new: bool, if False, only changes entries where the key exists
+        :return None:
+        """
+
         if type != None and host!=None and key != None:
-            for i_run in new_data:
-                if i_run['type'] != type:
-                    continue
-                if i_run['host'] != host:
-                    continue
-                if i_run['type'] == type and i_run['host'] == host and key in i_run:
-                    i_run[key] = value
-                if i_run['type'] == type and i_run['host'] == host and new==True:
-                    i_run[key] = value
-
-        self.db.find_one_and_update({"_id": id_field},
-                                        {"$set": {"data": new_data}})
+            array_filters = [{"elem.type" : type, "elem.host" : host}]
+            if not new:
+                array_filters[0]["elem.{}".format(key)] =  {"$exists" : 1}
+            self.db.update_one({"_id" : id_field},
+                    {"$set" : {"data.$[elem].{}".format(key) : value}},
+                    {"arrayFilters" : array_filters})
 
     def AddDatafield(self, id_field, new_dict):
-        run = self.GetRunByID(id_field)[0]
+        """
+        Adds the specified new entry into the run with the given id
 
-        old_data = run['data']
-        old_data.append(new_dict)
+        :param id_field: the ObjectId of the run to update
+        :param new_dict: the new data entry to add, min format {type : str, host : str, location : str}
+        :return None:
+        """
 
-        #print("NEW", old_data)
-        self.db.find_one_and_update({"_id": id_field},
-                                        {"$set": {"data": old_data}})
+        self.db.update_one({"_id": id_field},
+                              {"$push": {"data": new_dict}})
 
     def RemoveDatafield(self, id_field, rem_dict):
-        run = self.GetRunByID(id_field)[0]
+        """
+        Moves the data entry specified from the "active" list to the deleted list.
+        Entries are updated with the time and entity responsible for the removal
 
-        old_data = run['data']
+        :param id_field: the ObjectId of the run to update
+        :param rem_dict: the data entry to remove, min format {type : str, host : str, location : str}
+        :return None:
+        """
 
-        for i_d in old_data:
-            if i_d == rem_dict:
-                print(i_d['host'], i_d['location'], )
-                index_tmp = old_data.index(rem_dict)
-                del(old_data[index_tmp])
+        new_entry = dict(rem_dict.items())
+        new_entry.update({"at" : datetime.datetime.utcnow(), "by" : "admix"})
 
-        self.db.find_one_and_update({"_id": id_field},
-                                        {"$set": {"data": old_data}})
+        self.db.update_one({"_id" : id_field},
+                              {"$pull" : {"data" : rem_dict},
+                               "$push" : {"deleted_data" : new_entry}})
 
     def UpdateDatafield(self, id_field, new_data=None):
         run = self.GetRunByID(id_field)[0]
@@ -434,8 +441,8 @@ class ConnectMongoDB():
             for i in list_diff:
                 print("New destination for host {host}:".format(host=i['host']))
                 print(" -> {dest}".format(dest=i['destination']))
-            self.db.find_one_and_update({"_id": id_field},
-                                        {"$set": {"data": new_data}})
+            self.db.update_one({"_id": id_field},
+                                    {"$set": {"data": new_data}})
 
 
     def WriteDestination(self, id_field, type=None, host=None, destination=None):
@@ -472,6 +479,6 @@ class ConnectMongoDB():
                 #print(" <new> -", i_run['host'], i_run['location'], i_run['destination'])
 
     def SetStatus(self, number, status):
-        self.db.find_one_and_update({'number': number},
+        self.db.update_one({'number': number},
                                   {'$set': {'status': status}}
                                   )
