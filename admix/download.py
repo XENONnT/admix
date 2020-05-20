@@ -78,7 +78,7 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3,  version=
     did = make_did(number, dtype, hash)
 
     # if we didn't pass an rse, determine the best one
-    rse = kwargs.pop('rse')
+    rse = kwargs.pop('rse', None)
     if not rse:
         # determine which rses this did is on
         rules = rc.ListDidRules(did)
