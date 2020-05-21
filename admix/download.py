@@ -57,8 +57,8 @@ def determine_rse(rse_list, glidein_country):
         raise AttributeError("cannot download data")
 
 
-def download(number, dtype, hash, chunks=None, location='.',  tries=3,  version='latest',
-             metadata=True, **kwargs):
+def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=True,
+             num_threads=3, **kwargs):
     """Function download()
     
     Downloads a given run number using rucio
@@ -117,7 +117,8 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3,  version=
     while _try <= tries and not success:
         if _try > 0:
             rse = None
-        result = rc.DownloadDids(dids, download_path=location, no_subdir=True, rse=rse, **kwargs)
+        result = rc.DownloadDids(dids, download_path=location, no_subdir=True, rse=rse,
+                                 num_threads=num_threads, **kwargs)
         if isinstance(result, int):
             print(f"Download try #{_try} failed.")
             _try += 1
@@ -135,9 +136,10 @@ def main():
     parser.add_argument("number", type=int, help="Run number to download")
     parser.add_argument("dtype", help="Data type to download")
     parser.add_argument("--chunks", nargs="*", help="Space-separated list of chunks to download.")
-    parser.add_argument("--location", help="Path to put the downloaded data.", default='.')
+    parser.add_argument("--dir", help="Path to put the downloaded data.", default='.')
     parser.add_argument('--tries', type=int, help="Number of tries to download the data.", default=2)
     parser.add_argument('--rse', help='RSE to download from')
+    parser.add_argument('--threads', help='Number of threads to use', default=3, type=int)
     parser.add_argument('--context', help='strax context you need -- this determines the hash',
                          default='xenonnt_online')
 
@@ -150,6 +152,6 @@ def main():
     else:
         chunks=None
 
-    download(args.number, args.dtype, hash, chunks=chunks, location=args.location, tries=args.tries,
-             rse=args.rse)
+    download(args.number, args.dtype, hash, chunks=chunks, location=args.dir, tries=args.tries,
+             rse=args.rse, num_threads=args.threads)
 
