@@ -32,9 +32,6 @@ class UploadFromLNGS():
         self.DTYPES = helper.get_hostconfig()['rawtype']
         self.DATADIR = helper.get_hostconfig()['path_data_to_upload']
         self.periodic_check = helper.get_hostconfig()['upload_periodic_check']
-#        self.DTYPES = ['raw_records', 'raw_records_he', 'raw_records_aqmon', 'raw_records_mv']
-#        self.DATADIR = '/eb/ebdata'
-#        self.periodic_check = 300
 
         #Init the runDB
         self.db = ConnectMongoDB()
@@ -101,6 +98,10 @@ class UploadFromLNGS():
             rucio_stati = []
             for d in run['data']:
                 if d['host'] == 'rucio-catalogue':
+#                    if run['number']==7695 and d['status'] == 'error':
+#                        self.db.db.find_one_and_update({'_id': run['_id'],'data': {'$elemMatch': d}},
+#                                                       {'$set': {'data.$.status': 'transferring'}}
+#                                                   )                        
                     if d['status'] != 'transferring':
                         rucio_stati.append(d['status'])
                     else:
@@ -110,7 +111,7 @@ class UploadFromLNGS():
                             rucio_stati.append('transferring')
                         elif status == 'OK':
                             # update database
-                            helper.global_dictionary['logger'].Info('Updating DB for run {0}, dtype {1}'.format(run['number'], d['type']))
+                            helper.global_dictionary['logger'].Info('Updating DB for run {0}, dtype {1}, location {2}'.format(run['number'], d['type'],d['location']))
                             self.db.db.find_one_and_update({'_id': run['_id'],'data': {'$elemMatch': d}},
                                                       {'$set': {'data.$.status': 'transferred'}}
                             )
@@ -198,8 +199,9 @@ class UploadFromLNGS():
         ids_to_upload = self.find_data_to_upload()
 
         cursor = self.db.db.find({'_id': {"$in": ids_to_upload},
-#                             'number': 7157
+#                             'number': 7558
 #                             'number': 7177
+#                                  'number': {"$gte": 7807}
                          },
                             {'number': 1, 'data': 1})
 
@@ -285,8 +287,14 @@ class UploadFromLNGS():
 #                for rse in ['UC_OSG_USERDISK', 'UC_DALI_USERDISK']:
 #                for rse in ['UC_OSG_USERDISK', 'UC_DALI_USERDISK','CNAF_TAPE2_USERDISK','CNAF_USERDISK','NIKHEF2_USERDISK','CCIN2P3_USERDISK']:
 #                for rse in ['UC_OSG_USERDISK', 'UC_DALI_USERDISK','NIKHEF2_USERDISK']:
-                for rse in ['UC_DALI_USERDISK','NIKHEF2_USERDISK']:
+#                for rse in ['UC_DALI_USERDISK','NIKHEF2_USERDISK']:
+#                for rse in ['UC_OSG_USERDISK','NIKHEF2_USERDISK']:
+                for rse in ['UC_OSG_USERDISK']:
+#                for rse in ['UC_OSG_USERDISK','CCIN2P3_USERDISK']:
                     self.add_rule(number, dtype, hash, rse)
+
+#                if number==7558:
+#                    self.add_rule(number, dtype, hash, 'CNAF_TAPE2_USERDISK')
 
                 # finally, delete the eb copy
                 #self.remove_from_eb(number, dtype)

@@ -18,6 +18,7 @@ from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
 from admix.tasks.purge_with_mongodb import PurgeMongoDB
 from admix.tasks.upload_from_lngs import UploadFromLNGS
 from admix.tasks.fix_upload import FixUpload
+from utilix.config import Config
 
 def version():
     print(__version__)
@@ -27,12 +28,15 @@ def your_admix():
 
     parser = argparse.ArgumentParser(description="Run your favourite aDMIX")
 
+    config = Config()
+    
+
     # From here the input depends on the usage of the command
     # Add modules here:
     parser.add_argument('task', nargs="?", default="default",
                         help="Select an aDMIX task")
     # Add arguments for the process manager:
-    parser.add_argument('--admix-config', dest="admix_config", type=str, default=DEFAULT_CONFIG,
+    parser.add_argument('--admix-config', dest="admix_config", type=str, default=config.get('Admix','config_file'),
                         help="Load your host configuration")
     parser.add_argument('--no-update', dest='no_update', action='store_false',
                         help="Add this option to prevent aDMIX updating the Xenon database")
