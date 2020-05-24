@@ -18,6 +18,7 @@ from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
 from admix.tasks.purge_with_mongodb import PurgeMongoDB
 from admix.tasks.upload_from_lngs import UploadFromLNGS
 from admix.tasks.fix_upload import FixUpload
+from admix.tasks.clean_eb import CleanEB
 from utilix.config import Config
 
 def version():
