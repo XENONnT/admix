@@ -188,7 +188,7 @@ class FixUpload():
 
         # List runs to upload
         run = self.db.db.find_one({
-                            'number': my_number
+                            'number': number
                          },
                             {'number': 1, 'data': 1})
 
@@ -201,7 +201,7 @@ class FixUpload():
         # Performs uploads to all listed runs
         if 'number' in run:
             helper.global_dictionary['logger'].Info('Uploading run {0}'.format(number))
-            if my_dtype in self.DTYPES:
+            if dtype in self.DTYPES:
                 helper.global_dictionary['logger'].Info('\t==> Uploading {0}'.format(dtype))
                 # get the datum for this datatype
                 datum = None
@@ -232,7 +232,8 @@ class FixUpload():
                 helper.global_dictionary['logger'].Info('Rucio rule : {0}'.format(rucio_rule))
 
                 # if not in rucio already and no rule exists, upload into rucio
-                if not in_rucio and not rucio_rule['exists']:
+#                if not in_rucio and not rucio_rule['exists']:
+                if not rucio_rule['exists']:
                     result = self.rc.Upload(did,
                                        upload_path,
                                        'LNGS_USERDISK',
@@ -250,9 +251,9 @@ class FixUpload():
                              'protocol': 'rucio'
                          }
 
-                if rucio_rule['state'] == 'OK':
-                    if not in_rucio:
-                        self.db.AddDatafield(run['_id'], data_dict)
+#                if rucio_rule['state'] == 'OK':
+#                    if not in_rucio:
+#                        self.db.AddDatafield(run['_id'], data_dict)
 
                     # add a DID list that's easy to query by DB.GetDid
                     # check if did field exists yet or not
@@ -277,9 +278,9 @@ class FixUpload():
                 # finally, delete the eb copy
                 #self.remove_from_eb(number, dtype)
 
-            if time.time() - last_check > self.periodic_check:
-                self.check_transfers()
-                last_check = time.time()
+#            if time.time() - last_check > self.periodic_check:
+#                self.check_transfers()
+#                last_check = time.time()
 
 
         return 0

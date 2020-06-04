@@ -8,7 +8,7 @@ from admix.utils.naming import make_did
 from admix.utils.list_file_replicas import list_file_replicas
 
 
-def showrun(number, dtype, hash, rse):
+def showrun(number, dtype, hash, rse='UC_DALI_USERDISK'):
     """Function showrun()
     
     Show the full path of a given run number using rucio
@@ -21,7 +21,7 @@ def showrun(number, dtype, hash, rse):
 #    rc = RucioSummoner()
     db = ConnectMongoDB()
     
-    files = list_file_replicas(number, dtype, hash)
+    files = list_file_replicas(number, dtype, hash, rse)
 #    files = list_file_replicas(number, dtype, hash,'UC_DALI_USERDISK')
 
     print(files)

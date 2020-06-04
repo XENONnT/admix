@@ -26,10 +26,11 @@ class UploadFromLNGS():
         helper.global_dictionary['logger'].Info(f'Init task {self.__class__.__name__}')
 
 
-        open("/tmp/admix-upload_from_lngs", 'a').close()
+#        open("/tmp/admix-upload_from_lngs", 'a').close()
 
         #Define data types
         self.DTYPES = helper.get_hostconfig()['rawtype']
+#        self.DTYPES = ["pulse_counts"]
         self.DATADIR = helper.get_hostconfig()['path_data_to_upload']
         self.periodic_check = helper.get_hostconfig()['upload_periodic_check']
 
@@ -199,7 +200,7 @@ class UploadFromLNGS():
         ids_to_upload = self.find_data_to_upload()
 
         cursor = self.db.db.find({'_id': {"$in": ids_to_upload},
-#                             'number': 7558
+                             'number': 7947
 #                             'number': 7177
 #                                  'number': {"$gte": 7807}
                          },
