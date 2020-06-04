@@ -206,6 +206,42 @@ class RucioSummoner():
                              lifetime=lifetime)
         return 0
 
+
+    def AddConditionalRule(self, did, from_rse, to_rse, lifetime=None, protocol='rucio-catalogue'):
+        """Add rules for a Rucio DID or dictionary template.
+
+        :param: did: Rucio DID form of "scope:name"
+        :param: rse: An existing Rucio storage element (RSE)
+        :param: lifetime: Choose a lifetime of the transfer rule in seconds or None
+        :param: protocol: Should always be 'rucio-catalogue'?
+        :return:
+        """
+
+        # analyse the function input regarding its allowed definitions:
+        val_scope, val_dname = self._VerifyStructure(did)
+
+        # Get current rules for this did
+        rules = self._rucio.ListDidRules(val_scope, val_dname)
+        current_rses = [r['rse_expression'] for r in rules]
+
+        # if a rule already exists, exit
+        if to_rse in current_rses:
+            print("There already exists a rule for DID %s at RSE %s" % (did, to_rse))
+            return 1
+
+        # add rule
+        did_dict= {}
+        did_dict['scope'] = val_scope
+        did_dict['name']  = val_dname
+
+        self._rucio.AddRule( [did_dict],
+                             copies=1,
+                             rse_expression=to_rse,
+                             source_replica_expression=from_rse,
+                             lifetime=lifetime)
+        return 0
+
+
     def UpdateRules(self, upload_structure=None, rse_rules=None, level=-1):
         """Update existing rules for a Rucio DID or dictionary template.
 

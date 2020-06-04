@@ -17,7 +17,7 @@ from admix.interfaces.templater import Templater
 from admix.utils import make_did
 
 @Collector
-class CleanEB():
+class MoveDataToRSE():
 
     def __init__(self):
         pass
@@ -36,7 +36,8 @@ class CleanEB():
         self.periodic_check = helper.get_hostconfig()['upload_periodic_check']
         self.RSES = helper.get_hostconfig()['rses']
 
-        self.minimum_number_acceptable_rses = 2
+        self.FROMRSE = "UC_OSG_USERDISK"
+        self.TORSE = "CCIN2P3_USERDISK"
 
         #Init the runDB
         self.db = ConnectMongoDB()
@@ -73,6 +74,30 @@ class CleanEB():
 #        print(self.rc.Whoami())
 
 
+    def add_conditional_rule(self,run_number, dtype, hash, from_rse, to_rse, lifetime=None, update_db=True):
+        did = make_did(run_number, dtype, hash)
+        result = self.rc.AddConditionalRule(did, from_rse, to_rse, lifetime=lifetime)
+        #if result == 1:
+        #   return
+        helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}: conditional rule added: {2} ---> {3}'.format(run_number,dtype,did,to_rse))
+
+        if update_db:
+            rucio_rule = self.rc.GetRule(did, rse=to_rse)
+            data_dict = {'host': "rucio-catalogue",
+                         'type': dtype,
+                         'location': to_rse,
+                         'lifetime': rucio_rule['expires'],
+                         'status': 'transferring',
+                         'did': did,
+                         'protocol': 'rucio'
+                     }
+            self.db.db.find_one_and_update({'number': run_number},
+                                      {'$set': {'status': 'transferring'}}
+                                  )
+
+            docid = self.db.db.find_one({'number': run_number}, {'_id': 1})['_id']
+            self.db.AddDatafield(docid, data_dict)
+
 
 
 
@@ -86,17 +111,17 @@ class CleanEB():
 
         # Get all runs that are already transferred and that still have some data_types in eb 
         cursor = self.db.db.find({
-#            'number': {"$lt": 7330, "$gte": 7300}
-            'number': {"$gte": 7330},
-#            'number': 7448,
-            'data' : { "$elemMatch": { "host" : {"$regex" : ".*eb.*"} , "type" : {"$in" : data_types}} },
+#            'number': {"$lt": 8000, "$gte": 7900},
+            'number': {"$gte": 7300},
+#            'number': 7597,
+            'data' : { "$elemMatch": { "host" : "rucio-catalogue" , "type" : {"$in" : data_types}, "location" : self.FROMRSE }},
             'status': 'transferred'
         },
         {'_id': 1, 'number': 1, 'data': 1})
 
         cursor = list(cursor)
 
-        helper.global_dictionary['logger'].Info('Runs that will be processed are {0}'.format([c["number"] for c in cursor]))
+        helper.global_dictionary['logger'].Info('Runs that will be transferred are {0}'.format([c["number"] for c in cursor]))
 
         # Runs over all listed runs
         for run in cursor:
@@ -107,54 +132,33 @@ class CleanEB():
                 # get the datum for this datatype
                 datum = None
                 for d in run['data']:
-                    if d['type'] == dtype and 'eb' in d['host']:
+                    if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == self.FROMRSE:
                         datum = d
 
                 if datum is None:
-                    helper.global_dictionary['logger'].Info('Data type not in eb')
+                    helper.global_dictionary['logger'].Info('\t\t==> Data type {0} not in source RSE : {1}'.format(dtype,self.FROMRSE))
                     continue
 
-                file = datum['location'].split('/')[-1]
-                hash = file.split('-')[-1]
-
-                # create a DID to upload
-                did = make_did(number, dtype, hash)
-
-                # check first with runDB if the data type already exists for this DID on any RSE
-                rses_in_db = []
-                for d in run['data']:
-                    if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] != "LNGS_USERDISK":
-                        rses_in_db.append(d['location'])
-                helper.global_dictionary['logger'].Info('\t==> Found in following RSEs in the DB : {0}'.format(rses_in_db))
-                if len(rses_in_db) < self.minimum_number_acceptable_rses:
+                if 'did' not in datum:
+                    helper.global_dictionary['logger'].Info('\t\t==> There is no did on the data type {1}'.format(dtype))
                     continue
 
-                # check if a rule already exists for this DID on any RSE
-                rses_with_rule = []
-                for rse in self.RSES:
-                    rucio_rule = self.rc.GetRule(upload_structure=did, rse=rse)
-                    if rucio_rule['exists'] and rucio_rule['state'] == 'OK':
-                        if "LNGS_USERDISK"==rucio_rule['rse']:
-                            continue
-                        rses_with_rule.append(rucio_rule['rse'])
-                helper.global_dictionary['logger'].Info('\t==> Found in following RSEs : {0}'.format(rses_with_rule))
+                did = datum['did']
 
+                hash = did.split('-')[-1]
 
-                if len(rses_with_rule)>=self.minimum_number_acceptable_rses:
+                helper.global_dictionary['logger'].Info('\t\t==> Run {0}, data type {1}: found rule {2} in {3}'.format(number,dtype,did,self.FROMRSE))
 
-#                    print(run['_id'],datum['type'],datum['host'])
-                    self.db.RemoveDatafield(run['_id'],datum)
-                    full_path = os.path.join(self.DATADIR, file)
-#                    print(full_path)
+                # check if a rule already exists in the destination RSE
+                rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.TORSE)
+                if rucio_rule['exists'] and rucio_rule['state'] == 'OK':
+                    helper.global_dictionary['logger'].Info('\t\t==> Data already in the destination RSE : {0}'.format(self.TORSE))
+                    continue
 
-                    helper.global_dictionary['logger'].Info('\t==> Deleted from DB') 
+                helper.global_dictionary['logger'].Info('\t\t==> Run {0}, data type {1}: rule added: {2} ---> {3}'.format(number,dtype,did,self.TORSE))
 
-                    try:
-                        shutil.rmtree(full_path)
-                    except OSError as e:
-                        helper.global_dictionary['logger'].Info('\t==> Error, cannot delete directory : {0}'.format(e))
-                    else:
-                        helper.global_dictionary['logger'].Info('\t==> Deleted from EB') 
+                self.add_conditional_rule(number, dtype, hash, self.FROMRSE, self.TORSE)
+
 
         return 0
 
