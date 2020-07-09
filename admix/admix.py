@@ -18,6 +18,12 @@ from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
 from admix.tasks.purge_with_mongodb import PurgeMongoDB
 from admix.tasks.upload_from_lngs import UploadFromLNGS
 from admix.tasks.fix_upload import FixUpload
+from admix.tasks.clean_eb import CleanEB
+from admix.tasks.upload_from_lngs_single_thread import UploadFromLNGSSingleThread
+from admix.tasks.check_transfers import CheckTransfers
+from admix.tasks.move_data_to_rse import MoveDataToRSE
+from admix.tasks.monitor_run import MonitorRun
+from utilix.config import Config
 
 def version():
     print(__version__)
@@ -27,12 +33,15 @@ def your_admix():
 
     parser = argparse.ArgumentParser(description="Run your favourite aDMIX")
 
+    config = Config()
+    
+
     # From here the input depends on the usage of the command
     # Add modules here:
     parser.add_argument('task', nargs="?", default="default",
                         help="Select an aDMIX task")
     # Add arguments for the process manager:
-    parser.add_argument('--admix-config', dest="admix_config", type=str, default=DEFAULT_CONFIG,
+    parser.add_argument('--admix-config', dest="admix_config", type=str, default=config.get('Admix','config_file'),
                         help="Load your host configuration")
     parser.add_argument('--no-update', dest='no_update', action='store_false',
                         help="Add this option to prevent aDMIX updating the Xenon database")
@@ -59,13 +68,15 @@ def your_admix():
                         help="Select your RSE from where to download data")
     parser.add_argument('--force', default=False, action="store_true",
                         help="Enforce your action. Be aware of the application!")
+    parser.add_argument('--sleep-time', dest='sleep_time', type=int,
+                        help="Time to wait before running again the task")
     args = parser.parse_args()
 
     #We make the individual arguments global available right after aDMIX starts:
     if args.select_run_numbers != None and args.select_run_times == None:
         helper.make_global("run_numbers", args.select_run_numbers)
     if args.select_run_times != None and args.select_run_numbers == None:
-        helper.make_global("run_timestamps", args.select_run_times)
+        helper.make_global("run_timestamps", args.select_run_times)        
 
     helper.make_global("admix_config", os.path.abspath(args.admix_config))
     helper.make_global("no_db_update", args.no_update)
@@ -74,6 +85,11 @@ def your_admix():
     helper.make_global("type", args.type)
     helper.make_global("hash", args.hash)
     helper.make_global("force", args.force)
+
+    if args.sleep_time != None:
+        helper.make_global("sleep_time", args.sleep_time)
+    else:
+        helper.make_global("sleep_time",helper.get_hostconfig()['sleep_time'])
 
     #Pre tests:
     # admix host configuration must match the hostname:
@@ -117,9 +133,6 @@ def your_admix():
     for i_task in task_list:
         ClassCollector[i_task].init()
 
-    #Gets the sleep time for loops
-    sleep_time = helper.get_hostconfig()['sleep_time']
-
     #Go for the loop
     while True:
 
@@ -130,5 +143,11 @@ def your_admix():
         if args.once == True:
             break
 
-        helper.global_dictionary['logger'].Info('Waiting for {0} seconds'.format(sleep_time))
-        time.sleep(sleep_time)
+        print('Waiting for {0} seconds'.format(helper.global_dictionary['sleep_time']))
+        print("You can safely CTRL-C now if you need to stop me")
+        try:
+            time.sleep(helper.global_dictionary['sleep_time'])
+        except KeyboardInterrupt:
+            break
+
+

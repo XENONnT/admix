@@ -29,7 +29,7 @@ class Logger():
         self._loghandler.setLevel(logging.DEBUG)
         # create file handler which logs even debug messages
         fh = logging.FileHandler(self.logpath)
-        fh.setLevel(logging.INFO)
+        fh.setLevel(logging.DEBUG)
         # create console handler with a higher log level
         ch = logging.StreamHandler()
         ch.setLevel(logging.DEBUG)

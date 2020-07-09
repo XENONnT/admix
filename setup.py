@@ -45,7 +45,8 @@ setup(
         'console_scripts': [
             'admix-version=admix.admix:version',
             'admix=admix.admix:your_admix',
-            'admix-download=admix.download:main'
+            'admix-download=admix.download:main',
+            'showrun=admix.showrun:main'
         ]
     },
     license="BSD license",
