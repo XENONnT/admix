@@ -37,7 +37,7 @@ class UploadFromLNGSSingleThread():
         self.UPLOAD_TO = helper.get_hostconfig()['upload_to']
 
         #Choose which data type you want to treat
-        self.DTYPES = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES
+        self.DTYPES = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES + self.NORECORDS_DTYPES
 
 
         self.DATADIR = helper.get_hostconfig()['path_data_to_upload']
@@ -86,8 +86,14 @@ class UploadFromLNGSSingleThread():
         min_run = float('inf')
 
         for run in cursor:
-            if run['number']<8100:
+            if run['number']<8525:
                 continue
+#            if run['number']<8300:
+#                continue
+#            if run['number']<8361:
+#                continue
+#            if run['number']!=7887:
+#                 continue
             if run['number'] < min_run:
                 min_run = run['number']
                 id_run = run['_id']
@@ -181,13 +187,17 @@ class UploadFromLNGSSingleThread():
 
             # get the datum for this datatype
             datum = None
-            in_rucio = False
+            in_rucio_upload_rse = False
+            in_rucio_somewhere_else = False
             for d in run['data']:
                 if d['type'] == dtype and 'eb' in d['host']:
                     datum = d
 
-                if d['type'] == dtype and d['host'] == 'rucio-catalogue':
-                    in_rucio = True
+                if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == self.UPLOAD_TO:
+                    in_rucio_upload_rse = True
+
+                if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] != self.UPLOAD_TO:
+                    in_rucio_somewhere_else = True
 
             if datum is None:
                 helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}: not found'.format(number,dtype))
@@ -204,39 +214,47 @@ class UploadFromLNGSSingleThread():
 
             # check if a rule already exists for this DID on LNGS
             rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
-#            helper.global_dictionary['logger'].Info('It was already in Rucio : {0}'.format(in_rucio))
+#            helper.global_dictionary['logger'].Info('It was already in Rucio : {0}'.format(in_rucio_upload_rse))
 #            helper.global_dictionary['logger'].Info('Rucio rule : {0}'.format(rucio_rule))
 #            print("Did: ",did)
 #            print("Upload path: ",upload_path)
 
-            # if not in rucio already and no rule exists, upload into rucio
-            if not in_rucio and not rucio_rule['exists']:
+            if in_rucio_somewhere_else:
+                helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}: cannot upload it because it is already on Rucio somewhere else'.format(number,dtype))
+                continue
+
+            # if not in rucio already (no matter where) and no rule exists, upload into rucio
+            if not in_rucio_upload_rse and not rucio_rule['exists']:
                 result = self.rc.Upload(did,
                                         upload_path,
                                         self.UPLOAD_TO,
                                         lifetime=None)
                 helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}: uploaded ({2})'.format(number,dtype,did))
                 
-            # if upload was successful, tell runDB
-            rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
-            data_dict = {'host': "rucio-catalogue",
-                         'type': dtype,
-                         'location': self.UPLOAD_TO,
-                         'lifetime': rucio_rule['expires'],
-                         'status': 'transferred',
-                         'did': did,
-                         'protocol': 'rucio'
-                        }
+                # get the status of this new upload rule
+                rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
 
-            if rucio_rule['state'] == 'OK':
-                if not in_rucio:
+                # if the rule status is OK, then update the DB
+                if rucio_rule['state'] == 'OK':
+                    data_dict = {'host': "rucio-catalogue",
+                                 'type': dtype,
+                                 'location': self.UPLOAD_TO,
+                                 'lifetime': rucio_rule['expires'],
+                                 'status': 'transferred',
+                                 'did': did,
+                                 'protocol': 'rucio'
+                             }
                     self.db.AddDatafield(run['_id'], data_dict)
 
             # set a rule to ship data on GRID
 #            for rse in ['UC_OSG_USERDISK']:
 #                self.add_rule(number, dtype, hash, rse)
-            self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK')
-            self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK')
+            if rucio_rule['state'] == 'OK':
+                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK')
+                if dtype in self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES:
+                    self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK')
+                if dtype in self.RECORDS_DTYPES + self.NORECORDS_DTYPES:
+                    self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'UC_DALI_USERDISK')
 
             # Finally, unbook the run by setting its status to "uploaded"
             # (not needed since add_rule already flags it as "transferring"

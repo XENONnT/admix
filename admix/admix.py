@@ -143,6 +143,10 @@ def your_admix():
         if args.once == True:
             break
 
+        if os.path.exists("/tmp/admix-stop"):
+            print("Exiting because of the presence of /tmp/admix-stop file")
+            break
+
         print('Waiting for {0} seconds'.format(helper.global_dictionary['sleep_time']))
         print("You can safely CTRL-C now if you need to stop me")
         try:
