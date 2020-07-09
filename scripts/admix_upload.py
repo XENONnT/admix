@@ -276,7 +276,7 @@ def purge():
                     rc.DeleteRule(rule_id)
 
                 # TEMPORARY: check if there are still copies on eb, if so remove them.
-                # remove_from_eb(run['number'], dtype)
+                remove_from_eb(run['number'], dtype)
         break
 
 
@@ -299,7 +299,7 @@ def remove_from_eb(number, dtype):
     print(path_to_rm)
     print(ebdict)
     shutil.rmtree(path_to_rm)
-    DB.RemoveDatafield(cursor['_id'], ebdict)
+    #DB.RemoveDatafield(cursor['_id'], ebdict)
 
 
 def main():
@@ -314,8 +314,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    #main()
     # clear_db()
-    #purge()
+    purge()
     #check_transfers()
 
