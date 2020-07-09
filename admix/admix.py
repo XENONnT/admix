@@ -22,7 +22,6 @@ from admix.tasks.clean_eb import CleanEB
 from admix.tasks.upload_from_lngs_single_thread import UploadFromLNGSSingleThread
 from admix.tasks.check_transfers import CheckTransfers
 from admix.tasks.move_data_to_rse import MoveDataToRSE
-from admix.tasks.monitor_run import MonitorRun
 from utilix.config import Config
 
 def version():
@@ -34,7 +33,7 @@ def your_admix():
     parser = argparse.ArgumentParser(description="Run your favourite aDMIX")
 
     config = Config()
-    
+
 
     # From here the input depends on the usage of the command
     # Add modules here:
@@ -76,7 +75,7 @@ def your_admix():
     if args.select_run_numbers != None and args.select_run_times == None:
         helper.make_global("run_numbers", args.select_run_numbers)
     if args.select_run_times != None and args.select_run_numbers == None:
-        helper.make_global("run_timestamps", args.select_run_times)        
+        helper.make_global("run_timestamps", args.select_run_times)
 
     helper.make_global("admix_config", os.path.abspath(args.admix_config))
     helper.make_global("no_db_update", args.no_update)
@@ -138,7 +137,7 @@ def your_admix():
 
         for i_task in task_list:
             ClassCollector[i_task].run()
-            
+
 
         if args.once == True:
             break

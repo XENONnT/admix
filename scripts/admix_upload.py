@@ -299,7 +299,7 @@ def remove_from_eb(number, dtype):
     print(path_to_rm)
     print(ebdict)
     shutil.rmtree(path_to_rm)
-    DB.RemoveDatafield(cursor['_id'], ebdict)
+    #DB.RemoveDatafield(cursor['_id'], ebdict)
 
 
 def main():
