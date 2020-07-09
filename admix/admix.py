@@ -22,6 +22,7 @@ from admix.tasks.clean_eb import CleanEB
 from admix.tasks.upload_from_lngs_single_thread import UploadFromLNGSSingleThread
 from admix.tasks.check_transfers import CheckTransfers
 from admix.tasks.move_data_to_rse import MoveDataToRSE
+from admix.tasks.monitor_run import MonitorRun
 from utilix.config import Config
 
 def version():
