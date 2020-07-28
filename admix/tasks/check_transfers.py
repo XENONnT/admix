@@ -62,13 +62,11 @@ class CheckTransfers():
             rucio_stati = []
             for d in run['data']:
                 if d['host'] == 'rucio-catalogue':
-#                    if run['number']==7695 and d['status'] == 'error':
+#                    if run['number']==7695 and d['status'] == 'stuck':
 #                        self.db.db.find_one_and_update({'_id': run['_id'],'data': {'$elemMatch': d}},
 #                                                       {'$set': {'data.$.status': 'transferring'}}
 #                                                   )                        
-                    if d['status'] != 'transferring':
-                        rucio_stati.append(d['status'])
-                    else:
+                    if d['status'] in ['transferring','error','stuck']:
                         did = d['did']
                         status = self.rc.CheckRule(did, d['location'])
                         if status == 'REPLICATING':
@@ -83,9 +81,11 @@ class CheckTransfers():
 
                         elif status == 'STUCK':
                             self.db.db.find_one_and_update({'_id': run['_id'], 'data': {'$elemMatch': d}},
-                                                      {'$set': {'data.$.status': 'error'}}
+                                                      {'$set': {'data.$.status': 'stuck'}}
                             )
-                            rucio_stati.append('error')
+                            rucio_stati.append('stuck')
+                    else:
+                        rucio_stati.append(d['status'])
 
                             # are there any other rucio rules transferring?
             if len(rucio_stati) > 0 and all([s == 'transferred' for s in rucio_stati]):

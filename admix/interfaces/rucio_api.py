@@ -437,9 +437,14 @@ class RucioAPI():
         result = 1
 
         try:
+#            self._rucio_client.add_replication_rule(dids, copies, rse_expression, weight=None, lifetime=lifetime,
+#                                                    grouping='DATASET', account=None, locked=False,
+#                                                    source_replica_expression=None, activity=None, notify='N',
+#                                                    purge_replicas=False, ignore_availability=False, comment=None,
+#                                                    ask_approval=False, asynchronous=False, priority=3)
             self._rucio_client.add_replication_rule(dids, copies, rse_expression, weight=None, lifetime=lifetime,
                                                     grouping='DATASET', account=None, locked=False,
-                                                    source_replica_expression=None, activity=None, notify='N',
+                                                    source_replica_expression=source_replica_expression, activity=None, notify='N',
                                                     purge_replicas=False, ignore_availability=False, comment=None,
                                                     ask_approval=False, asynchronous=False, priority=3)
             result = 0

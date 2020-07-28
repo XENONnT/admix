@@ -58,8 +58,8 @@ class MonitorRun():
     def run(self,*args, **kwargs):
         print('Run task '+self.__class__.__name__)
 
-#        data_types = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES + self.NORECORDS_DTYPES
-        data_types = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES
+        data_types = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES + self.NORECORDS_DTYPES
+#        data_types = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES
 
 
         # Get all runs that are already transferred and that still have some data_types in eb 
@@ -68,15 +68,14 @@ class MonitorRun():
 #            'number': 8322
 #            'number': 6371
 #            'number': 7148
-#            'number': 8360
-#            'number': 8378
-            'number': 8119
-#            'number': {'$gte': 3400, '$lte': 10000}
+#            'number': 8590
+#            'number': 8626
+            'number': 7148
+#            'number': {'$gte': 8100, '$lt': 8200}
         },
-        {'_id': 1, 'number': 1, 'data': 1, 'status':1})
+        {'_id': 1, 'number': 1, 'data': 1, 'status':1, 'bootstrax': 1})
 
         cursor = list(cursor)
-        
 
         print('Runs that will be processed are {0}'.format([c["number"] for c in cursor]))
 
@@ -86,6 +85,11 @@ class MonitorRun():
             # Gets run number
             number = run['number']
             print('Run: {0}'.format(number))
+
+            # Extracts the correct Event Builder machine who processed this run                                                                               
+            bootstrax = run['bootstrax']
+            eb = bootstrax['host'].split('.')[0]
+            print('Processed by: {0}'.format(eb))
 
             # Get the status
             if 'status' in run:
@@ -99,14 +103,13 @@ class MonitorRun():
             else:
                 data = run['data']
             
-            # Gets the EventBuilder number
-            eb = ""
+            # Check is there are more instances in more EventBuilders
+            extra_ebs = set()
             for d in data:
-                if 'eb' in d['host']: 
-                    eb = d['host']
-                    break
-            if eb !="":
-                print('EventBuilder: {0}'.format(eb[0:3]))
+                if 'eb' in d['host'] and eb not in d['host']: 
+                    extra_ebs.add(d['host'].split('.')[0])
+            if len(extra_ebs)>0:
+                print('\t\t Warning : The run has been processed by more than one EventBuilder: {0}'.format(extra_ebs))
 
             # Runs over all data types to be monitored
             for dtype in data_types:
@@ -115,22 +118,25 @@ class MonitorRun():
                 print('{0}'.format(dtype))
 
                 # Take the official number of files accordingto run DB
-                Nfiles = 0
+                Nfiles = -1
                 for d in data:
-                    if d['type'] == dtype and 'eb' in d['host']:
+                    if d['type'] == dtype and eb in d['host']:
                         if 'file_count' in d:
                             Nfiles = d['file_count']
-                print('\t Number of files: {0}'.format(Nfiles))
+                if Nfiles == -1:
+                    print('\t Number of files: missing in DB')
+                else:
+                    print('\t Number of files: {0}'.format(Nfiles))
 
                 # Check if data are still in the data list and not in deleted_data
                 DB_InEB = False
                 for d in run['data']:
-                    if d['type'] == dtype and 'eb' in d['host']:
+                    if d['type'] == dtype and eb in d['host']:
                         DB_InEB = True
                 DB_NotInEB = False
                 if 'deleted_data' in run:
                     for d in run['deleted_data']:
-                        if d['type'] == dtype and 'eb' in d['host']:
+                        if d['type'] == dtype and eb in d['host']:
                             DB_NotInEB = True
                 if DB_InEB and not DB_NotInEB:
                     print('\t DB : still in EB')
@@ -144,12 +150,15 @@ class MonitorRun():
                 # Check if data are still in the EB disks without using the DB
                 upload_path = ""
                 for d in run['data']:
-                    if d['type'] == dtype and 'eb' in d['host']:
-                        upload_path = self.DATADIR +'/'+ d['location'].split('/')[-1]
+                    if d['type'] == dtype and eb in d['host']:
+                        file = d['location'].split('/')[-1]
+                        upload_path = os.path.join(self.DATADIR, eb, file) 
                 path_exists = os.path.exists(upload_path)
                 if upload_path != "" and path_exists:
                     path, dirs, files = next(os.walk(upload_path))
                     print('\t Disk: still in EB disk and with',len(files),'files')
+                else:
+                    print('\t Disk: not in EB disk anymore')
                 if DB_InEB and not path_exists:
                     print('\t\t Incoherency in DB and disk: it is in DB data list but it is not in the disk')
                 if DB_NotInEB and path_exists:
@@ -175,13 +184,17 @@ class MonitorRun():
                                 status = 'Not available'
                             if 'did' in d:
                                 hash = d['did'].split('-')[-1]
+                                did = d['did']
                             else:
                                 print('\t\t Warning : DID information is absent in DB data list (old admix version). Using standard hashes for RSEs')
                                 hash = self.bkp_hashes.get(dtype)
-                            rucio_rule = self.rc.GetRule(upload_structure=d['did'], rse=rse)
+                                did = make_did(number, dtype, hash)
+                            rucio_rule = self.rc.GetRule(upload_structure=did, rse=rse)
                             files = list_file_replicas(number, dtype, hash, rse)
                             if rucio_rule['exists']:
                                 print('\t', rse+': DB Yes, Status',status,', Rucio Yes, State',rucio_rule['state'],",",len(files), 'files')
+                                if len(files) < Nfiles:
+                                    print('\t\t Warning : Wrong number of files in Rucio!!!')
                             else:
                                 print('\t', rse+': DB Yes, Status',status,', Rucio No')
                             # print(files)
@@ -195,6 +208,8 @@ class MonitorRun():
                         files = list_file_replicas(number, dtype, hash, rse)
                         if rucio_rule['exists']:
                             print('\t', rse+': DB No, Rucio Yes, State',rucio_rule['state'],",",len(files), 'files')
+                            if len(files) < Nfiles:
+                                print('\t\t Warning : Wrong number of files in Rucio!!!')
                         else:
                             print('\t', rse+': DB No, Rucio No')
                 print('\t Number of sites: ', Nrses)

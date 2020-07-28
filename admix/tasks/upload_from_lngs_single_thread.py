@@ -26,7 +26,7 @@ class UploadFromLNGSSingleThread():
         helper.global_dictionary['logger'].Info(f'Init task {self.__class__.__name__}')
 
 
-#        open("/tmp/admix-upload_from_lngs", 'a').close()
+        open("/tmp/admix-upload_from_lngs", 'a').close()
 
         #Take all data types categories
         self.NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
@@ -80,19 +80,15 @@ class UploadFromLNGSSingleThread():
 
 
     def find_next_run_to_upload(self):
-        cursor = self.db.db.find({'status': 'eb_ready_to_upload'}, {'number': 1, 'data': 1})
+        cursor = self.db.db.find({'status': 'eb_ready_to_upload', 'bootstrax.state': 'done' }, {'number': 1, 'data': 1})
 #        cursor = self.db.db.find({'status': 'uploading'}, {'number': 1, 'data': 1})
         id_run = 0
         min_run = float('inf')
 
         for run in cursor:
-            if run['number']<8525:
-                continue
-#            if run['number']<8300:
+#            if run['number']<8500:
 #                continue
-#            if run['number']<8361:
-#                continue
-#            if run['number']!=7887:
+#            if run['number'] not in [7155,7156,7218]:
 #                 continue
             if run['number'] < min_run:
                 min_run = run['number']
@@ -170,16 +166,20 @@ class UploadFromLNGSSingleThread():
         if id_to_upload == 0:
              helper.global_dictionary['logger'].Info('No run available to upload')
              return 0
-        run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1, 'data': 1})
+        run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1, 'data': 1, 'bootstrax': 1})
+
+        # Gets run number
         number = run['number']
 
-        # Book the run by setting its status to "uploading"
+        # Books the run by setting its status to "uploading"
         self.db.SetStatus(number, 'uploading')
 
+        # Extracts the correct Event Builder machine who processed this run
+        bootstrax = run['bootstrax']
+        eb = bootstrax['host'].split('.')[0]
+
         # Performs upload on selected run
-
-
-        helper.global_dictionary['logger'].Info('Uploading run {0}'.format(number))
+        helper.global_dictionary['logger'].Info('Uploading run {0} from {1}'.format(number,eb))
 
         # loop on all data types we want to upload
         for dtype in self.DTYPES:
@@ -190,7 +190,7 @@ class UploadFromLNGSSingleThread():
             in_rucio_upload_rse = False
             in_rucio_somewhere_else = False
             for d in run['data']:
-                if d['type'] == dtype and 'eb' in d['host']:
+                if d['type'] == dtype and eb in d['host']:
                     datum = d
 
                 if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == self.UPLOAD_TO:
@@ -207,7 +207,7 @@ class UploadFromLNGSSingleThread():
 
             hash = file.split('-')[-1]
 
-            upload_path = os.path.join(self.DATADIR, file)
+            upload_path = os.path.join(self.DATADIR, eb, file)
 
             # create a DID to upload
             did = make_did(number, dtype, hash)

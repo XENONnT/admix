@@ -147,10 +147,15 @@ def your_admix():
             print("Exiting because of the presence of /tmp/admix-stop file")
             break
 
-        print('Waiting for {0} seconds'.format(helper.global_dictionary['sleep_time']))
+        wait_time = helper.global_dictionary['sleep_time']
+        if "CheckTransfers" in task_list or "CleanEB" in task_list:
+            wait_time = 3600
+
+        print('Waiting for {0} seconds'.format(wait_time))
         print("You can safely CTRL-C now if you need to stop me")
         try:
-            time.sleep(helper.global_dictionary['sleep_time'])
+            time.sleep(wait_time)
+
         except KeyboardInterrupt:
             break
 

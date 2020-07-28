@@ -4,9 +4,9 @@ import shutil
 from admix.interfaces.rucio_dataformat import ConfigRucioDataFormat
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.keyword import Keyword
-
+from admix.utils.list_file_replicas import list_file_replicas
 from admix.utils import make_did
-
+import admix.helper.helper as helper
 
 
 from admix.interfaces.database import ConnectMongoDB
@@ -104,6 +104,82 @@ def fixdb(number):
 
 
 
+
+
+def remove_datatype_from_db_and_datamanager(did):
+
+    config = Config()
+    helper.make_global("admix_config", os.path.abspath(config.get('Admix','config_file')))
+    RSES = helper.get_hostconfig()['rses']
+
+
+    DB = ConnectMongoDB()
+    rc = RucioSummoner()
+
+    hash = did.split('-')[-1]
+    dtype = did.split('-')[0].split(':')[-1]
+    number = int(did.split(':')[0].split('_')[-1])
+
+    print("Removing",number,dtype,hash)
+
+
+    rundoc = DB.db.find_one({'number' : number})
+
+    print("status = ",rundoc['status'])
+
+    run_id = "%06d" % number
+
+    # make it uploadable
+    DB.db.find_one_and_update({'number':number},{'$set':{"status": "eb_ready_to_upload"}})
+
+    # Remove DB entries for all RSEs
+    for d in rundoc['data']:
+        if d['type'] == dtype and d['host'] == 'rucio-catalogue':
+
+            # Remove the data entry in DB
+            print("Deleting data = ",d)
+            DB.db.update_one({"_id" : rundoc['_id']},
+                              {"$pull" : {"data" : d} })
+
+    # Remove Rucio rules for all RSEs
+    for rse in RSES:
+
+        rucio_rule = rc.GetRule(upload_structure=did, rse=rse)
+        if rucio_rule['exists']:
+            print("Deleting rucio rule = ", rucio_rule['id'])
+            rc.DeleteRule(rucio_rule['id'])
+
+
+    files = list_file_replicas(number, dtype, hash, "LNGS_USERDISK")
+    print("Deleting rucio data in datamanager disk. Deleting",len(files),"files")
+    for file in files:
+        os.remove(file)
+
+
+
+def change_status(number,status):
+
+    DB = ConnectMongoDB()
+
+    print("Run ",number)
+
+    rundoc = DB.db.find_one({'number' : number})
+    print("status before = ",rundoc['status'])
+
+    run_id = "%06d" % number
+
+    DB.db.find_one_and_update({'number':number},{'$set':{"status": status}})
+
+    rundoc = DB.db.find_one({'number' : number})
+    print("status after = ",rundoc['status'])
+
+
+
+def dummy():
+    return(0)
+
+
+
 if __name__ == "__main__":
 
     #[8355, 8356, 8357, 8358, 8359, 8360, 8361, 8362, 8363, 8364, 8365, 8366]
@@ -112,5 +188,11 @@ if __name__ == "__main__":
     #8361 was interrupted during the issue, so for this I will remove everything in Rucio and restart the upload from scratch).
     #Then, I restarted admix in the usual way from 8362 and it is going fine
 
-    fixdb(7887)
-
+#    remove_datatype_from_db_and_datamanager("xnt_008650:records-jxkqp76kam")
+#    remove_datatype_from_db_and_datamanager("xnt_008650:lone_hits-b7dgmtzaef")
+#    remove_datatype_from_db_and_datamanager("xnt_008013:raw_records-rfzvpzj4mf")
+#    remove_datatype_from_db_and_datamanager("xnt_008620:records-jxkqp76kam")
+#    change_status(7151,"eb_ready_to_upload")
+    change_status(7151,"")
+#    fixdb(8650)
+#    dummy()
