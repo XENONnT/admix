@@ -236,14 +236,15 @@ class UploadFromLNGSSingleThread():
 
                 # if the rule status is OK, then update the DB
                 if rucio_rule['state'] == 'OK':
-                    data_dict = {'host': "rucio-catalogue",
+                    data_dict = datum.copy()
+                    data_dict.update({'host': "rucio-catalogue",
                                  'type': dtype,
                                  'location': self.UPLOAD_TO,
                                  'lifetime': rucio_rule['expires'],
                                  'status': 'transferred',
                                  'did': did,
                                  'protocol': 'rucio'
-                             }
+                             })
                     self.db.AddDatafield(run['_id'], data_dict)
 
             # set a rule to ship data on GRID
