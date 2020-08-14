@@ -10,7 +10,7 @@ from utilix.config import Config
 import utilix
 from bson.json_util import dumps
 from datetime import timezone, datetime, timedelta
-
+import pymongo
 
 def showrun(number,to,dtypes,compact,dumpjson):
 
@@ -50,7 +50,7 @@ def showrun(number,to,dtypes,compact,dumpjson):
     if to>number:
         cursor = db.db.find({
             'number': {'$gte': number, '$lte': to}
-        })
+        }).sort('number',pymongo.ASCENDING)
         print('Runs that will be processed are from {0} to {1}'.format(number,to))
     else:
         cursor = db.db.find({
@@ -67,9 +67,12 @@ def showrun(number,to,dtypes,compact,dumpjson):
         print('Run: {0}'.format(number))
 
         # Extracts the correct Event Builder machine who processed this run
-        bootstrax = run['bootstrax']
-        eb = bootstrax['host'].split('.')[0]
-        print('Processed by: {0}'.format(eb))
+        if 'bootstrax' in run:
+            bootstrax = run['bootstrax']
+            eb = bootstrax['host'].split('.')[0]
+            print('Processed by: {0}'.format(eb))
+        else:
+            print('Not processed')
 
         # Gets the status
         if 'status' in run:
