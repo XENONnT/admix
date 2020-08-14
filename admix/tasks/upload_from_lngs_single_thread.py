@@ -99,7 +99,7 @@ class UploadFromLNGSSingleThread():
 
 
 
-    def add_rule(self,run_number, dtype, hash, rse, lifetime=None, update_db=True):
+    def add_rule(self,run_number, dtype, hash, rse, datum=None, lifetime=None, update_db=True):
         did = make_did(run_number, dtype, hash)
         result = self.rc.AddRule(did, rse, lifetime=lifetime)
         #if result == 1:
@@ -107,24 +107,31 @@ class UploadFromLNGSSingleThread():
         helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}: rule added: {2} ---> {3}'.format(run_number,dtype,did,rse))
 
         if update_db:
+            self.db.db.find_one_and_update({'number': run_number},
+                                      {'$set': {'status': 'transferring'}}
+                                  )
+
             rucio_rule = self.rc.GetRule(did, rse=rse)
-            data_dict = {'host': "rucio-catalogue",
+            updated_fields = {'host': "rucio-catalogue",
                          'type': dtype,
                          'location': rse,
                          'lifetime': rucio_rule['expires'],
                          'status': 'transferring',
                          'did': did,
                          'protocol': 'rucio'
-                     }
-            self.db.db.find_one_and_update({'number': run_number},
-                                      {'$set': {'status': 'transferring'}}
-                                  )
+            }
+
+            if datum == None:
+                data_dict = updated_fields
+            else:
+                data_dict = datum.copy()
+                data_dict.update(updated_fields)
 
             docid = self.db.db.find_one({'number': run_number}, {'_id': 1})['_id']
             self.db.AddDatafield(docid, data_dict)
 
 
-    def add_conditional_rule(self,run_number, dtype, hash, from_rse, to_rse, lifetime=None, update_db=True):
+    def add_conditional_rule(self,run_number, dtype, hash, from_rse, to_rse, datum=None, lifetime=None, update_db=True):
         did = make_did(run_number, dtype, hash)
         result = self.rc.AddConditionalRule(did, from_rse, to_rse, lifetime=lifetime)
         #if result == 1:
@@ -132,18 +139,25 @@ class UploadFromLNGSSingleThread():
         helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}: conditional rule added: {2} ---> {3}'.format(run_number,dtype,did,to_rse))
 
         if update_db:
+            self.db.db.find_one_and_update({'number': run_number},
+                                      {'$set': {'status': 'transferring'}}
+                                  )
+
             rucio_rule = self.rc.GetRule(did, rse=to_rse)
-            data_dict = {'host': "rucio-catalogue",
+            updated_fields = {'host': "rucio-catalogue",
                          'type': dtype,
                          'location': to_rse,
                          'lifetime': rucio_rule['expires'],
                          'status': 'transferring',
                          'did': did,
                          'protocol': 'rucio'
-                     }
-            self.db.db.find_one_and_update({'number': run_number},
-                                      {'$set': {'status': 'transferring'}}
-                                  )
+            }
+
+            if datum == None:
+                data_dict = updated_fields
+            else:
+                data_dict = datum.copy()
+                data_dict.update(updated_fields)
 
             docid = self.db.db.find_one({'number': run_number}, {'_id': 1})['_id']
             self.db.AddDatafield(docid, data_dict)
@@ -248,18 +262,13 @@ class UploadFromLNGSSingleThread():
                     self.db.AddDatafield(run['_id'], data_dict)
 
             # set a rule to ship data on GRID
-#            for rse in ['UC_OSG_USERDISK']:
-#                self.add_rule(number, dtype, hash, rse)
             if rucio_rule['state'] == 'OK':
-                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK')
+                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
                 if dtype in self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES:
-                    self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK')
+                    self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK',datum=datum)
                 if dtype in self.RECORDS_DTYPES + self.NORECORDS_DTYPES:
-                    self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'UC_DALI_USERDISK')
+                    self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'UC_DALI_USERDISK',datum=datum)
 
-            # Finally, unbook the run by setting its status to "uploaded"
-            # (not needed since add_rule already flags it as "transferring"
-#            self.db.SetStatus(number, 'uploaded')
 
 
         return 0
