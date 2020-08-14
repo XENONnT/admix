@@ -44,6 +44,10 @@ class CleanEB():
 
         self.minimum_number_acceptable_rses = 1
         self.minimum_deltadays_allowed = 3
+        self.minimum_deltadays_allowed_heavy = 1
+        self.dtype_delayed_delete = ['raw_records_aqmon','raw_records_he','raw_records_mv','raw_records','pulse_counts','veto_regions','records','peaklets']
+        self.dtype_delayed_delete_heavy = ['raw_records_aqmon','raw_records_he','raw_records_mv','pulse_counts','veto_regions','peaklets']
+        self.dtype_never_delete = ['lone_hits','merged_s2s','peak_basics','peaklet_classification']
 
         #Init the runDB
         self.db = ConnectMongoDB()
@@ -131,11 +135,20 @@ class CleanEB():
             for dtype in data_types:
                 helper.global_dictionary['logger'].Info('\t==> Looking for data type {0}'.format(dtype))
 
-                # if norecords data types are not yet older than three days, it skips deleting them
-                if dtype in self.NORECORDS_DTYPES:
+                # checks the age of the data type
+                is_enough_old = True
+
+                # for some data types, it they are not yet older than three days, it skips deleting them
+                if dtype in self.dtype_delayed_delete:
                     if delta_time < timedelta(days=self.minimum_deltadays_allowed):
                         helper.global_dictionary['logger'].Info('Run {0}, data type {1} is not yet older than {2} days. Skip it'.format(number,dtype,self.minimum_deltadays_allowed))
-                        continue
+                        is_enough_old = False
+
+                # for some heavy data types (records and raw_records), if they are not yet older than one day, it skips deleting them
+                if dtype in self.dtype_delayed_delete_heavy:
+                    if delta_time < timedelta(days=self.minimum_deltadays_allowed_heavy):
+                        helper.global_dictionary['logger'].Info('Run {0}, data type {1} is not yet older than {2} days. Skip it'.format(number,dtype,self.minimum_deltadays_allowed_heavy))
+                        is_enough_old = False
 
                 # check first with runDB if the data type already exists in external RSEs
                 rses_in_db = []
@@ -159,11 +172,11 @@ class CleanEB():
                     if d['type'] == dtype and eb in d['host']:
                         datum = d
 
-
-                # if so, start deleting data in EB
                 if datum is None:
                     helper.global_dictionary['logger'].Info('Data type not in eb')
-                else:
+
+                # start deleting data in EB
+                if datum is not None and dtype not in self.dtype_never_delete and is_enough_old:
                     file = datum['location'].split('/')[-1]
                     hash = file.split('-')[-1]
 
