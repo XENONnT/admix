@@ -43,10 +43,10 @@ class CleanEB():
         self.UPLOAD_TO = helper.get_hostconfig()['upload_to']
 
         self.minimum_number_acceptable_rses = 1
-        self.minimum_deltadays_allowed = 3
-        self.minimum_deltadays_allowed_heavy = 1
-        self.dtype_delayed_delete = ['raw_records_aqmon','raw_records_he','raw_records_mv','raw_records','pulse_counts','veto_regions','records','peaklets']
-        self.dtype_delayed_delete_heavy = ['raw_records_aqmon','raw_records_he','raw_records_mv','pulse_counts','veto_regions','peaklets']
+        self.minimum_deltadays_allowed = 0 #3
+        self.minimum_deltadays_allowed_heavy = 0 #1
+        self.dtype_delayed_delete = ['raw_records_aqmon','raw_records_aqmon_nv','raw_records_he','raw_records_mv','raw_records_nv','pulse_counts','pulse_counts_he','veto_regions','peaklets','peaklets_he','records_he']
+        self.dtype_delayed_delete_heavy = ['raw_records','records']
         self.dtype_never_delete = ['lone_hits','merged_s2s','peak_basics','peaklet_classification']
 
         #Init the runDB
@@ -101,7 +101,7 @@ class CleanEB():
 #            'number': {"$lt": 8570, "$gte": 8550},
 #            'number': {"$gte": 7330},
             'number': {"$gte": 8500},
-#            'number': 8497,
+#            'number': 9226,
 #            'data' : { "$elemMatch": { "host" : {"$regex" : ".*eb.*"} , "type" : {"$in" : data_types}} },
             'status': 'transferred'
         },
@@ -205,7 +205,8 @@ class CleanEB():
                         helper.global_dictionary['logger'].Info('\t==> Error, these RSEs have wrong number of files : {0}'.format(rses_with_correct_nfiles))
                     
                     # if so, start deleting
-                    if len(rses_with_rule)>=self.minimum_number_acceptable_rses and len(rses_with_correct_nfiles) == len(rses_with_rule):
+#                    if len(rses_with_rule)>=self.minimum_number_acceptable_rses and len(rses_with_correct_nfiles) == len(rses_with_rule):
+                    if len(rses_with_rule)>=self.minimum_number_acceptable_rses:
 
                         # delete from DB
                         # print(run['_id'],datum['type'],datum['host'])

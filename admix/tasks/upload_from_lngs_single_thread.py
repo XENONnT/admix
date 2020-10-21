@@ -37,7 +37,8 @@ class UploadFromLNGSSingleThread():
         self.UPLOAD_TO = helper.get_hostconfig()['upload_to']
 
         #Choose which data type you want to treat
-        self.DTYPES = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES + self.NORECORDS_DTYPES
+#        self.DTYPES = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES + self.NORECORDS_DTYPES
+        self.DTYPES = self.NORECORDS_DTYPES + self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES
 
 
         self.DATADIR = helper.get_hostconfig()['path_data_to_upload']

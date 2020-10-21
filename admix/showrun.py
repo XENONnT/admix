@@ -202,7 +202,8 @@ def showrun(number,to,dtypes,compact,dumpjson):
                         else:
                             print('\t\t Warning : DID information is absent in DB data list (old admix version). Using standard hashes for RSEs')
                             #hash = bkp_hashes.get(dtype)
-                            hash = utilix.db.get_hash(context, dtype)
+                            #hash = utilix.db.get_hash(context, dtype)
+                            hash = db.GetHashByContext(context,dtype)
                             did = make_did(number, dtype, hash)
                         rucio_rule = rc.GetRule(upload_structure=did, rse=rse)
                         files = list_file_replicas(number, dtype, hash, rse)
@@ -218,7 +219,8 @@ def showrun(number,to,dtypes,compact,dumpjson):
                 if not is_in_rse:
 #                    print('\t\t Warning : data information is absent in DB data list. Trying using standard hashes to query Rucio')
 #                    hash = bkp_hashes.get(dtype)
-                    hash = utilix.db.get_hash(context, dtype)
+                    #hash = utilix.db.get_hash(context, dtype)
+                    hash = db.GetHashByContext(context,dtype)
                     did = make_did(number, dtype, hash)
                     print('\t Guessed DID:', did)
                     rucio_rule = rc.GetRule(upload_structure=did, rse=rse)
