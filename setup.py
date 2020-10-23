@@ -12,7 +12,7 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = ['pymongo',
-                'utilix'
+                'git+git://github.com/XENONnT/utilix'
                 ]
 
 setup_requirements = [
