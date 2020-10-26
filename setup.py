@@ -11,9 +11,9 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['pymongo',
-                'utilix'
-                ]
+# Get requirements from requirements.txt, stripping the version tags
+with open('requirements.txt') as f:
+    requirements = [r.split('/')[-1] if r.startswith('git+') else r for r in f.read().splitlines()]
 
 setup_requirements = [
     # TODO(XeBoris): put setup requirements (distutils extensions, etc.) here

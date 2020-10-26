@@ -142,10 +142,23 @@ def main():
     parser.add_argument('--threads', help='Number of threads to use', default=3, type=int)
     parser.add_argument('--context', help='strax context you need -- this determines the hash',
                          default='xenonnt_online')
+    parser.add_argument('--straxen_version', help='version of straxen for your context, needed to determine the hash.')
 
     args = parser.parse_args()
+    
+    # if no straxen version specified, try to get it from the environment
+    straxen_version = args.straxen_version
+    if straxen_version:
+        straxen_version = straxen_version.replace('v', '')
+    else:
+        try:
+            from straxen import __version__
+            straxen_version = __version__
+        except ImportError:
+            print("Cannot determine a straxen version from your environment. Please specify using --straxen_version")
+            raise        
 
-    hash = utilix.db.get_hash(args.context, args.dtype)
+    hash = utilix.db.get_hash(args.context, args.dtype, straxen_version)
 
     if args.chunks:
         chunks = [int(c) for c in args.chunks]
