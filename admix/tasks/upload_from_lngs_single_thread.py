@@ -102,7 +102,11 @@ class UploadFromLNGSSingleThread():
 
     def add_rule(self,run_number, dtype, hash, rse, datum=None, lifetime=None, update_db=True):
         did = make_did(run_number, dtype, hash)
-        result = self.rc.AddRule(did, rse, lifetime=lifetime)
+        if dtype in self.NORECORDS_DTYPES:
+            priority = 1
+        else:
+            priority = 3
+        result = self.rc.AddRule(did, rse, lifetime=lifetime, priority=priority)
         #if result == 1:
         #   return
         helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}: rule added: {2} ---> {3}'.format(run_number,dtype,did,rse))
@@ -134,7 +138,11 @@ class UploadFromLNGSSingleThread():
 
     def add_conditional_rule(self,run_number, dtype, hash, from_rse, to_rse, datum=None, lifetime=None, update_db=True):
         did = make_did(run_number, dtype, hash)
-        result = self.rc.AddConditionalRule(did, from_rse, to_rse, lifetime=lifetime)
+        if dtype in self.NORECORDS_DTYPES:
+            priority = 1
+        else:
+            priority = 3
+        result = self.rc.AddConditionalRule(did, from_rse, to_rse, lifetime=lifetime, priority=priority)
         #if result == 1:
         #   return
         helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}: conditional rule added: {2} ---> {3}'.format(run_number,dtype,did,to_rse))
@@ -186,8 +194,23 @@ class UploadFromLNGSSingleThread():
         # Gets run number
         number = run['number']
 
-        # Books the run by setting its status to "uploading"
+        # Books the run by setting its status to the PID of the process
+        PID = str(os.getpid())
+        self.db.SetStatus(number, PID)
+#        self.db.SetStatus(number, 'uploading')
+
+        # Wait for 10 seconds
+        time.sleep(10)
+
+        # Then check if status is still equal to the same PID
+        run = self.db.db.find_one({'_id': id_to_upload}, {'status': 1, 'number': 1, 'data': 1, 'bootstrax': 1})
+        if run['status'] != PID:
+            helper.global_dictionary['logger'].Info('Run {0} already taken by another process'.format(number))
+            return 0
+
+        # If yes, then book it by setting its status to 'uploading'
         self.db.SetStatus(number, 'uploading')
+
 
         # Extracts the correct Event Builder machine who processed this run
         bootstrax = run['bootstrax']
@@ -264,12 +287,14 @@ class UploadFromLNGSSingleThread():
 
             # set a rule to ship data on GRID
             if rucio_rule['state'] == 'OK':
-                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
-                if dtype in self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES:
+                if dtype in self.NORECORDS_DTYPES:
+                    self.add_rule(number, dtype, hash, 'UC_DALI_USERDISK',datum=datum)
+                    self.add_conditional_rule(number, dtype, hash, 'UC_DALI_USERDISK', 'UC_OSG_USERDISK',datum=datum)
+                else:
+                    self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
+                    if dtype in self.RECORDS_DTYPES:
+                        self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'UC_DALI_USERDISK',datum=datum)
                     self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK',datum=datum)
-                if dtype in self.RECORDS_DTYPES + self.NORECORDS_DTYPES:
-                    self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'UC_DALI_USERDISK',datum=datum)
-
 
 
         return 0

@@ -173,7 +173,7 @@ class RucioSummoner():
 #                print(i_rucio['type'])
 #        print(upload_structure)
 
-    def AddRule(self, did, rse, lifetime=None, protocol='rucio-catalogue'):
+    def AddRule(self, did, rse, lifetime=None, protocol='rucio-catalogue', priority=3):
         """Add rules for a Rucio DID or dictionary template.
 
         :param: did: Rucio DID form of "scope:name"
@@ -203,11 +203,12 @@ class RucioSummoner():
         self._rucio.AddRule( [did_dict],
                              copies=1,
                              rse_expression=rse,
-                             lifetime=lifetime)
+                             lifetime=lifetime,
+                             priority=priority)
         return 0
 
 
-    def AddConditionalRule(self, did, from_rse, to_rse, lifetime=None, protocol='rucio-catalogue'):
+    def AddConditionalRule(self, did, from_rse, to_rse, lifetime=None, protocol='rucio-catalogue', priority=3):
         """Add rules for a Rucio DID or dictionary template.
 
         :param: did: Rucio DID form of "scope:name"
@@ -238,7 +239,8 @@ class RucioSummoner():
                              copies=1,
                              rse_expression=to_rse,
                              source_replica_expression=from_rse,
-                             lifetime=lifetime)
+                             lifetime=lifetime,
+                             priority=priority)
         return 0
 
 

@@ -446,7 +446,7 @@ class RucioAPI():
                                                     grouping='DATASET', account=None, locked=False,
                                                     source_replica_expression=source_replica_expression, activity=None, notify='N',
                                                     purge_replicas=False, ignore_availability=False, comment=None,
-                                                    ask_approval=False, asynchronous=False, priority=3)
+                                                    ask_approval=False, asynchronous=False, priority=priority)
             result = 0
         except DuplicateRule as e:
             print(e)
