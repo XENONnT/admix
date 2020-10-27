@@ -12,7 +12,7 @@ from bson.json_util import dumps
 from datetime import timezone, datetime, timedelta
 import pymongo
 
-def showrun(number,to,dtypes,compact,dumpjson):
+def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg_latest):
 
     #Define data types
     NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
@@ -47,38 +47,60 @@ def showrun(number,to,dtypes,compact,dumpjson):
 
     data_types = RAW_RECORDS_DTYPES + RECORDS_DTYPES + NORECORDS_DTYPES
 
-    if to>number:
+    if arg_number == -1 and arg_latest == 0:
+        arg_latest = 5
+        arg_compact = True
+
+    if arg_latest > 0:
+        cursor = db.db.find({}).sort('number',pymongo.DESCENDING).limit(1)
+        cursor = list(cursor)
+        arg_to = cursor[0]['number']
+        arg_number = arg_to - arg_latest + 1
+        print('Processing latest {0} runs'.format(arg_latest))            
+
+    if arg_to>arg_number:
         cursor = db.db.find({
-            'number': {'$gte': number, '$lte': to}
+            'number': {'$gte': arg_number, '$lte': arg_to}
         }).sort('number',pymongo.ASCENDING)
-        print('Runs that will be processed are from {0} to {1}'.format(number,to))
+        print('Runs that will be processed are from {0} to {1}'.format(arg_number,arg_to))
     else:
         cursor = db.db.find({
-            'number': number
+            'number': arg_number
         })
-        print('Run that will be processed is {0}'.format(number))
+        print('Run that will be processed is {0}'.format(arg_number))
     cursor = list(cursor)
 
     # Runs over all listed runs
     for run in cursor:
 
+        print("")
+
         # Gets run number
         number = run['number']
         print('Run: {0}'.format(number))
-
-        # Extracts the correct Event Builder machine who processed this run
-        if 'bootstrax' in run:
-            bootstrax = run['bootstrax']
-            eb = bootstrax['host'].split('.')[0]
-            print('Processed by: {0}'.format(eb))
-        else:
-            print('Not processed')
 
         # Gets the status
         if 'status' in run:
             print('Status: {0}'.format(run['status']))
         else:
             print('Status: {0}'.format('Not available'))
+
+        if arg_status:
+            continue
+
+        # Extracts the correct Event Builder machine who processed this run
+        # Then also the bootstrax state and, in case it was abandoned, the reason
+        if 'bootstrax' in run:
+            bootstrax = run['bootstrax']
+            eb = bootstrax['host'].split('.')[0]
+            print('Processed by: {0}'.format(eb))
+            if 'state' in bootstrax:
+                print('Bootstrax state: {0}'.format(bootstrax['state']))
+                if bootstrax['state'] == 'abandoned':
+                    if 'reason' in bootstrax:
+                        print('Reason: {0}'.format(bootstrax['reason']))
+        else:
+            print('Not processed')
 
         # Gets the date
         if 'start' in run:
@@ -98,13 +120,20 @@ def showrun(number,to,dtypes,compact,dumpjson):
                 print("Less than {0} days old".format(minimum_deltadays_allowed))
         else:
             print("Warning : no time info available")
+
+
+        # Gets the comments
+        if 'comments' in run:
+            if len(run['comments'])>0:
+                last_comment = run['comments'][-1]
+                print("Latest comment ({0}): {1}".format(last_comment['user'],last_comment['comment']))
         
 
         # Dumps the entire rundoc under json format
-        if dumpjson:
+        if arg_dumpjson:
             print(dumps(run, indent=4))
 
-        if compact:
+        if arg_compact:
             continue
 
         # Merges data and deleted_data
@@ -124,8 +153,8 @@ def showrun(number,to,dtypes,compact,dumpjson):
         # Runs over all data types to be monitored
         for dtype in data_types:
 
-            if len(dtypes)>0:
-                if dtype not in dtypes:
+            if len(arg_dtypes)>0:
+                if dtype not in arg_dtypes:
                     continue
 
             # Data type name
@@ -242,11 +271,13 @@ def main():
 
     config = Config()
 
-    parser.add_argument("number", type=int, help="Run number to show")
+    parser.add_argument("number", type=int, nargs='?', help="Run number to show", default=-1)
     parser.add_argument("--dtypes", nargs="*", help="Restricts infos on the given data types")
     parser.add_argument("--to", type=int, help="Shows runs from the run number up to this value", default=0)
-    parser.add_argument("--compact", help="Just list few DB infos as run number and status", action='store_true')
+    parser.add_argument("--compact", help="Just list few DB infos as run number, status, date, comments", action='store_true')
+    parser.add_argument("--status", help="Just list the run name and its global status", action='store_true')
     parser.add_argument("--json", help="Dumps the whole DB rundoc in pretty style", action='store_true')
+    parser.add_argument("--latest", type=int, help="Shows latest runs", default=0)
 
     args = parser.parse_args()
 
@@ -257,5 +288,10 @@ def main():
 
     helper.make_global("admix_config", os.path.abspath(config.get('Admix','config_file')))
 
-    showrun(args.number,args.to,dtypes,args.compact,args.json)
+    try:
+        showrun(args.number,args.to,dtypes,args.compact,args.json,args.status,args.latest)
+    except KeyboardInterrupt:
+        return 0
+
+
 
