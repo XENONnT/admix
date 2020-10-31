@@ -105,7 +105,7 @@ def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg
         # Gets the date
         if 'start' in run:
             start_time = run['start'].replace(tzinfo=timezone.utc)
-            print("Date: ",start_time)
+            print("Date: ",start_time.astimezone(tz=None))
             
             # Calculates the duration
             if 'end' in run:
