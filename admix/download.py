@@ -4,6 +4,11 @@ from argparse import ArgumentParser
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
+try:
+    from straxen import __version__
+    straxen_version = __version__
+except ImportError:
+    print("Straxen not installed in current env, so must pass straxen_version manually")
 import time
 import utilix
 
@@ -60,7 +65,7 @@ def determine_rse(rse_list, glidein_country):
 def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=True,
              num_threads=3, **kwargs):
     """Function download()
-    
+
     Downloads a given run number using rucio
     :param number: A run number (integer)
     :param dtype: The datatype to download.
@@ -109,13 +114,15 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
     location = os.path.join(location, path)
     os.makedirs(location, exist_ok=True)
 
-    print(f"Downloading {did}")
+    # TODO check if files already exist?
+
+    print(f"Downloading {did} from {rse}")
 
     _try = 1
     success = False
 
     while _try <= tries and not success:
-        if _try > 0:
+        if _try == tries:
             rse = None
         result = rc.DownloadDids(dids, download_path=location, no_subdir=True, rse=rse,
                                  num_threads=num_threads, **kwargs)
@@ -142,10 +149,13 @@ def main():
     parser.add_argument('--threads', help='Number of threads to use', default=3, type=int)
     parser.add_argument('--context', help='strax context you need -- this determines the hash',
                          default='xenonnt_online')
+    parser.add_argument('--straxen_version', help='straxen version', default=None)
 
     args = parser.parse_args()
 
-    hash = utilix.db.get_hash(args.context, args.dtype)
+    # use system straxen version if none passed
+    version = args.straxen_version if args.straxen_version else straxen_version
+    hash = utilix.db.get_hash(args.context, args.dtype, version)
 
     if args.chunks:
         chunks = [int(c) for c in args.chunks]
