@@ -149,7 +149,7 @@ def your_admix():
 
         wait_time = helper.global_dictionary['sleep_time']
         if "CheckTransfers" in task_list or "CleanEB" in task_list:
-            wait_time = 3600
+            wait_time = 120
 
         print('Waiting for {0} seconds'.format(wait_time))
         print("You can safely CTRL-C now if you need to stop me")

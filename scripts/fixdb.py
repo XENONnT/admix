@@ -7,7 +7,7 @@ from admix.interfaces.keyword import Keyword
 from admix.utils.list_file_replicas import list_file_replicas
 from admix.utils import make_did
 import admix.helper.helper as helper
-
+import utilix
 
 from admix.interfaces.database import ConnectMongoDB
 from utilix.config import Config
@@ -97,7 +97,7 @@ def fixdb(number):
         raise ValueError("check the format as in docstring get_data_docs_from_rucio")
 
     for ddoc in ddocs:
-        # Add this ddoc (one location of data in rucio) to the data field (i.e. list) 
+        # Add this ddoc (one location of data in rucio) to the data field (i.e. list)
         # in the rundoc.
         print("Adding",ddoc)
 #        DB.db.update_one({'_id': rundoc['_id']},{"$addToSet": {'data': ddoc}})
@@ -174,6 +174,33 @@ def change_status(number,status):
     print("status after = ",rundoc['status'])
 
 
+def showcontexts():
+
+    config = Config()
+    helper.make_global("admix_config", os.path.abspath(config.get('Admix','config_file')))
+
+    #Define data types
+    NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
+    RAW_RECORDS_DTYPES = helper.get_hostconfig()['raw_records_types']
+    RECORDS_DTYPES = helper.get_hostconfig()['records_types']
+
+    #Get other parameters
+    DATADIR = helper.get_hostconfig()['path_data_to_upload']
+    periodic_check = helper.get_hostconfig()['upload_periodic_check']
+    RSES = helper.get_hostconfig()['rses']
+
+    #Init the runDB
+    db = ConnectMongoDB()
+
+    data_types = RAW_RECORDS_DTYPES + RECORDS_DTYPES + NORECORDS_DTYPES
+
+
+    context = 'xenonnt_online'
+
+    for dtype in data_types:
+        hash = utilix.db.get_hash(context, dtype)
+        print('Data type {0}, hash {1}'.format(dtype,hash))
+
 
 def dummy():
     return(0)
@@ -184,7 +211,7 @@ if __name__ == "__main__":
 
     #[8355, 8356, 8357, 8358, 8359, 8360, 8361, 8362, 8363, 8364, 8365, 8366]
 
-    #Indeed up to 8360, data were already uploaded and transferred outside. I need to patch them. 
+    #Indeed up to 8360, data were already uploaded and transferred outside. I need to patch them.
     #8361 was interrupted during the issue, so for this I will remove everything in Rucio and restart the upload from scratch).
     #Then, I restarted admix in the usual way from 8362 and it is going fine
 
@@ -192,7 +219,10 @@ if __name__ == "__main__":
 #    remove_datatype_from_db_and_datamanager("xnt_008650:lone_hits-b7dgmtzaef")
 #    remove_datatype_from_db_and_datamanager("xnt_008013:raw_records-rfzvpzj4mf")
 #    remove_datatype_from_db_and_datamanager("xnt_008620:records-jxkqp76kam")
-#    change_status(7151,"eb_ready_to_upload")
-    change_status(7151,"")
+#    change_status(9492,"eb_ready_to_upload")
+    change_status(9492,"transferred")
+#    change_status(8896,"uploading")
+#    change_status(7151,"")
 #    fixdb(8650)
 #    dummy()
+#    showcontexts()

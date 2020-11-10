@@ -27,14 +27,9 @@ def determine_rse(rse_list, glidein_country):
 
 
     if glidein_country == "US":
-        in_US = False
         for site in US_SITES:
             if site in rse_list:
                 return site
-
-        if not in_US:
-            print("This run is not in the US so can't be processed here. Exit 255")
-            sys.exit(255)
 
     elif glidein_country == "FR":
         for site in EURO_SITES:
@@ -156,7 +151,6 @@ def main():
     # use system straxen version if none passed
     version = args.straxen_version if args.straxen_version else straxen_version
     hash = utilix.db.get_hash(args.context, args.dtype, version)
-
     if args.chunks:
         chunks = [int(c) for c in args.chunks]
     else:

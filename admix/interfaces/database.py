@@ -8,7 +8,7 @@ class ConnectMongoDB():
 
     def __init__(self):
 
-        # instantiates self.db and self.hash_db
+        # instantiates self.db
         # do it this way so that we can use this method to reconnect if needed
         self.Connect()
 
@@ -32,7 +32,7 @@ class ConnectMongoDB():
         self.db = pymongo_collection('runs')
 
         # for querying the hash collection for strax data types
-        self.hash_db = pymongo_collection('data_hashes')
+        self.contexts = pymongo_collection('contexts')
 
     def GetQuery(self, query, reconnect=False, sort=[('_id',1)]):
         if reconnect == True:
@@ -482,3 +482,13 @@ class ConnectMongoDB():
         self.db.update_one({'number': number},
                                   {'$set': {'status': status}}
                                   )
+
+    def GetHashByContext(self, context, dtype, reconnect=False):
+
+        if reconnect == True:
+            self.Connect()
+
+        query = {"name": context}
+        selected_context = list(self.contexts.find(query).sort([("date_added", -1)]).limit(1))[0]
+        return selected_context["hashes"][dtype]
+
