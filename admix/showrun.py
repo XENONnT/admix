@@ -161,15 +161,25 @@ def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg
             print('{0}'.format(dtype))
 
             # Take the official number of files accordingto run DB
+            # and the eb status
             Nfiles = -1
+            ebstatus = ""
             for d in data:
                 if d['type'] == dtype and eb in d['host']:
                     if 'file_count' in d:
                         Nfiles = d['file_count']
+                    if 'status' in d:
+                        ebstatus = d['status']
             if Nfiles == -1:
                 print('\t Number of files: missing in DB')
             else:
                 print('\t Number of files: {0}'.format(Nfiles))
+
+            if ebstatus != "":
+                print('\t EB status: {0}'.format(ebstatus))
+            else:
+                print('\t EB status: not available')
+
 
             # Check if data are still in the data list and not in deleted_data
             DB_InEB = False
