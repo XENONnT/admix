@@ -20,6 +20,7 @@ from admix.tasks.upload_from_lngs import UploadFromLNGS
 from admix.tasks.fix_upload import FixUpload
 from admix.tasks.clean_eb import CleanEB
 from admix.tasks.upload_from_lngs_single_thread import UploadFromLNGSSingleThread
+from admix.tasks.upload import Upload
 from admix.tasks.check_transfers import CheckTransfers
 from admix.tasks.move_data_to_rse import MoveDataToRSE
 from admix.tasks.monitor_run import MonitorRun
@@ -47,6 +48,10 @@ def your_admix():
                         help="Add this option to prevent aDMIX updating the Xenon database")
     parser.add_argument('--once', dest='once', action='store_true',
                         help="Run aDMIX only once")
+    parser.add_argument('--high', dest='high', action='store_true',
+                        help="Treat only high level data types")
+    parser.add_argument('--low', dest='low', action='store_true',
+                        help="Treat only low level data types")
     # Add arguments for the individual tasks:
     parser.add_argument('--select-run-numbers', dest='select_run_numbers', type=str,
                         help="Select a range of runs (xxxx1 or xxxx1-xxxx2 or xxxx1-xxxx2,xxxx4-xxxx6)")
@@ -85,6 +90,8 @@ def your_admix():
     helper.make_global("type", args.type)
     helper.make_global("hash", args.hash)
     helper.make_global("force", args.force)
+    helper.make_global("high", args.high)
+    helper.make_global("low", args.low)
 
     if args.sleep_time != None:
         helper.make_global("sleep_time", args.sleep_time)
