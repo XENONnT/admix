@@ -4,6 +4,11 @@ from argparse import ArgumentParser
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
+try:
+    from straxen import __version__
+    straxen_version = __version__
+except ImportError:
+    print("Straxen not installed in current env, so must pass straxen_version manually")
 import time
 import utilix
 
@@ -22,14 +27,9 @@ def determine_rse(rse_list, glidein_country):
 
 
     if glidein_country == "US":
-        in_US = False
         for site in US_SITES:
             if site in rse_list:
                 return site
-
-        if not in_US:
-            print("This run is not in the US so can't be processed here. Exit 255")
-            sys.exit(255)
 
     elif glidein_country == "FR":
         for site in EURO_SITES:
@@ -60,7 +60,7 @@ def determine_rse(rse_list, glidein_country):
 def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=True,
              num_threads=3, **kwargs):
     """Function download()
-    
+
     Downloads a given run number using rucio
     :param number: A run number (integer)
     :param dtype: The datatype to download.
@@ -109,13 +109,15 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
     location = os.path.join(location, path)
     os.makedirs(location, exist_ok=True)
 
-    print(f"Downloading {did}")
+    # TODO check if files already exist?
+
+    print(f"Downloading {did} from {rse}")
 
     _try = 1
     success = False
 
     while _try <= tries and not success:
-        if _try > 0:
+        if _try == tries:
             rse = None
         result = rc.DownloadDids(dids, download_path=location, no_subdir=True, rse=rse,
                                  num_threads=num_threads, **kwargs)
@@ -142,24 +144,13 @@ def main():
     parser.add_argument('--threads', help='Number of threads to use', default=3, type=int)
     parser.add_argument('--context', help='strax context you need -- this determines the hash',
                          default='xenonnt_online')
-    parser.add_argument('--straxen_version', help='version of straxen for your context, needed to determine the hash.')
+    parser.add_argument('--straxen_version', help='straxen version', default=None)
 
     args = parser.parse_args()
-    
-    # if no straxen version specified, try to get it from the environment
-    straxen_version = args.straxen_version
-    if straxen_version:
-        straxen_version = straxen_version.replace('v', '')
-    else:
-        try:
-            from straxen import __version__
-            straxen_version = __version__
-        except ImportError:
-            print("Cannot determine a straxen version from your environment. Please specify using --straxen_version")
-            raise        
 
-    hash = utilix.db.get_hash(args.context, args.dtype, straxen_version)
-
+    # use system straxen version if none passed
+    version = args.straxen_version if args.straxen_version else straxen_version
+    hash = utilix.db.get_hash(args.context, args.dtype, version)
     if args.chunks:
         chunks = [int(c) for c in args.chunks]
     else:
