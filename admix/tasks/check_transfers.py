@@ -30,6 +30,17 @@ class CheckTransfers():
     def init(self):
         helper.global_dictionary['logger'].Info(f'Init task {self.__class__.__name__}')
 
+        #Take all data types categories
+        self.NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
+        self.RAW_RECORDS_DTYPES = helper.get_hostconfig()['raw_records_types']
+        self.RECORDS_DTYPES = helper.get_hostconfig()['records_types']
+
+        # Choose which RSE you want upload to
+        self.UPLOAD_TO = helper.get_hostconfig()['upload_to']
+
+        #Choose which data type you want to treat
+        self.DTYPES = self.NORECORDS_DTYPES + self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES
+
 
         #Define the waiting time (seconds)
         self.waitfor = 60*5
@@ -50,16 +61,23 @@ class CheckTransfers():
     def check_transfers(self):
         cursor = self.db.db.find(
             {'status': 'transferring'},
-#            {'number':7185},
-            {'number': 1, 'data': 1})
+#            {'number':10161},
+            {'number': 1, 'data': 1, 'bootstrax': 1})
 
         cursor = list(cursor)
 
         helper.global_dictionary['logger'].Info('Check transfers : checking status of {0} runs'.format(len(cursor)))
 
         for run in list(cursor):
+
+            # Extracts the correct Event Builder machine who processed this run
+            bootstrax = run['bootstrax']
+            eb = bootstrax['host'].split('.')[0]
+
             # for each run, check the status of all REPLICATING rules
             rucio_stati = []
+            eb_still_to_be_uploaded = []
+
             for d in run['data']:
                 if d['host'] == 'rucio-catalogue':
 #                    if run['number']==7695 and d['status'] == 'stuck':
@@ -73,7 +91,7 @@ class CheckTransfers():
                             rucio_stati.append('transferring')
                         elif status == 'OK':
                             # update database
-                            helper.global_dictionary['logger'].Info('Check transfers : updating DB for run {0}, dtype {1}, location {2}'.format(run['number'], d['type'],d['location']))
+                            helper.global_dictionary['logger'].Info('Check transfers : Run {0}, data type {1}, location {2}: transferred'.format(run['number'], d['type'],d['location']))
                             self.db.db.find_one_and_update({'_id': run['_id'],'data': {'$elemMatch': d}},
                                                       {'$set': {'data.$.status': 'transferred'}}
                             )
@@ -87,10 +105,20 @@ class CheckTransfers():
                     else:
                         rucio_stati.append(d['status'])
 
-                            # are there any other rucio rules transferring?
-            if len(rucio_stati) > 0 and all([s == 'transferred' for s in rucio_stati]):
-                self.db.SetStatus(run['number'], 'transferred')
 
+                # search if dtype still has to be uploaded
+                if eb in d['host'] and d['type'] in self.DTYPES:
+                    if 'status' not in d:
+                        eb_still_to_be_uploaded.append(d['type'])
+                    else:
+                        if d['status'] != "transferred":
+                            eb_still_to_be_uploaded.append(d['type'])
+
+            # are there any other rucio rules transferring?
+#            print(run['number'],eb_still_to_be_uploaded,rucio_stati)
+            if len(rucio_stati) > 0 and all([s == 'transferred' for s in rucio_stati]) and len(eb_still_to_be_uploaded)==0:
+                self.db.SetStatus(run['number'], 'transferred')
+                helper.global_dictionary['logger'].Info('Check transfers : Run {0} fully transferred'.format(run['number']))
 
 
 
