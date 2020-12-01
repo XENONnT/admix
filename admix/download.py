@@ -15,6 +15,11 @@ import utilix
 
 DB = ConnectMongoDB()
 
+
+class NoRSEForCountry(Exception):
+    pass
+
+
 def determine_rse(rse_list, glidein_country):
     # TODO put this in config or something?
     EURO_SITES = ["CCIN2P3_USERDISK",
@@ -29,6 +34,11 @@ def determine_rse(rse_list, glidein_country):
 
     if glidein_country == "US":
         for site in US_SITES:
+            if site in rse_list:
+                return site
+
+    elif glidein_country == "EUROPE":
+        for site in EURO_SITES:
             if site in rse_list:
                 return site
 
@@ -61,7 +71,7 @@ def determine_rse(rse_list, glidein_country):
             if site in rse_list:
                 return site
     else:
-        raise AttributeError("cannot download data")
+        raise NoRSEForCountry(f"cannot download data from {glidein_country}")
 
 
 def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=True,
@@ -93,8 +103,14 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
         for r in rules:
             if r['state'] == 'OK':
                 rses.append(r['rse_expression'])
-        # find closest one
-        rse = determine_rse(rses, os.environ.get('GLIDEIN_Country', 'US'))
+        # find closest one, otherwise start at the US end at TAPE
+        glidein_list = (os.environ.get('GLIDEIN_Country', 'US'), 'EUROPE', None)
+        for region in glidein_list:
+            try:
+                rse = determine_rse(rses, region)
+            except NoRSEForCountry as e:
+                if region is None:
+                    raise NoRSEForCountry('Data not found anywhere') from e
 
     if chunks:
         dids = []
