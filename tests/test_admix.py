@@ -34,8 +34,5 @@ import warnings
 #         assert '--help  Show this message and exit.' in help_result.output
 
 # So we cannot load a Rucio file, this makes sense
-try:
-    import admix
-except RuntimeError as e:
-    warnings.warn(str(e))
+import admix
 

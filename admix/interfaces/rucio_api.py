@@ -8,18 +8,6 @@
 """
 #from __future__ import with_statement
 import os
-from rucio.client.client import Client
-from rucio.client.uploadclient import UploadClient
-#from admix.interfaces.uploadclient import UploadClient
-from rucio.client.downloadclient import DownloadClient
-from rucio.common.exception import DataIdentifierAlreadyExists
-from rucio.common.exception import AccountNotFound
-from rucio.common.exception import AccessDenied
-from rucio.common.exception import Duplicate
-from rucio.common.exception import NoFilesUploaded
-from rucio.common.exception import NotAllFilesUploaded
-from rucio.common.exception import DuplicateContent
-from rucio.common.exception import DuplicateRule
 
 from admix.helper.decorator import NameCollector, ClassCollector
 from admix.helper.decorator import Collector
@@ -29,6 +17,21 @@ import subprocess
 import datetime
 import os
 import json
+
+def load_rucio():
+    from rucio.client.client import Client
+    from rucio.client.uploadclient import UploadClient
+    # from admix.interfaces.uploadclient import UploadClient
+    from rucio.client.downloadclient import DownloadClient
+    from rucio.common.exception import DataIdentifierAlreadyExists
+    from rucio.common.exception import AccountNotFound
+    from rucio.common.exception import AccessDenied
+    from rucio.common.exception import Duplicate
+    from rucio.common.exception import NoFilesUploaded
+    from rucio.common.exception import NotAllFilesUploaded
+    from rucio.common.exception import DuplicateContent
+    from rucio.common.exception import DuplicateRule
+
 
 @Collector
 class RucioAPI():
@@ -47,6 +50,8 @@ class RucioAPI():
 
         :param enable_print: If True then enable print to terminal
         """
+        # Load rucio outside of the init
+        load_rucio()
         self._print_to_screen = enable_print
         self._rucio_ping = None
         self._rucio_account = os.environ.get("RUCIO_ACCOUNT")
@@ -487,7 +492,7 @@ class RucioAPI():
 
     def DeleteRule(self, rule_id):
         """Function: DeleteRule(...)
-        
+
         Deletes a replication rule.
         :param rule_id: A rucio rule id string
         """
