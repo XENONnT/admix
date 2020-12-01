@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
+import numpy as np
 try:
     from straxen import __version__
     straxen_version = __version__
@@ -24,7 +25,7 @@ def determine_rse(rse_list, glidein_country):
                   "SURFSARA_USERDISK"]
 
     US_SITES = ["UC_OSG_USERDISK", "UC_DALI_USERDISK"]
-
+    TAPE_SITES = ["CNAF_TAPE2_USERDISK"]
 
     if glidein_country == "US":
         for site in US_SITES:
@@ -53,6 +54,12 @@ def determine_rse(rse_list, glidein_country):
 
     if US_SITES[0] in rse_list:
         return US_SITES[0]
+    elif np.any([s in rse_list for s in TAPE_SITES]):
+        # This is our last resort and may be much slower. Nonetheless
+        # it's better than not returning any site.
+        for site in TAPE_SITES:
+            if site in rse_list:
+                return site
     else:
         raise AttributeError("cannot download data")
 
