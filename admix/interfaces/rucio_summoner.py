@@ -14,16 +14,14 @@ import datetime
 import os
 import json
 from admix.helper.decorator import NameCollector, ClassCollector
-
+from admix.interfaces.rucio_cli import RucioCLI
 import hashlib
 
 class RucioSummoner():
     def __init__(self, rucio_backend="API"):
         # Do imports outside inside the init so as not to raise errors
         # in rucio on travis tests
-
         from admix.interfaces.rucio_api import RucioAPI
-        from admix.interfaces.rucio_cli import RucioCLI
 
         self.rucio_backend=rucio_backend
         self.rucio_account = os.environ.get("RUCIO_ACCOUNT")

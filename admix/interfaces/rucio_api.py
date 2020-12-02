@@ -18,19 +18,18 @@ import datetime
 import os
 import json
 
-def load_rucio():
-    from rucio.client.client import Client
-    from rucio.client.uploadclient import UploadClient
-    # from admix.interfaces.uploadclient import UploadClient
-    from rucio.client.downloadclient import DownloadClient
-    from rucio.common.exception import DataIdentifierAlreadyExists
-    from rucio.common.exception import AccountNotFound
-    from rucio.common.exception import AccessDenied
-    from rucio.common.exception import Duplicate
-    from rucio.common.exception import NoFilesUploaded
-    from rucio.common.exception import NotAllFilesUploaded
-    from rucio.common.exception import DuplicateContent
-    from rucio.common.exception import DuplicateRule
+from rucio.client.client import Client
+from rucio.client.uploadclient import UploadClient
+# from admix.interfaces.uploadclient import UploadClient
+from rucio.client.downloadclient import DownloadClient
+from rucio.common.exception import DataIdentifierAlreadyExists
+from rucio.common.exception import AccountNotFound
+from rucio.common.exception import AccessDenied
+from rucio.common.exception import Duplicate
+from rucio.common.exception import NoFilesUploaded
+from rucio.common.exception import NotAllFilesUploaded
+from rucio.common.exception import DuplicateContent
+from rucio.common.exception import DuplicateRule
 
 
 @Collector
