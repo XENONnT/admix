@@ -24,12 +24,10 @@ test_requirements = [
 ]
 
 setup(
-    name='admix',
+    name='xe-admix',
     version='0.2.0',
     description="advanced Data Management In Xenon (aDMIX)",
     long_description=readme + '\n\n' + history,
-    author="Boris Bauermeister",
-    author_email='Boris.Bauermeister@gmail.com',
     url='https://github.com/XENON1T/admix',
     packages=find_packages(include=['admix',
                                     'admix.interfaces',
