@@ -49,8 +49,6 @@ class RucioAPI():
 
         :param enable_print: If True then enable print to terminal
         """
-        # Load rucio outside of the init
-        load_rucio()
         self._print_to_screen = enable_print
         self._rucio_ping = None
         self._rucio_account = os.environ.get("RUCIO_ACCOUNT")
