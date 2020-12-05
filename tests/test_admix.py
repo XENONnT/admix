@@ -2,5 +2,5 @@
 # -*- coding: utf-8 -*-
 """Tests for `admix` package."""
 
-# The most basic test, can we be imported
-import admix
+def test_admix():
+    import admix
