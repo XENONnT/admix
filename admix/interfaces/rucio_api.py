@@ -8,9 +8,19 @@
 """
 #from __future__ import with_statement
 import os
+
+from admix.helper.decorator import NameCollector, ClassCollector
+from admix.helper.decorator import Collector
+import sys
+import tempfile
+import subprocess
+import datetime
+import os
+import json
+
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
-#from admix.interfaces.uploadclient import UploadClient
+# from admix.interfaces.uploadclient import UploadClient
 from rucio.client.downloadclient import DownloadClient
 from rucio.common.exception import DataIdentifierAlreadyExists
 from rucio.common.exception import AccountNotFound
@@ -21,14 +31,6 @@ from rucio.common.exception import NotAllFilesUploaded
 from rucio.common.exception import DuplicateContent
 from rucio.common.exception import DuplicateRule
 
-from admix.helper.decorator import NameCollector, ClassCollector
-from admix.helper.decorator import Collector
-import sys
-import tempfile
-import subprocess
-import datetime
-import os
-import json
 
 @Collector
 class RucioAPI():
@@ -487,7 +489,7 @@ class RucioAPI():
 
     def DeleteRule(self, rule_id):
         """Function: DeleteRule(...)
-        
+
         Deletes a replication rule.
         :param rule_id: A rucio rule id string
         """

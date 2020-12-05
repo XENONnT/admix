@@ -1,2 +1,3 @@
 git+git://github.com/XENONnT/utilix
 pymongo
+rucio-clients
