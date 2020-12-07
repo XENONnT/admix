@@ -1,3 +1,2 @@
 utilix
 pymongo
-rucio-clients
