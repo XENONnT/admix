@@ -47,6 +47,7 @@ setup(
             'admix=admix.admix:your_admix',
             'admix-download=admix.download:main',
             'admix-showrun=admix.showrun:main',
+            'admix-fix=admix.fix:main',
             'admix-showcontexts=admix.showcontexts:main'
         ]
     },
