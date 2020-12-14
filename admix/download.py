@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
+import numpy as np
 try:
     from straxen import __version__
     straxen_version = __version__
@@ -13,6 +14,11 @@ import time
 import utilix
 
 DB = ConnectMongoDB()
+
+
+class NoRSEForCountry(Exception):
+    pass
+
 
 def determine_rse(rse_list, glidein_country):
     # TODO put this in config or something?
@@ -24,10 +30,15 @@ def determine_rse(rse_list, glidein_country):
                   "SURFSARA_USERDISK"]
 
     US_SITES = ["UC_OSG_USERDISK", "UC_DALI_USERDISK"]
-
+    TAPE_SITES = ["CNAF_TAPE2_USERDISK"]
 
     if glidein_country == "US":
         for site in US_SITES:
+            if site in rse_list:
+                return site
+
+    elif glidein_country == "EUROPE":
+        for site in EURO_SITES:
             if site in rse_list:
                 return site
 
@@ -53,8 +64,14 @@ def determine_rse(rse_list, glidein_country):
 
     if US_SITES[0] in rse_list:
         return US_SITES[0]
+    elif np.any([s in rse_list for s in TAPE_SITES]):
+        # This is our last resort and may be much slower. Nonetheless
+        # it's better than not returning any site.
+        for site in TAPE_SITES:
+            if site in rse_list:
+                return site
     else:
-        raise AttributeError("cannot download data")
+        raise NoRSEForCountry(f"cannot download data from {glidein_country}")
 
 
 def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=True,
@@ -86,8 +103,14 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
         for r in rules:
             if r['state'] == 'OK':
                 rses.append(r['rse_expression'])
-        # find closest one
-        rse = determine_rse(rses, os.environ.get('GLIDEIN_Country', 'US'))
+        # find closest one, otherwise start at the US end at TAPE
+        glidein_list = (os.environ.get('GLIDEIN_Country', 'US'), 'EUROPE', None)
+        for region in glidein_list:
+            try:
+                rse = determine_rse(rses, region)
+            except NoRSEForCountry as e:
+                if region is None:
+                    raise NoRSEForCountry('Data not found anywhere') from e
 
     if chunks:
         dids = []

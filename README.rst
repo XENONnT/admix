@@ -3,11 +3,11 @@ aDMIX
 =====
 
 
-.. image:: https://img.shields.io/pypi/v/admix.svg
-        :target: https://pypi.python.org/pypi/admix
+.. image:: https://img.shields.io/pypi/v/xe-admix.svg
+        :target: https://pypi.python.org/pypi/xe-admix
 
-.. image:: https://img.shields.io/travis/XeBoris/admix.svg
-        :target: https://travis-ci.org/XeBoris/admix
+.. image:: https://travis-ci.com/XENONnT/admix.svg?branch=master
+        :target: (https://travis-ci.com/XENONnT/admix
 
 .. image:: https://readthedocs.org/projects/admix/badge/?version=latest
         :target: https://advance-data-management-in-xenon.readthedocs.io/en/latest/
