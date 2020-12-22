@@ -109,9 +109,12 @@ def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg
             
             # Calculates the duration
             if 'end' in run:
-                end_time = run['end'].replace(tzinfo=timezone.utc)
-                duration = end_time-start_time
-                print("Duration: ",duration)
+                if run['end'] is not None:
+                    end_time = run['end'].replace(tzinfo=timezone.utc)
+                    duration = end_time-start_time
+                    print("Duration: ",duration)
+                else:
+                    print("Duration: ","unknown")
         
             # Prints if run is still enough recent (three days from now)
             now_time = datetime.now().replace(tzinfo=timezone.utc)
