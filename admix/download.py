@@ -15,6 +15,7 @@ import utilix
 
 DB = ConnectMongoDB()
 
+xe1t_coll = utilix.rundb.xe1t_collection()
 
 class NoRSEForCountry(Exception):
     pass
@@ -155,6 +156,68 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
         print(f"Download successful to {location}")
 
 
+def get_did_1t(number, dtype):
+    query = {'number': number}
+    cursor = xe1t_coll.find_one(query, {'number': 1, 'name': 1, 'data': 1})
+    for d in cursor['data']:
+        if dtype == 'raw':
+            if d['type'] == 'raw' and d['host'] == 'rucio-catalogue' and d['status'] == 'transferred':
+                return d['location']
+        else:
+            if (d['type'] == 'processed' and d['host'] == 'rucio-catalogue' and d['pax_version'] == dtype and
+                d['status'] == 'transferred'):
+                return d['location']
+
+
+def download_1t(number, dtype, location='.',  tries=3, num_threads=3, **kwargs):
+    # setup rucio client
+    rc = RucioSummoner()
+    did = get_did_1t(number, dtype)
+
+    # if we didn't pass an rse, determine the best one
+    rse = kwargs.pop('rse', None)
+
+    if not rse:
+        # determine which rses this did is on
+        rules = rc.ListDidRules(did)
+        rses = []
+        for r in rules:
+            if r['state'] == 'OK':
+                rses.append(r['rse_expression'])
+        # find closest one, otherwise start at the US end at TAPE
+        glidein_list = (os.environ.get('GLIDEIN_Country', 'US'), 'EUROPE', None)
+        for region in glidein_list:
+            try:
+                rse = determine_rse(rses, region)
+            except NoRSEForCountry as e:
+                if region is None:
+                    raise NoRSEForCountry('Data not found anywhere') from e
+
+    os.makedirs(location, exist_ok=True)
+
+    # TODO check if files already exist?
+
+    print(f"Downloading {did} from {rse}")
+
+    _try = 1
+    success = False
+
+    while _try <= tries and not success:
+        if _try == tries:
+            rse = None
+        result = rc.DownloadDids([did], download_path=location, no_subdir=True, rse=rse,
+                                 num_threads=num_threads, **kwargs)
+        if isinstance(result, int):
+            print(f"Download try #{_try} failed.")
+            _try += 1
+            time.sleep(5)
+        else:
+            success = True
+
+    if success:
+        print(f"Download successful to {location}")
+
+
 def main():
     parser = ArgumentParser("admix-download")
 
@@ -168,17 +231,23 @@ def main():
     parser.add_argument('--context', help='strax context you need -- this determines the hash',
                          default='xenonnt_online')
     parser.add_argument('--straxen_version', help='straxen version', default=None)
+    parser.add_argument('--experiment', help="xent or xe1t", choices=['xe1t', 'xent'], default='xent')
 
     args = parser.parse_args()
 
-    # use system straxen version if none passed
-    version = args.straxen_version if args.straxen_version else straxen_version
-    hash = utilix.db.get_hash(args.context, args.dtype, version)
-    if args.chunks:
-        chunks = [int(c) for c in args.chunks]
-    else:
-        chunks=None
+    if args.experiment == 'xent':
+        # use system straxen version if none passed
+        version = args.straxen_version if args.straxen_version else straxen_version
+        hash = utilix.db.get_hash(args.context, args.dtype, version)
+        if args.chunks:
+            chunks = [int(c) for c in args.chunks]
+        else:
+            chunks=None
 
-    download(args.number, args.dtype, hash, chunks=chunks, location=args.dir, tries=args.tries,
-             rse=args.rse, num_threads=args.threads)
+        download(args.number, args.dtype, hash, chunks=chunks, location=args.dir, tries=args.tries,
+                 rse=args.rse, num_threads=args.threads)
+
+    elif args.experiment == 'xe1t':
+        download_1t(args.number, args.dtype, location=args.dir, tries=args.tries, rse=args.rse,
+                    num_threads=args.threads)
 
