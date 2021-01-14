@@ -37,9 +37,15 @@ def determine_rse(rse_list, glidein_country):
         for site in US_SITES:
             if site in rse_list:
                 return site
+        for site in EURO_SITES:
+            if site in rse_list:
+                return site
 
     elif glidein_country == "EUROPE":
         for site in EURO_SITES:
+            if site in rse_list:
+                return site
+        for site in US_SITES:
             if site in rse_list:
                 return site
 
@@ -47,9 +53,15 @@ def determine_rse(rse_list, glidein_country):
         for site in EURO_SITES:
             if site in rse_list:
                 return site
+        for site in US_SITES:
+            if site in rse_list:
+                return site
 
     elif glidein_country == "NL":
         for site in reversed(EURO_SITES):
+            if site in rse_list:
+                return site
+        for site in US_SITES:
             if site in rse_list:
                 return site
 
@@ -57,9 +69,15 @@ def determine_rse(rse_list, glidein_country):
         for site in EURO_SITES:
             if site in rse_list:
                 return site
+        for site in US_SITES:
+            if site in rse_list:
+                return site
 
     elif glidein_country == "IT":
         for site in EURO_SITES:
+            if site in rse_list:
+                return site
+        for site in US_SITES:
             if site in rse_list:
                 return site
 
@@ -105,13 +123,9 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
             if r['state'] == 'OK':
                 rses.append(r['rse_expression'])
         # find closest one, otherwise start at the US end at TAPE
-        glidein_list = (os.environ.get('GLIDEIN_Country', 'US'), 'EUROPE', None)
-        for region in glidein_list:
-            try:
-                rse = determine_rse(rses, region)
-            except NoRSEForCountry as e:
-                if region is None:
-                    raise NoRSEForCountry('Data not found anywhere') from e
+        glidein_region = os.environ.get('GLIDEIN_Country', 'US')
+        rse = determine_rse(rses, glidein_region)
+        print(rse)
 
     if chunks:
         dids = []
@@ -185,14 +199,13 @@ def download_1t(number, dtype, location='.',  tries=3, num_threads=3, **kwargs):
             if r['state'] == 'OK':
                 rses.append(r['rse_expression'])
         # find closest one, otherwise start at the US end at TAPE
-        glidein_list = (os.environ.get('GLIDEIN_Country', 'US'), 'EUROPE', None)
-        for region in glidein_list:
-            try:
-                rse = determine_rse(rses, region)
-            except NoRSEForCountry as e:
-                if region is None:
-                    raise NoRSEForCountry('Data not found anywhere') from e
+        glidein_region = os.environ.get('GLIDEIN_Country', 'US')
+        rse = determine_rse(rses, glidein_region)
 
+    if dtype == 'raw':
+        # get run name
+        name = xe1t_coll.find_one({'number': number, 'detector': 'tpc'}, {'name': 1})['name']
+        location = os.path.join(location, name)
     os.makedirs(location, exist_ok=True)
 
     # TODO check if files already exist?
