@@ -182,6 +182,9 @@ def get_did_1t(number, dtype):
                 d['status'] == 'transferred'):
                 return d['location']
 
+    # if get here, there is a problem finding the DID
+    raise ValueError(f"No rucio DID found for run {number} with dtype {dtype}")
+
 
 def download_1t(number, dtype, location='.',  tries=3, num_threads=3, **kwargs):
     # setup rucio client
