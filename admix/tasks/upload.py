@@ -70,8 +70,9 @@ class Upload():
             print(run['number'])
             if run['number']<10000:
                 continue
-#            if run['number'] not in [10161]:
+#            if run['number'] not in [11345, 11346, 11379]:
 #                 continue
+
             if run['number'] < min_run:
                 min_run = run['number']
                 id_run = run['_id']
@@ -100,6 +101,8 @@ class Upload():
             # For debugging: select a specific run
 #            if number not in [7235]:
 #                continue
+#            if run['number'] not in [11345, 11346, 11379]:
+#                 continue
 
             # Extracts the correct Event Builder machine who processed this run
             bootstrax = run['bootstrax']
@@ -108,6 +111,16 @@ class Upload():
             # Look for the first data type available to be uploaded
             datum = None
             for dtype in self.DTYPES:
+
+                # start patch
+#                run_numbers = ['010644', '010801', '010802', '010803', '010878', '010879', '010910', '010912', '010913', '010919', '010932', '010933', '010934', '010935', '010936', '010937', '010938', '010939', '010940', '010941', '010942', '010943', '010944', '010945', '010946', '010947', '010948', '010951', '010952', '010964', '010966', '010967', '010973', '010976', '010977', '010978', '010979', '010980', '010982', '010984', '010985', '010986', '010987', '010988', '010989', '010990', '010991', '010992', '010993', '010994', '010995', '010996', '010997', '010998', '010999', '011000', '011001', '011002', '011003', '011004', '011005', '011006', '011007', '011008', '011009', '011010', '011011', '011012', '011013', '011014', '011015', '011016', '011017', '011018', '011019', '011020', '011021', '011022', '011023', '011024', '011025', '011026', '011027', '011028', '011029', '011030', '011032', '011050', '011051']
+#                if '%06d' % number not in run_numbers:
+#                    continue
+#                dtypes = ['peaklets', 'lone_hits', 'records', 'veto_regions', 'pulse_counts']
+#                if dtype not in dtypes:
+#                    continue
+#                eb = 'eb3'
+
 
                 #if dtype != "raw_records_aqmon":
                 #    continue
@@ -232,12 +245,16 @@ class Upload():
         bootstrax = run['bootstrax']
         eb = bootstrax['host'].split('.')[0]
 
+#        eb = 'eb3'
+
 #        # Performs upload on selected run
 #        helper.global_dictionary['logger'].Info('Uploading run {0} from {1}'.format(number,eb))
 
 
         # Attempting to book this data type
         dtype = datum['type']
+        file = datum['location'].split('/')[-1]
+        hash = file.split('-')[-1]
         helper.global_dictionary['logger'].Info('\t==> Run {0}, trying to book data type {1} for uploading. Starting match'.format(number,dtype))
 
         # Books the eb data entry by setting its status to the PID of the process
@@ -245,14 +262,14 @@ class Upload():
         self.db.db.find_one_and_update({'_id': id_to_upload,'data': {'$elemMatch': datum}},
                                        {'$set': {'data.$.status': PID}})
 
-        # Wait for 10 seconds
-        time.sleep(10)
+        # Wait for 20 seconds
+        time.sleep(20)
 
         # Then check if this status is still equal to the same PID
         run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1, 'data': 1, 'bootstrax': 1})
         datum = None
         for d in run['data']:
-            if d['type'] == dtype and eb in d['host'] and d['status']==PID:
+            if d['type'] == dtype and eb in d['host'] and hash in d['location'] and d['status']==PID:
                 datum = d
                 break
         
@@ -275,7 +292,7 @@ class Upload():
         run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1, 'data': 1, 'bootstrax': 1})
         datum = None
         for d in run['data']:
-            if d['type'] == dtype and eb in d['host']:
+            if d['type'] == dtype and eb in d['host'] and hash in d['location']:
                 datum = d
                 break
 
@@ -283,9 +300,9 @@ class Upload():
         in_rucio_upload_rse = False
         in_rucio_somewhere_else = False
         for d in run['data']:
-            if d['type'] == datum['type'] and d['host'] == 'rucio-catalogue' and d['location'] == self.UPLOAD_TO:
+            if d['type'] == datum['type'] and d['host'] == 'rucio-catalogue' and hash in d['did'] and d['location'] == self.UPLOAD_TO:
                 in_rucio_upload_rse = True
-            if d['type'] == datum['type'] and d['host'] == 'rucio-catalogue' and d['location'] != self.UPLOAD_TO:
+            if d['type'] == datum['type'] and d['host'] == 'rucio-catalogue' and hash in d['did'] and d['location'] != self.UPLOAD_TO:
                 in_rucio_somewhere_else = True
 
         if in_rucio_upload_rse:
@@ -348,16 +365,20 @@ class Upload():
         # set a rule to ship data on GRID
         if rucio_rule['state'] == 'OK':
             if dtype in self.NORECORDS_DTYPES:
-#                self.add_rule(number, dtype, hash, 'UC_DALI_USERDISK',datum=datum)
-                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
+                self.add_rule(number, dtype, hash, 'UC_DALI_USERDISK',datum=datum)
+#                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
 #                self.add_conditional_rule(number, dtype, hash, 'UC_DALI_USERDISK', 'UC_OSG_USERDISK',datum=datum)
-                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK',datum=datum)
-            else:
-                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
-                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK',datum=datum)
-                if dtype in self.RAW_RECORDS_DTYPES:
-                    self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CNAF_TAPE2_USERDISK',datum=datum)
-
+                self.add_conditional_rule(number, dtype, hash, 'UC_DALI_USERDISK', 'CCIN2P3_USERDISK',datum=datum)
+            elif dtype in self.RECORDS_DTYPES:
+#                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
+                self.add_rule(number, dtype, hash, 'CCIN2P3_USERDISK',datum=datum)
+#                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK',datum=datum)
+                self.add_conditional_rule(number, dtype, hash, 'CCIN2P3_USERDISK', 'SURFSARA_USERDISK',datum=datum)
+            elif dtype in self.RAW_RECORDS_DTYPES:
+#                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
+                self.add_rule(number, dtype, hash, 'CCIN2P3_USERDISK',datum=datum)
+#                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CNAF_TAPE2_USERDISK',datum=datum)
+                self.add_conditional_rule(number, dtype, hash, 'CCIN2P3_USERDISK', 'CNAF_TAPE2_USERDISK',datum=datum)
 
         return 0
 
