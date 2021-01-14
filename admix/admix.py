@@ -20,6 +20,7 @@ from admix.tasks.purge_with_mongodb import PurgeMongoDB
 from admix.tasks.upload_from_lngs import UploadFromLNGS
 from admix.tasks.fix_upload import FixUpload
 from admix.tasks.clean_eb import CleanEB
+from admix.tasks.clean import Clean
 from admix.tasks.upload_from_lngs_single_thread import UploadFromLNGSSingleThread
 from admix.tasks.upload import Upload
 from admix.tasks.check_transfers import CheckTransfers
@@ -169,7 +170,7 @@ def your_admix():
 
         wait_time = helper.global_dictionary['sleep_time']
         if "CheckTransfers" in task_list or "CleanEB" in task_list:
-            wait_time = 120
+            wait_time = 600
 
         print('Waiting for {0} seconds'.format(wait_time))
         print("You can safely CTRL-C now if you need to stop me")
