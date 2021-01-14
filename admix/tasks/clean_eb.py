@@ -97,20 +97,24 @@ class CleanEB():
 
         # Get all runs that are already transferred and that still have some data_types in eb 
         cursor = self.db.db.find({
-#            'number': {"$lt": 7330, "$gte": 7300},
+#            'number': {"$lt": 7600, "$gte": 7500},
+#            'number': {"$lt": 7600, "$gte": 7200},
 #            'number': {"$lt": 8570, "$gte": 8550},
 #            'number': {"$gte": 7330},
-            'number': {"$gte": 8500},
-#            'number': 9226,
+#            'number': {"$gte": 8500},
+            'number': {"$gte": 10800},
+#            'number': 7580,
 #            'data' : { "$elemMatch": { "host" : {"$regex" : ".*eb.*"} , "type" : {"$in" : data_types}} },
-            'status': 'transferred'
+#            'status': 'transferred'
+            'status': { '$in': ['transferred','transferring']}
         },
         {'_id': 1, 'number': 1, 'data': 1, 'bootstrax': 1})
 
 
         cursor = list(cursor)
 
-        helper.global_dictionary['logger'].Info('Runs that will be processed are {0}'.format([c["number"] for c in cursor]))
+#        helper.global_dictionary['logger'].Info('Runs that will be processed are {0}'.format([c["number"] for c in cursor]))
+        helper.global_dictionary['logger'].Info('Runs that will be processed are {0}'.format(len(cursor)))
 
         # Runs over all listed runs
         for run in cursor:
@@ -122,9 +126,9 @@ class CleanEB():
             bootstrax = run['bootstrax']
             eb = bootstrax['host'].split('.')[0]
 
-            helper.global_dictionary['logger'].Info('Treating run {0}'.format(number))
+#            helper.global_dictionary['logger'].Info('Treating run {0}'.format(number))
 
-            helper.global_dictionary['logger'].Info('Run {0} has been processed by {1}'.format(number,eb))
+#            helper.global_dictionary['logger'].Info('Run {0} has been processed by {1}'.format(number,eb))
 
             # Checks how much date are old
             run_time = run['bootstrax']['time'].replace(tzinfo=timezone.utc)
@@ -133,7 +137,7 @@ class CleanEB():
 
             # Loops on all datatypes that have to be cleaned
             for dtype in data_types:
-                helper.global_dictionary['logger'].Info('\t==> Looking for data type {0}'.format(dtype))
+ #               helper.global_dictionary['logger'].Info('\t==> Looking for data type {0}'.format(dtype))
 
                 # checks the age of the data type
                 is_enough_old = True
@@ -153,18 +157,14 @@ class CleanEB():
                 # check first with runDB if the data type already exists in external RSEs
                 rses_in_db = []
                 for d in run['data']:
-                    if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] != self.UPLOAD_TO:
+                    if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] != self.UPLOAD_TO and d['status'] == 'transferred':
                         rses_in_db.append(d['location'])
-                helper.global_dictionary['logger'].Info('\t==> According to DB, found in following external RSEs : {0}'.format(rses_in_db))
+#                helper.global_dictionary['logger'].Info('\t==> According to DB, found in following external RSEs : {0}'.format(rses_in_db))
 
                 # if this is not the case, just skip any attempt of deleting anything
                 if len(rses_in_db) < self.minimum_number_acceptable_rses:
-                    helper.global_dictionary['logger'].Info('\t==> Nothing will be deleted : not enough external RSEs')
+#                    helper.global_dictionary['logger'].Info('\t==> Nothing will be deleted : not enough external RSEs')
                     continue
-
-                #
-                # Phase 1 : Deleting data in EB
-                #
 
                 # check first if data are, according to the DB, still in EB
                 datum = None
@@ -172,8 +172,17 @@ class CleanEB():
                     if d['type'] == dtype and eb in d['host']:
                         datum = d
 
-                if datum is None:
-                    helper.global_dictionary['logger'].Info('Data type not in eb')
+                # skip this data type in case the eb status field is missing or is different from "transferred"
+                if datum is not None and ('status' not in datum or datum['status']!="transferred"):
+                    continue
+
+                #
+                # Phase 1 : Deleting data in EB
+                #
+
+
+#                if datum is None:
+#                    helper.global_dictionary['logger'].Info('Data type not in eb')
 
                 # start deleting data in EB
                 if datum is not None and dtype not in self.dtype_never_delete and is_enough_old:
@@ -197,16 +206,17 @@ class CleanEB():
                             if 'file_count' in datum:
                                 if nfiles == datum['file_count']:
                                     rses_with_correct_nfiles.append(rucio_rule['rse'])
-                    helper.global_dictionary['logger'].Info('\t==> According to Rucio, found in following external RSEs : {0}'.format(rses_with_rule))
+#                    helper.global_dictionary['logger'].Info('\t==> According to Rucio, found in following external RSEs : {0}'.format(rses_with_rule))
 
-                    if len(rses_with_correct_nfiles) == len(rses_with_rule):
-                        helper.global_dictionary['logger'].Info('\t==> All of them with the expected number of files')
-                    else:
-                        helper.global_dictionary['logger'].Info('\t==> Error, these RSEs have wrong number of files : {0}'.format(rses_with_correct_nfiles))
+#                    if len(rses_with_correct_nfiles) == len(rses_with_rule):
+#                        helper.global_dictionary['logger'].Info('\t==> All of them with the expected number of files')
+#                    else:
+#                        helper.global_dictionary['logger'].Info('\t==> Error, these RSEs have wrong number of files : {0}'.format(rses_with_correct_nfiles))
                     
                     # if so, start deleting
 #                    if len(rses_with_rule)>=self.minimum_number_acceptable_rses and len(rses_with_correct_nfiles) == len(rses_with_rule):
-                    if len(rses_with_rule)>=self.minimum_number_acceptable_rses:
+                    if len(rses_with_rule)>=self.minimum_number_acceptable_rses and len(rses_with_correct_nfiles)>=self.minimum_number_acceptable_rses:
+#                    if len(rses_with_rule)>=self.minimum_number_acceptable_rses:
 
                         # delete from DB
                         # print(run['_id'],datum['type'],datum['host'])
@@ -214,7 +224,7 @@ class CleanEB():
                         full_path = os.path.join(self.DATADIR, eb, file)
                         # print(full_path)
 
-                        helper.global_dictionary['logger'].Info('\t==> Deleted EB info from DB') 
+                        helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}. Deleted EB info from DB'.format(number,dtype))
 
                         # delete from disk
                         try:
@@ -222,7 +232,7 @@ class CleanEB():
                         except OSError as e:
                             helper.global_dictionary['logger'].Info('\t==> Error, cannot delete directory : {0}'.format(e))
                         else:
-                            helper.global_dictionary['logger'].Info('\t==> Deleted data from EB disk') 
+                            helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}. Deleted data from EB disk'.format(number,dtype)) 
 
 
                 #
@@ -236,9 +246,10 @@ class CleanEB():
                         datum = d
 
                 # if so, start deleting data in datamanager (LNGS_USERDISK)
-                if datum is None:
-                    helper.global_dictionary['logger'].Info('Data type not in LNGS_USERDISK')
-                else:
+#                if datum is None:
+#                    helper.global_dictionary['logger'].Info('Data type not in LNGS_USERDISK')
+
+                if datum is not None:
                     # create the DID from DB
                     did = datum['did']
                     hash = did.split('-')[-1]
@@ -257,28 +268,29 @@ class CleanEB():
                             nfiles = len(list_file_replicas(number, dtype, hash, rucio_rule['rse']))
                             if nfiles == nfiles_upload_to:
                                 rses_with_correct_nfiles.append(rucio_rule['rse'])
-                    helper.global_dictionary['logger'].Info('\t==> According to Rucio, found in following external RSEs : {0}'.format(rses_with_rule))
+#                    helper.global_dictionary['logger'].Info('\t==> According to Rucio, found in following external RSEs : {0}'.format(rses_with_rule))
 
-                    if len(rses_with_correct_nfiles) == len(rses_with_rule):
-                        helper.global_dictionary['logger'].Info('\t==> All of them with the expected number of files')
-                    else:
-                        helper.global_dictionary['logger'].Info('\t==> Error, these RSEs have wrong number of files : {0}'.format(rses_with_correct_nfiles))
+#                    if len(rses_with_correct_nfiles) == len(rses_with_rule):
+#                        helper.global_dictionary['logger'].Info('\t==> All of them with the expected number of files')
+#                    else:
+#                        helper.global_dictionary['logger'].Info('\t==> Error, these RSEs have wrong number of files : {0}'.format(rses_with_correct_nfiles))
 
                     # if so, start deleting
-                    if len(rses_with_rule)>=self.minimum_number_acceptable_rses and len(rses_with_correct_nfiles) == len(rses_with_rule):
+#                    if len(rses_with_rule)>=self.minimum_number_acceptable_rses and len(rses_with_correct_nfiles) == len(rses_with_rule):
+                    if len(rses_with_rule)>=self.minimum_number_acceptable_rses and len(rses_with_correct_nfiles)>=self.minimum_number_acceptable_rses:
 
                         rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
                         if rucio_rule['exists'] and rucio_rule['state'] == 'OK' and rucio_rule['rse'] == self.UPLOAD_TO:
                             self.rc.DeleteRule(rucio_rule['id'])
-                            helper.global_dictionary['logger'].Info('\t==> Deleted LNGS_USERDISK Rucio rule') 
+                            helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}. Deleted LNGS_USERDISK Rucio rule'.format(number,dtype)) 
                             hash = did.split('-')[-1]
-                            files = list_file_replicas(number, dtype, hash, "LNGS_USERDISK")                        
+                            files = list_file_replicas(number, dtype, hash, "LNGS_USERDISK")
                             for file in files:
                                 os.remove(file)
-                            helper.global_dictionary['logger'].Info('\t==> Deleted data from LNGS_USERDISK disk') 
+                            helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}. Deleted data from LNGS_USERDISK disk'.format(number,dtype))
 
                             self.db.RemoveDatafield(run['_id'],datum)
-                            helper.global_dictionary['logger'].Info('\t==> Deleted LNGS_USERDISK info from DB') 
+                            helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}. Deleted LNGS_USERDISK info from DB'.format(number,dtype))
                     
 
         return 0

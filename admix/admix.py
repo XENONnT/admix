@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import os
 import time
+import psutil
 
 from admix.helper.logger import Logger
 import admix.helper.helper as helper
@@ -29,13 +30,18 @@ from utilix.config import Config
 def version():
     print(__version__)
 
+def end_admix():
+    process = psutil.Process()
+    screen = process.parent().parent().parent().parent().cmdline()[-1]
+    os.remove("/tmp/admix-"+screen)
+    
+
 def your_admix():
     print("advanced Data Management in XENON")
 
     parser = argparse.ArgumentParser(description="Run your favourite aDMIX")
 
     config = Config()
-
 
     # From here the input depends on the usage of the command
     # Add modules here:
@@ -136,6 +142,11 @@ def your_admix():
         print("file: {0}".format(helper.global_dictionary["admix_config"]))
         exit()
 
+    #Create a tmp file named as the screen session that contains this process
+    process = psutil.Process()
+    screen = process.parent().parent().parent().parent().cmdline()[-1]
+    open("/tmp/admix-"+screen, 'a').close()
+
     #Loop over the inizialization of all classes
     for i_task in task_list:
         ClassCollector[i_task].init()
@@ -148,10 +159,12 @@ def your_admix():
 
 
         if args.once == True:
+            end_admix()
             break
 
         if os.path.exists("/tmp/admix-stop"):
             print("Exiting because of the presence of /tmp/admix-stop file")
+            end_admix()
             break
 
         wait_time = helper.global_dictionary['sleep_time']
@@ -164,6 +177,7 @@ def your_admix():
             time.sleep(wait_time)
 
         except KeyboardInterrupt:
+            end_admix()
             break
 
 
