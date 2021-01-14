@@ -97,7 +97,10 @@ class Fix():
         files = list_file_replicas(number, dtype, hash, self.UPLOAD_TO)
         print("Deleting rucio data in datamanager disk. Deleting",len(files),"files")
         for file in files:
-            os.remove(file)
+            try:
+                os.remove(file)
+            except:
+                print("File: {0} not found".format(file))
 
 
 
