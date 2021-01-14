@@ -38,7 +38,7 @@ class Upload():
         self.DTYPES = self.NORECORDS_DTYPES + self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES
 
         if helper.global_dictionary.get('high'):
-               self.DTYPES = self.NORECORDS_DTYPES
+               self.DTYPES = self.NORECORDS_DTYPES               
 
         if helper.global_dictionary.get('low'):
                self.DTYPES = self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES
@@ -79,7 +79,6 @@ class Upload():
         return id_run
 
 
-
     def find_next_run_and_dtype_to_upload(self):
         cursor = self.db.db.find({'status': { '$in': ['eb_ready_to_upload','transferring']}, 'bootstrax.state': 'done' }, {'number': 1, 'data': 1, 'bootstrax': 1}).sort('number',pymongo.ASCENDING)
         id_run = 0
@@ -99,7 +98,7 @@ class Upload():
                 continue
 
             # For debugging: select a specific run
-#            if number not in [10161]:
+#            if number not in [7235]:
 #                continue
 
             # Extracts the correct Event Builder machine who processed this run
@@ -117,10 +116,10 @@ class Upload():
                 for d in run['data']:
                     if d['type'] == dtype and eb in d['host'] and ('status' not in d or ('status' in d and d['status'] == 'eb_ready_to_upload')):
                         datum = d
-                        continue
+                        break
  
                 if datum is not None:
-                    continue
+                    break
 
             # If there is a candidate data type, return run_id and data type
             if datum is not None:
@@ -207,6 +206,13 @@ class Upload():
     def run(self,*args, **kwargs):
         helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
 
+        if helper.global_dictionary.get('high'):
+            helper.global_dictionary['logger'].Info(f'Only high level datatypes')
+
+        if helper.global_dictionary.get('low'):
+            helper.global_dictionary['logger'].Info(f'Only low level datatypes')
+
+
         # Get a new run to upload
         id_to_upload, datum = self.find_next_run_and_dtype_to_upload()
         if id_to_upload == 0:
@@ -248,7 +254,7 @@ class Upload():
         for d in run['data']:
             if d['type'] == dtype and eb in d['host'] and d['status']==PID:
                 datum = d
-                continue
+                break
         
         # If there is no data available to upload any more, exit
         if datum is None:
@@ -271,7 +277,7 @@ class Upload():
         for d in run['data']:
             if d['type'] == dtype and eb in d['host']:
                 datum = d
-                continue
+                break
 
         # Check, for coherency, if there is no rucio entry in DB for this data type
         in_rucio_upload_rse = False
@@ -342,12 +348,12 @@ class Upload():
         # set a rule to ship data on GRID
         if rucio_rule['state'] == 'OK':
             if dtype in self.NORECORDS_DTYPES:
-                self.add_rule(number, dtype, hash, 'UC_DALI_USERDISK',datum=datum)
-                self.add_conditional_rule(number, dtype, hash, 'UC_DALI_USERDISK', 'UC_OSG_USERDISK',datum=datum)
+#                self.add_rule(number, dtype, hash, 'UC_DALI_USERDISK',datum=datum)
+                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
+#                self.add_conditional_rule(number, dtype, hash, 'UC_DALI_USERDISK', 'UC_OSG_USERDISK',datum=datum)
+                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK',datum=datum)
             else:
                 self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
-#                if dtype in self.RECORDS_DTYPES:
-#                    self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'UC_DALI_USERDISK',datum=datum)
                 self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK',datum=datum)
                 if dtype in self.RAW_RECORDS_DTYPES:
                     self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CNAF_TAPE2_USERDISK',datum=datum)
