@@ -7,11 +7,30 @@ __version__ = '0.2.0'
 
 #interfaces:
 import os
+import logging
+from utilix import uconfig
+
+def get_logger():
+    logger = logging.getLogger("admix")
+    ch = logging.StreamHandler()
+    ch.setLevel(uconfig.logging_level)
+    logger.setLevel(uconfig.logging_level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    return logger
+
+logger = get_logger()
+
 from admix.interfaces.rucio_dataformat import ConfigRucioDataFormat
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.destination import Destination
 from admix.interfaces.keyword import Keyword
 from admix.interfaces.templater import Templater
+
+
+
+
 
 
 #tasks:

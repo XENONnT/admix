@@ -16,6 +16,7 @@ import json
 from admix.helper.decorator import NameCollector, ClassCollector
 from admix.interfaces.rucio_cli import RucioCLI
 import hashlib
+from admix import logger
 
 class RucioSummoner():
     def __init__(self, rucio_backend="API"):
@@ -893,26 +894,29 @@ class RucioSummoner():
 
 
         # create scope. If scope exists already, exception will be handled silently unless verbose=True is passed
+        logger.debug(f"Creating scope {scope}, if it doesn't exist")
         self._rucio.CreateScope(account=self.rucio_account, scope=scope)
 
         # create dataset
-        self._rucio.CreateDataset(scope, dataset)
+        #logger.debug(f"Creating dataset {scope}:{dataset}")
+        #self._rucio.CreateDataset(scope, dataset)
 
         # add a rule for this dataset
-        self._rucio.AddRule([dict(scope=scope, name=dataset)], 1, rse, lifetime=lifetime)
-
+        #logger.debug(f"Creating a rule for {did} at {rse}")
+        #self._rucio.AddRule([dict(scope=scope, name=dataset)], 1, rse, lifetime=lifetime)
 
         # smallest lifetime is 1 day?
         if lifetime != None and int(lifetime) < 86400:
             lifetime = 86400
 
         #Prepare an upload dictionary which is used later to upload to Rucio
-        upload_dict = dict(path=upload_path + "/",
+        upload_dict = dict(path=upload_path,
                            rse=rse,
                            lifetime=lifetime,
                            did_scope=scope,
                            dataset_scope=scope,
-                           dataset_name=dataset
+                           dataset_name=dataset,
+                           #register_after_upload=True
                            )
 
         # finally, upload the dataset
