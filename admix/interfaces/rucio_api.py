@@ -11,12 +11,14 @@ import os
 
 from admix.helper.decorator import NameCollector, ClassCollector
 from admix.helper.decorator import Collector
+from admix import logger
 import sys
 import tempfile
 import subprocess
 import datetime
 import os
 import json
+import logging
 
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
@@ -103,7 +105,7 @@ class RucioAPI():
         """
         try:
             self._rucio_client = Client()
-            self._rucio_client_upload = UploadClient()
+            self._rucio_client_upload = UploadClient(logger=logger)
 #            self._rucio_client_upload = UploadClient(tracing=False)
 #            print("Tracing set to False")
             self._rucio_client_download = DownloadClient()
@@ -519,15 +521,7 @@ class RucioAPI():
         :return result: 0 on success, 1 on failure
 
         """
-        result = 1
-
-        try:
-            result = self._rucio_client_upload.upload(upload_dict)
-        except NoFilesUploaded as e:
-            print(e)
-        except NotAllFilesUploaded as e:
-            print(e)
-
+        result = self._rucio_client_upload.upload(upload_dict)
         return result
 
     def DownloadDids(self, items, num_threads=2, trace_custom_fields={}):

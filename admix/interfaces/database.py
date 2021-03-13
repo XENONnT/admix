@@ -1,5 +1,4 @@
-import pymongo
-from utilix.rundb import pymongo_collection
+from utilix.rundb import xent_collection
 import admix.helper.helper as helper
 import datetime
 
@@ -29,10 +28,10 @@ class ConnectMongoDB():
 
     def Connect(self):
         # nT runs DB
-        self.db = pymongo_collection('runs')
+        self.db = xent_collection()
 
         # for querying the hash collection for strax data types
-        self.contexts = pymongo_collection('contexts')
+        self.contexts = xent_collection('contexts')
 
     def GetQuery(self, query, reconnect=False, sort=[('_id',1)]):
         if reconnect == True:
