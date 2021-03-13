@@ -16,7 +16,7 @@ from admix.utils.naming import make_did
 
 def list_file_replicas(run_number, dtype, hash, rse='UC_DALI_USERDISK'):
 
-    db = ConnectMongoDB()
+#    db = ConnectMongoDB()
     rc = RucioSummoner(helper.get_hostconfig("rucio_backend"))
 
 #    print("Looking for run "+str(run_number)+", data type "+dtype+", hash "+hash+", in rse="+rse)
@@ -24,10 +24,10 @@ def list_file_replicas(run_number, dtype, hash, rse='UC_DALI_USERDISK'):
     # checks if run is present in run database
     # this will improve the reaction speed in case the run is not existing
     # since we do not call Rucio commands
-    cursor = db.GetRunByNumber(run_number)        
-    if len(cursor)==0:
+#    cursor = db.GetRunByNumber(run_number)
+#    if len(cursor)==0:
 #        print("Error. Run not existing in database")
-        return list()
+#        return list()
 
     # build did
     did = make_did(run_number, dtype, hash)
@@ -42,4 +42,5 @@ def list_file_replicas(run_number, dtype, hash, rse='UC_DALI_USERDISK'):
     file_replicas = rc.ListFileReplicas(did,rse,localpath=True)
 
     return list(file_replicas.values())
+
 
