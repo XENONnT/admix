@@ -3,7 +3,7 @@
 """Top-level package for aDMIX."""
 __author__ = """Boris Bauermeister"""
 __email__ = 'Boris.Bauermeister@gmail.com'
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 
 #interfaces:
 import os
