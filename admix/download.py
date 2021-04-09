@@ -1,10 +1,8 @@
 import os
-import sys
 from argparse import ArgumentParser
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
-import numpy as np
 try:
     from straxen import __version__
     straxen_version = __version__
@@ -31,9 +29,17 @@ def determine_rse(rse_list, glidein_country):
                   "SURFSARA_USERDISK"]
 
     US_SITES = ["UC_OSG_USERDISK", "UC_DALI_USERDISK"]
-    TAPE_SITES = ["CNAF_TAPE2_USERDISK"]
 
     if glidein_country == "US":
+        for site in US_SITES:
+            if site in rse_list:
+                return site
+        for site in EURO_SITES:
+            if site in rse_list:
+                return site
+
+    elif glidein_country == "CA":
+        # Canada
         for site in US_SITES:
             if site in rse_list:
                 return site
@@ -83,18 +89,12 @@ def determine_rse(rse_list, glidein_country):
 
     if US_SITES[0] in rse_list:
         return US_SITES[0]
-    elif np.any([s in rse_list for s in TAPE_SITES]):
-        # This is our last resort and may be much slower. Nonetheless
-        # it's better than not returning any site.
-        for site in TAPE_SITES:
-            if site in rse_list:
-                return site
-    else:
-        raise NoRSEForCountry(f"cannot download data from {glidein_country}")
+
+    return None
 
 
 def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=True,
-             num_threads=3, **kwargs):
+             num_threads=8, **kwargs):
     """Function download()
 
     Downloads a given run number using rucio
@@ -125,7 +125,6 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
         # find closest one, otherwise start at the US end at TAPE
         glidein_region = os.environ.get('GLIDEIN_Country', 'US')
         rse = determine_rse(rses, glidein_region)
-        print(rse)
 
     if chunks:
         dids = []
@@ -148,6 +147,7 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
     os.makedirs(location, exist_ok=True)
 
     # TODO check if files already exist?
+    print(did)
 
     print(f"Downloading {did} from {rse}")
 
@@ -161,8 +161,8 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
                                  num_threads=num_threads, **kwargs)
         if isinstance(result, int):
             print(f"Download try #{_try} failed.")
+            time.sleep(5 ** _try)
             _try += 1
-            time.sleep(5)
         else:
             success = True
 
@@ -186,7 +186,7 @@ def get_did_1t(number, dtype):
     raise ValueError(f"No rucio DID found for run {number} with dtype {dtype}")
 
 
-def download_1t(number, dtype, location='.',  tries=3, num_threads=3, **kwargs):
+def download_1t(number, dtype, location='.',  tries=3, num_threads=8, **kwargs):
     # setup rucio client
     rc = RucioSummoner()
     did = get_did_1t(number, dtype)
@@ -209,9 +209,8 @@ def download_1t(number, dtype, location='.',  tries=3, num_threads=3, **kwargs):
         # get run name
         name = xe1t_coll.find_one({'number': number, 'detector': 'tpc'}, {'name': 1})['name']
         location = os.path.join(location, name)
-    os.makedirs(location, exist_ok=True)
 
-    # TODO check if files already exist?
+    os.makedirs(location, exist_ok=True)
 
     print(f"Downloading {did} from {rse}")
 
@@ -225,8 +224,9 @@ def download_1t(number, dtype, location='.',  tries=3, num_threads=3, **kwargs):
                                  num_threads=num_threads, **kwargs)
         if isinstance(result, int):
             print(f"Download try #{_try} failed.")
+            time.sleep(5**_try)
             _try += 1
-            time.sleep(5)
+
         else:
             success = True
 
@@ -241,7 +241,7 @@ def main():
     parser.add_argument("dtype", help="Data type to download")
     parser.add_argument("--chunks", nargs="*", help="Space-separated list of chunks to download.")
     parser.add_argument("--dir", help="Path to put the downloaded data.", default='.')
-    parser.add_argument('--tries', type=int, help="Number of tries to download the data.", default=2)
+    parser.add_argument('--tries', type=int, help="Number of tries to download the data.", default=3)
     parser.add_argument('--rse', help='RSE to download from')
     parser.add_argument('--threads', help='Number of threads to use', default=3, type=int)
     parser.add_argument('--context', help='strax context you need -- this determines the hash',
@@ -266,4 +266,3 @@ def main():
     elif args.experiment == 'xe1t':
         download_1t(args.number, args.dtype, location=args.dir, tries=args.tries, rse=args.rse,
                     num_threads=args.threads)
-
