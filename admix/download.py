@@ -254,7 +254,8 @@ def main():
     if args.experiment == 'xent':
         # use system straxen version if none passed
         version = args.straxen_version if args.straxen_version else straxen_version
-        hash = utilix.db.get_hash(args.context, args.dtype, version)
+        utilix_db = utilix.DB()
+        hash = utilix_db.get_hash(args.context, args.dtype, version)
         if args.chunks:
             chunks = [int(c) for c in args.chunks]
         else:
