@@ -59,10 +59,8 @@ class CheckTransfers():
 
 
     def check_transfers(self):
-        cursor = self.db.db.find(
-            {'status': 'transferring'},
-#            {'number':10161},
-            {'number': 1, 'data': 1, 'bootstrax': 1})
+        cursor = self.db.db.find({'data': {'$elemMatch': {'status': 'transferring'}}},
+                                 {'number': 1, 'data': 1, 'bootstrax': 1})
 
         cursor = list(cursor)
 
