@@ -1,22 +1,13 @@
 """
-.. module:: rucio_summoner
-   :platform: Unix
-   :synopsis: Run Rucio commando out of the box with complicated container/dataset structures
 
-.. moduleauthor:: Boris Bauermeister <Boris.Bauermeister@gmail.com>
 
 """
 
-import sys
-import tempfile
-import subprocess
-import datetime
 import os
-import json
-from admix.helper.decorator import NameCollector, ClassCollector
-from admix.interfaces.rucio_cli import RucioCLI
 import hashlib
 from admix import logger
+from admix.interfaces.rucio_api import RucioAPI
+
 
 class RucioSummoner():
     def __init__(self, rucio_backend="API"):
@@ -28,9 +19,7 @@ class RucioSummoner():
         self.rucio_account = os.environ.get("RUCIO_ACCOUNT")
         self._rucio = None
         if self.rucio_backend=="API":
-            self._rucio = ClassCollector["RucioAPI"]
-        elif self.rucio_backend=="CLI":
-            self._rucio = ClassCollector["RucioCLI"]
+            self._rucio = RucioAPI()
         else:
             print(f"You chose {self.rucio_backend} as Rucio backend which does not exists")
             print("Fix this!")
@@ -127,54 +116,6 @@ class RucioSummoner():
                 #exit(1)
 
         return (val_scope, val_dname)
-
-    def _IsTemplate(self, upload_structure):
-        """Function: _IsTemplate()
-
-        :param upload_structure:  A string (Rucio DID form of "scope:name") or a template dictionary
-        :return is_template: Returns True if the input is a template_dictionary, otherwise false
-        """
-
-        is_template = False
-
-        val_scope = None
-        val_dname = None
-
-        if isinstance(upload_structure, dict):
-            #you can not sort keys if they are not in the dictionary:
-            #leave like it is
-            sorted_keys = [key for key in sorted(upload_structure.keys())]
-
-            level_checks = []
-            for i_level in sorted_keys:
-                i_level = upload_structure[i_level]
-                level_check = False
-                if isinstance(i_level, dict) and \
-                    'did' in list(i_level.keys()) and \
-                    'type' in list(i_level.keys()) and \
-                    'tag_words' in list(i_level.keys()):
-                    level_check = True
-                level_checks.append(level_check)
-
-            #if the list of level_checks contains one single False element
-            #the input template dictionary seems to be wrong.
-            if False not in level_checks:
-                is_template = True
-
-        return is_template
-
-#TODO REMOVE LATER WHEN YOU ARE SAFE THAT THIS FUNCTION IS NOT USED AT ALL
-#    def VerifyStructure(self, upload_structure=None):
-#
-#        sorted_keys = [key for key in sorted(upload_structure.keys())]
-#        for i_key in sorted_keys:
-#            #assume: We want to check only for the lowest container or dataset:
-#            val_scope = upload_structure[i_key]['did'].split(":")[0]
-#            val_dname = upload_structure[i_key]['did'].split(":")[1]
-#            list_files_rucio = self._rucio.ListContent(val_scope, val_dname)
-#            for i_rucio in list_files_rucio:
-#                print(i_rucio['type'])
-#        print(upload_structure)
 
     def AddRule(self, did, rse, lifetime=None, protocol='rucio-catalogue', priority=3):
         """Add rules for a Rucio DID or dictionary template.

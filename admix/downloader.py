@@ -1,8 +1,7 @@
 import os
 from argparse import ArgumentParser
 from admix.interfaces.rucio_summoner import RucioSummoner
-from admix.interfaces.database import ConnectMongoDB
-from admix.utils.naming import make_did
+from admix.utils import make_did
 try:
     from straxen import __version__
     straxen_version = __version__
@@ -11,9 +10,8 @@ except ImportError:
 import time
 import utilix
 
-DB = ConnectMongoDB()
-
 xe1t_coll = utilix.rundb.xe1t_collection()
+
 
 class NoRSEForCountry(Exception):
     pass
