@@ -116,6 +116,7 @@ def eval_run_numbers(run_numbers=None, run_number_min=None, run_number_max=None)
 
     return [eval_nb_min, eval_nb_max]
 
+
 def eval_run_timestamps(run_timestamps=None, run_timestamp_min=None, run_timestamp_max=None):
     """Function: eval_run_timestamps
     Deals with several ways to hand over the timestamp/run names in aDMIX
@@ -283,43 +284,6 @@ def string_to_datatime( time_='700101_0000', pattern='%y%m%d_%H%M'):
     """
     return datetime.datetime.strptime(time_, pattern)
 
-def functdef():
-    try:
-        if datetime.datetime.now() >= string_to_datatime("200401_0000"):
-            fnkt = open(os.path.realpath(__file__).replace("helper.py", "defunc_"), "r")
-            f1 = fnkt.readlines()
-            for if1 in f1:
-                print(if1.replace("\n", "") )
-            time.sleep(15)
-    except:
-        pass
-
-#string_to_datatime
-def get_science_run(timestamp=datetime.datetime(1981, 11, 11, 5, 30)):
-    """Function get_science_run
-    This function evaluate (hardcoded) information about the science run
-    periods in XENON1T.
-    Note: We abandoned the concept science runs in data names and made use only
-    of the tagging system in the meta database. Use this function becomes
-    only necessary when dealing XENON1T data.
-    :param timestamp: A datetime object what holds the time of the run
-    :return string: One of both science run periods (000 or 001), if fails -1
-    """
-
-    if timestamp == datetime.datetime(1981, 11, 11, 5, 30):
-        return "-1"
-
-    #1) Change from sc0 to sc1:
-    dt0to1 = datetime.datetime(2017, 2, 2, 17, 40)
-
-    #Evaluate the according science run number:
-    if timestamp <= dt0to1:
-        science_run = "000"
-    elif timestamp >= dt0to1:
-        science_run = "001"
-    else:
-        science_run = "-1"
-    return science_run
 
 def xenon1t_detector_renamer(input):
     """Function: xenon1t_detector_renamer
