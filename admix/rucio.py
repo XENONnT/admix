@@ -3,9 +3,11 @@ Contains rucio commands with XENON-specific wrappers
 """
 from datetime import datetime
 from functools import wraps
+from tqdm import tqdm
 from rucio.client.client import Client
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.accountclient import AccountClient
+from rucio.client.rseclient import RSEClient
 from utilix import DB
 from . import logger
 from .utils import from_did
@@ -21,6 +23,7 @@ except:
 rucio_client = Client()
 replica_client = ReplicaClient()
 account_client = AccountClient()
+rse_client = RSEClient()
 
 
 def requires_production(func):
@@ -212,6 +215,20 @@ def get_account_limits(account='production'):
     """We need to update rucio server first"""
     raise NotImplementedError
     #account_client.get_global_account_limit(account)
+
+
+def get_rse_prefix(rse):
+    rse_info = rse_client.get_rse(rse)
+    prefix = rse_info['protocols'][0]['prefix']
+    return prefix
+
+
+def get_rse_datasets(rse):
+    datasets = replica_client.list_datasets_per_rse(rse)
+    ret = []
+    for d in tqdm(datasets, desc=f'Finding all datasets at {rse}'):
+        ret.append(f"{d['scope']}:{d['name']}")
+    return ret
 
 
 class RucioPermissionError(Exception):
