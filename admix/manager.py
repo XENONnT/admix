@@ -2,10 +2,16 @@
 Common data management functions
 """
 
-from utilix import DB
+from packaging import version
+from tqdm import tqdm
+
+from utilix import DB, xent_collection
 from admix import rucio
 
+
 db = DB()
+collection = xent_collection()
+context_collection = xent_collection('contexts')
 
 
 def has_metadata(did):
@@ -135,7 +141,6 @@ def synchronize(run_number):
                 db.update_data(run_number, updatum)
 
 
-
 def add_rucio_protocol(run_number):
     """Straxen requires for some reason a field protocol=rucio in the data dict"""
     data = db.get_data(run_number, host='rucio-catalogue')
@@ -145,3 +150,79 @@ def add_rucio_protocol(run_number):
             updatum['protocol'] = 'rucio'
             print(f"Updating {d['did']} at {d['location']}")
             db.update_data(run_number, updatum)
+
+
+def get_outdated_strax_info(not_outdated_version, context='xenonnt_online'):
+    # get versions of all straxen versions before some given 'good' version
+    thresh_version = version.parse(not_outdated_version)
+
+    cursor = list(context_collection.find({}, {'straxen_version': 1}))
+    versions = set([version.parse(d['straxen_version']) for d in cursor])
+    outdated_versions = set(sorted([v for v in versions if v < thresh_version], reverse=True))
+    save_versions = versions - outdated_versions
+    save_hashes = dict()
+    for v in save_versions:
+        hashes = db.get_context(context, v.public)['hashes']
+        for dtype, h in hashes.items():
+            if dtype in save_hashes:
+                if h not in save_hashes[dtype]:
+                    save_hashes[dtype].append(h)
+            else:
+                save_hashes[dtype] = [h]
+
+    delete_hashes = dict()
+    for v in outdated_versions:
+        hashes = db.get_context(context, v.public)['hashes']
+        for dtype, h in hashes.items():
+            if dtype in save_hashes and h in save_hashes[dtype]:
+                pass
+            else:
+                if dtype in delete_hashes:
+                    if h not in delete_hashes[dtype]:
+                        delete_hashes[dtype].append(h)
+                else:
+                    delete_hashes[dtype] = [h]
+
+    # just to double check
+    for dtype, h in delete_hashes.items():
+        if dtype in save_hashes:
+            assert h not in save_hashes[dtype]
+    assert 'raw_records' not in delete_hashes
+    return delete_hashes
+
+
+def find_outdated_data(max_straxen_version, specific_dtype=None, context='xenonnt_online'):
+    def get_dids(ddoc, dtype, hash_list):
+        ret = []
+        for d in ddoc:
+            if d['type'] == dtype and d.get('did'):
+                ddoc_hash = d['did'].split(':')[1].split('-')[1]
+                if ddoc_hash in hash_list:
+                    if d['did'] not in ret:
+                        ret.append(d['did'])
+        if not len(ret):
+            raise RuntimeError(f"No dids found for {dtype}")
+        return ret
+
+    outdated_info = get_outdated_strax_info(max_straxen_version, context)
+    if specific_dtype:
+        if isinstance(specific_dtype, str):
+            outdated_info = {specific_dtype: outdated_info[specific_dtype]}
+        else:
+            outdated_info = {key: val for key, val in outdated_info.items() if key in specific_dtype}
+
+    outdated_dids = dict()
+    for dtype, hsh_list in tqdm(outdated_info.items(), desc='Finding data we can delete'):
+        query = {'$or': [{'data': {'$elemMatch': {'type': dtype,
+                                                  'did': {'$regex': h}}}}
+                         for h in hsh_list]
+                 }
+        cursor = list(collection.find(query, {'number': 1, 'data': 1}))
+        if len(cursor) > 0:
+            if dtype not in outdated_dids:
+                outdated_dids[dtype] = list()
+            for run in cursor:
+                dids = get_dids(run['data'], dtype, hsh_list)
+                outdated_dids[dtype].extend(dids)
+    return outdated_dids
+

@@ -136,7 +136,7 @@ def add_rule(did, rse, copies=1, update_db=False, **kwargs):
 
 @requires_production
 @update_db('delete')
-def delete_rule(did, rse, purge_replicas=False, _careful=True, _required_copies=1, update_db=False):
+def delete_rule(did, rse, purge_replicas=True, _careful=True, _required_copies=1, update_db=False):
     rule = get_rule(did, rse)
     if not rule:
         raise RuleNotFoundError(f"No rule found for {did} at {rse}!")
