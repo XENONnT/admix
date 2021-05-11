@@ -182,12 +182,18 @@ def list_files(did, verbose=False):
 
 
 def get_size_mb(did):
-    # returns size of did in GB
-    scope, name = did.split(':')
-    total_size = 0
-    for f in rucio_client.list_files(scope, name):
-        total_size += int(f['bytes'])
-    return total_size / 1e6
+    # returns size of did (or list of dids) in GB
+    if not isinstance(did, str):
+        # then assume it's iterable
+        total_size = sum([get_size_mb(d) for d in tqdm(did, desc='Getting total size in rucio')])
+    else:
+        if not isinstance(did, str):
+            raise ValueError(f"did must be a string (or an iterable of strings). You passed a {type(did)}")
+        scope, name = did.split(':')
+        total_size = 0
+        for f in rucio_client.list_files(scope, name):
+            total_size += int(f['bytes'])/1e6
+    return total_size
 
 
 def list_file_replicas(did, rse=None, **kwargs):
