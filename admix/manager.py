@@ -5,13 +5,9 @@ Common data management functions
 from packaging import version
 from tqdm import tqdm
 
-from utilix import DB, xent_collection
-from admix import rucio
+from . import rucio
+from .utils import db, xent_runs_collection, xent_context_collection
 
-
-db = DB()
-collection = xent_collection()
-context_collection = xent_collection('contexts')
 
 
 def has_metadata(did):
@@ -23,7 +19,7 @@ def has_metadata(did):
 
 def synchronize(run_number):
     db_data = db.get_data(run_number, host='rucio-catalogue')
-    db_datasets = [d['did'].split(':')[1] for d in db_data]
+    db_datasets = list(set([d['did'].split(':')[1] for d in db_data]))
 
     scope = f'xnt_{run_number:06d}'
     rucio_datasets = rucio.list_datasets(scope)
@@ -70,7 +66,6 @@ def synchronize(run_number):
 
     # now modify/remove runDB entries according to rucio
     for dset in db_datasets:
-
         did = f"{scope}:{dset}"
 
         copies = [d for d in db_data if d['did'] == did]
@@ -82,6 +77,10 @@ def synchronize(run_number):
         db_rses = [d['location'] for d in copies]
         rucio_rules = rucio.list_rules(did)
         rucio_rses = [r['rse_expression'] for r in rucio_rules]
+        # check for dupicate entries in the runDB
+        duplicated_rses = []
+        if len(db_rses) != len(set(db_rses)):
+            duplicated_rses = list(set([rse for rse in db_rses if db_rses.count(rse) > 1]))
 
         rses_rm_from_db = set(db_rses) - set(rucio_rses)
         rses_add_to_db = set(rucio_rses) - set(db_rses)
@@ -117,6 +116,7 @@ def synchronize(run_number):
 
         for rse in rses_common:
             db_datum = [d for d in copies if d['location'] == rse][0]
+
             rule = [r for r in rucio_rules if r['rse_expression'] == rse][0]
 
             if rule['state'] == 'OK':
@@ -132,6 +132,7 @@ def synchronize(run_number):
             # this is edge case I found during outsource once
             if status == 'transferred':
                 if not has_metadata(did):
+                    print(f"Warning! no metadata found for {did}")
                     status = 'transferring'
 
             if db_datum['status'] != status:
@@ -139,6 +140,18 @@ def synchronize(run_number):
                 updatum['status'] = status
                 print(f"updating {updatum['did']} at {updatum['location']}")
                 db.update_data(run_number, updatum)
+
+        if len(duplicated_rses):
+            print("We have duplicates! Cleaning up.")
+            for rse in duplicated_rses:
+                print(f"We have duplicate entries for {did} at {rse}.")
+                # let's just remove all of them and then add back in
+                ddocs = [ddoc for ddoc in copies if ddoc['location'] == rse]
+
+                for ddoc in ddocs:
+                    db.delete_data(run_number, ddoc)
+
+            synchronize(run_number)
 
 
 def add_rucio_protocol(run_number):
@@ -156,7 +169,7 @@ def get_outdated_strax_info(not_outdated_version, context='xenonnt_online'):
     # get versions of all straxen versions before some given 'good' version
     thresh_version = version.parse(not_outdated_version)
 
-    cursor = list(context_collection.find({}, {'straxen_version': 1}))
+    cursor = list(xent_context_collection.find({}, {'straxen_version': 1}))
     versions = set([version.parse(d['straxen_version']) for d in cursor])
     outdated_versions = set(sorted([v for v in versions if v < thresh_version], reverse=True))
     save_versions = versions - outdated_versions
@@ -217,7 +230,7 @@ def find_outdated_data(max_straxen_version, specific_dtype=None, context='xenonn
                                                   'did': {'$regex': h}}}}
                          for h in hsh_list]
                  }
-        cursor = list(collection.find(query, {'number': 1, 'data': 1}))
+        cursor = list(xent_runs_collection.find(query, {'number': 1, 'data': 1}))
         if len(cursor) > 0:
             if dtype not in outdated_dids:
                 outdated_dids[dtype] = list()
@@ -225,4 +238,9 @@ def find_outdated_data(max_straxen_version, specific_dtype=None, context='xenonn
                 dids = get_dids(run['data'], dtype, hsh_list)
                 outdated_dids[dtype].extend(dids)
     return outdated_dids
+
+
+def copy_high_level_data(runlist, move_dont_copy=False):
+    """Copy/move all high level data for a given runlist"""
+    pass
 

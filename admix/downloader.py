@@ -1,7 +1,9 @@
 import os
 from argparse import ArgumentParser
-from admix.interfaces.rucio_summoner import RucioSummoner
-from admix.utils import make_did
+from rucio.client.downloadclient import DownloadClient
+from .utils import make_did, db, xent_runs_collection, xe1t_runs_collection
+from .rucio import list_rules
+from . import logger
 try:
     from straxen import __version__
     straxen_version = __version__
@@ -10,10 +12,13 @@ except ImportError:
 import time
 import utilix
 
-xe1t_coll = utilix.rundb.xe1t_collection()
+download_client = DownloadClient(logger=logger)
 
 
 class NoRSEForCountry(Exception):
+    pass
+
+class RucioDownloadError(Exception):
     pass
 
 
@@ -91,8 +96,19 @@ def determine_rse(rse_list, glidein_country):
     return None
 
 
-def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=True,
-             num_threads=8, **kwargs):
+def download_dids(dids, num_threads=8, **kwargs):
+    # build list of did info
+    did_list = []
+    for did in dids:
+        did_dict = dict(did=did,
+                        **kwargs
+                        )
+        did_list.append(did_dict)
+    return download_client.download_dids(did_list, num_threads=num_threads)
+
+
+def download(did, chunks=None, location='.',  tries=3, metadata=True,
+             num_threads=8, my_country=None, **kwargs):
     """Function download()
 
     Downloads a given run number using rucio
@@ -105,29 +121,22 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
     :param kwargs: Keyword args passed to DownloadDids
     """
 
-    # setup rucio client
-    rc = RucioSummoner()
-
-    # get DID
-    did = make_did(number, dtype, hash)
-
     # if we didn't pass an rse, determine the best one
     rse = kwargs.pop('rse', None)
+
     if not rse:
         # determine which rses this did is on
-        rules = rc.ListDidRules(did)
-        rses = []
-        for r in rules:
-            if r['state'] == 'OK':
-                rses.append(r['rse_expression'])
-        # find closest one, otherwise start at the US end at TAPE
-        glidein_region = os.environ.get('GLIDEIN_Country', 'US')
-        rse = determine_rse(rses, glidein_region)
+        rules = list_rules(did, state='OK')
+        rses = [r['rse_expression'] for r in rules]
+        # find closest rse
+        if not my_country:
+            my_country = os.environ.get('GLIDEIN_Country', "US")
+        rse = determine_rse(rses, my_country)
 
     if chunks:
         dids = []
         for c in chunks:
-            cdid = did + '-' + str(c).zfill(6)
+            cdid = f"{did}-{c:06d}"
             dids.append(cdid)
         # also download metadata
         if metadata:
@@ -145,7 +154,6 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
     os.makedirs(location, exist_ok=True)
 
     # TODO check if files already exist?
-    print(did)
 
     print(f"Downloading {did} from {rse}")
 
@@ -155,22 +163,26 @@ def download(number, dtype, hash, chunks=None, location='.',  tries=3, metadata=
     while _try <= tries and not success:
         if _try == tries:
             rse = None
-        result = rc.DownloadDids(dids, download_path=location, no_subdir=True, rse=rse,
-                                 num_threads=num_threads, **kwargs)
-        if isinstance(result, int):
-            print(f"Download try #{_try} failed.")
+        try:
+            result = download_dids(dids, base_dir=location, no_subdir=True, rse=rse,
+                                   num_threads=num_threads
+                                   )
+            print(result)
+            success = True
+        except:
+            print(f"Download try #{_try} failed. Sleeping for {5**_try} seconds.")
             time.sleep(5 ** _try)
             _try += 1
-        else:
-            success = True
 
     if success:
         print(f"Download successful to {location}")
+    else:
+        raise RucioDownloadError("Download of {did} failed")
 
 
 def get_did_1t(number, dtype):
     query = {'number': number}
-    cursor = xe1t_coll.find_one(query, {'number': 1, 'name': 1, 'data': 1})
+    cursor = xe1t_runs_collection.find_one(query, {'number': 1, 'name': 1, 'data': 1})
     for d in cursor['data']:
         if dtype == 'raw':
             if d['type'] == 'raw' and d['host'] == 'rucio-catalogue' and d['status'] == 'transferred':
@@ -185,8 +197,6 @@ def get_did_1t(number, dtype):
 
 
 def download_1t(number, dtype, location='.',  tries=3, num_threads=8, **kwargs):
-    # setup rucio client
-    rc = RucioSummoner()
     did = get_did_1t(number, dtype)
 
     # if we didn't pass an rse, determine the best one
@@ -205,7 +215,7 @@ def download_1t(number, dtype, location='.',  tries=3, num_threads=8, **kwargs):
 
     if dtype == 'raw':
         # get run name
-        name = xe1t_coll.find_one({'number': number, 'detector': 'tpc'}, {'name': 1})['name']
+        name = xe1t_runs_collection.find_one({'number': number, 'detector': 'tpc'}, {'name': 1})['name']
         location = os.path.join(location, name)
 
     os.makedirs(location, exist_ok=True)
@@ -230,6 +240,8 @@ def download_1t(number, dtype, location='.',  tries=3, num_threads=8, **kwargs):
 
     if success:
         print(f"Download successful to {location}")
+    else:
+        raise RucioDownloadError("Download of {did} failed")
 
 
 def main():

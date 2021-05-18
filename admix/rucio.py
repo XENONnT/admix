@@ -8,16 +8,8 @@ from rucio.client.client import Client
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.accountclient import AccountClient
 from rucio.client.rseclient import RSEClient
-from utilix import DB
 from . import logger
-from .utils import from_did
-
-
-try:
-    db = DB()
-except:
-    logger.warning(f"Initializing utilix DB failed. You cannot do database operations")
-    db = None
+from .utils import from_did, db
 
 
 rucio_client = Client()
@@ -43,12 +35,11 @@ def build_data_dict(did, rse, status):
                 type=dtype,
                 location=rse,
                 status=status,
-                host='rucio',
+                host='rucio-catalogue',
                 meta=dict(lineage_hash=h,
                           size_mb=size,
                           file_count=len(files)
-                          ),
-                creation_time=datetime.utcnow().isoformat(), # TODO tempoarary?
+                          )
                 )
     return data
 
@@ -124,14 +115,14 @@ def get_rule(did, rse):
     return rules[0]
 
 
-# Todo add a decorator to update the runDB?
 @requires_production
 @update_db('add')
-def add_rule(did, rse, copies=1, update_db=False, **kwargs):
+def add_rule(did, rse, copies=1, update_db=False, quiet=False, **kwargs):
     scope, name = did.split(':')
     did_dict = dict(scope=scope, name=name)
     rucio_client.add_replication_rule([did_dict], copies, rse_expression=rse, **kwargs)
-    print(f"Replication rule added for {did} at {rse}")
+    if not quiet:
+        print(f"Replication rule added for {did} at {rse}")
 
 
 @requires_production
