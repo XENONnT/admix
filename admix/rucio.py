@@ -39,7 +39,8 @@ def build_data_dict(did, rse, status):
                 meta=dict(lineage_hash=h,
                           size_mb=size,
                           file_count=len(files)
-                          )
+                          ),
+                protocol='rucio',
                 )
     return data
 
