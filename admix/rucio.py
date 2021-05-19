@@ -129,6 +129,8 @@ def add_rule(did, rse, copies=1, update_db=False, quiet=False, **kwargs):
 @requires_production
 @update_db('delete')
 def delete_rule(did, rse, purge_replicas=True, _careful=True, _required_copies=1, update_db=False):
+    if 'raw_records' in did and _required_copies < 1:
+        raise DataPolicyError("You cant remove raw_records data. Shame on you. ")
     rule = get_rule(did, rse)
     if not rule:
         raise RuleNotFoundError(f"No rule found for {did} at {rse}!")
