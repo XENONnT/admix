@@ -161,9 +161,13 @@ def move_rule(did, rse, from_rse, update_db=False):
     pass
 
 
+def add_scope(account, scope):
+    return rucio_client.add_scope(account, scope)
+
+
 @requires_production
-def add_scope(scope):
-    return rucio_client.add_scope('production', scope)
+def add_production_scope(scope):
+    return add_scope('production', scope)
 
 
 @requires_production
