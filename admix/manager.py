@@ -6,7 +6,7 @@ from packaging import version
 from tqdm import tqdm
 
 from . import rucio
-from .utils import db, xent_runs_collection, xent_context_collection
+from .utils import db, xent_runs_collection, xent_context_collection, low_level_data, make_highlevel_container_did
 
 
 
@@ -243,4 +243,51 @@ def find_outdated_data(max_straxen_version, specific_dtype=None, context='xenonn
 def copy_high_level_data(runlist, move_dont_copy=False):
     """Copy/move all high level data for a given runlist"""
     pass
+
+
+@rucio.requires_production
+def containerize(run_number, straxen_version, context='xenonnt_online',
+                 rse=None):
+    # get the dtype-hash pairs for this context and this straxen version
+    hashes = db.get_context(context, straxen_version)['hashes']
+
+    # get the data entries
+    data = db.get_data(run_number, host='rucio-catalogue')
+
+    # loop over data entries, find high-level  ones, and add to a list
+    # this list will be used to create the new container
+    high_level_dids = []
+    for d in data:
+        if d['type'] not in low_level_data:
+            if hashes.get(d['type']) in d.get('did', ''):
+                if d['did'] not in high_level_dids:
+                    high_level_dids.append(d['did'])
+
+    # if there are not any high-level DIDs, nothing to do
+    if not len(high_level_dids):
+        print(f"No high-level DIDs found for run {run_number}, straxen {straxen_version}, context {context}")
+        return
+
+    container_did = make_highlevel_container_did(run_number, straxen_version)
+
+    # if container does not exist, make it
+    scope, container_name = container_did.split(':')
+    existing_containers = rucio.list_containers(scope)
+    if container_name not in existing_containers:
+        print(f"Creating container {container_did}")
+        rucio.add_container(scope, container_name)
+
+    # now loop over highlevel datasets, and add non-existing ones to the container
+    existing_content = rucio.list_content(container_did)
+
+    to_attach = []
+    for dset_did in high_level_dids:
+        if dset_did not in existing_content:
+            to_attach.append(dset_did)
+
+    if len(to_attach):
+        print("Attaching", to_attach)
+        rucio.attach(container_did, to_attach, rse=rse)
+    else:
+        print(f"Nothing to attach for run {run_number}, straxen {straxen_version}, context {context}")
 

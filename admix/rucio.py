@@ -159,9 +159,35 @@ def move_rule(did, rse, from_rse, update_db=False):
     pass
 
 
+@requires_production
+def add_scope(scope):
+    return rucio_client.add_scope('production', scope)
+
+
+@requires_production
+def add_container(scope, name, **kwargs):
+    return rucio_client.add_container(scope, name, **kwargs)
+
+
 def list_datasets(scope):
     datasets = [d for d in rucio_client.list_dids(scope, {'type': 'dataset'}, type='dataset')]
     return datasets
+
+
+def list_containers(scope):
+    containers = [d for d in rucio_client.list_dids(scope, {'type': 'container'}, type='container')]
+    return containers
+
+
+def list_content(did, full_output=False):
+    # if full_output is False (default), just return a list of content names in the DID
+    # otherwise, return a list of dicts with everythign rucio sends back
+    scope, name = did.split(':')
+    if full_output:
+        content = [d for d in rucio_client.list_content(scope, name)]
+    else:
+        content = [f"{d['scope']}:{d['name']}" for d in rucio_client.list_content(scope, name)]
+    return content
 
 
 def list_files(did, verbose=False):
@@ -171,6 +197,17 @@ def list_files(did, verbose=False):
     else:
         files = [f['name'] for f in rucio_client.list_files(scope, name)]
     return files
+
+
+def attach(main_did, attachments, rse=None):
+    # attach a list of attachments to the main_did, either a dataset or container
+    # the attachments are a list of DIDs
+    attachment_dicts = []
+    for did in attachments:
+        _scope, _name = did.split(':')
+        attachment_dicts.append(dict(scope=_scope, name=_name))
+    main_scope, main_name = main_did.split(':')
+    return rucio_client.attach_dids(main_scope, main_name, attachment_dicts)
 
 
 def get_size_mb(did):

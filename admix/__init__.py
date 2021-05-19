@@ -23,5 +23,6 @@ PKGDIR = os.path.dirname(__file__)
 
 DEFAULT_CONFIG = os.path.join(PKGDIR, 'config', 'default.config')
 
-from admix.downloader import download
+from .downloader import download
+from . import manager
 
