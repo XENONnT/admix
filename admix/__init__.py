@@ -25,4 +25,6 @@ DEFAULT_CONFIG = os.path.join(PKGDIR, 'config', 'default.config')
 
 from .downloader import download
 from . import manager
+from . import monitor
+from . import utils
 

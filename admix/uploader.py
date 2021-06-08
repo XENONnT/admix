@@ -70,4 +70,3 @@ def upload(path, rse, did=None, check_existing=True, lifetime=None):
         return upload_client.upload(to_upload)
     else:
         print(f"Nothing to upload at {path}")
-

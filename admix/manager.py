@@ -5,8 +5,8 @@ Common data management functions
 from packaging import version
 from tqdm import tqdm
 
-from . import rucio
-from .utils import db, xent_runs_collection, xent_context_collection, low_level_data, make_highlevel_container_did
+from . import rucio, logger
+from .utils import db, xent_runs_collection, xent_context_collection, RAWish_DTYPES, make_highlevel_container_did
 
 
 
@@ -42,7 +42,9 @@ def synchronize(run_number):
             elif rule['state'] == 'REPLICATING':
                 status = 'transferring'
             elif rule['state'] == 'STUCK':
-                status = 'stuck'
+                status = 'error'
+            elif rule['state'] == 'SUSPENDED':
+                status = 'error'
             else:
                 raise ValueError(f"rule {rule['id']} is in an unknown state: {rule['state']}")
 
@@ -61,7 +63,7 @@ def synchronize(run_number):
                              location=location,
                              protocol='rucio'
                              )
-            print(f"Adding {new_datum['did']} at {new_datum['location']}")
+            logger.debug(f"Adding {new_datum['did']} at {new_datum['location']}")
             db.update_data(run_number, new_datum)
 
     # now modify/remove runDB entries according to rucio
@@ -88,7 +90,7 @@ def synchronize(run_number):
 
         for rse in rses_rm_from_db:
             pull_data = [d for d in copies if d['location'] == rse][0]
-            print(f"Removing db {pull_data['did']} at {pull_data['location']}")
+            logger.debug(f"Removing db {pull_data['did']} at {pull_data['location']}")
             db.delete_data(run_number, pull_data)
 
         for rse in rses_add_to_db:
@@ -99,6 +101,8 @@ def synchronize(run_number):
                 status = 'transferring'
             elif rule['state'] == 'STUCK':
                 status = 'stuck'
+            elif rule['state'] == 'SUSPENDED':
+                status = 'error'
             else:
                 raise ValueError(f"rule {rule['id']} is in an unknown state: {rule['state']}")
 
@@ -111,7 +115,7 @@ def synchronize(run_number):
             new_datum = base_dict.copy()
             new_datum['location'] = rse
             new_datum['status'] = status
-            print(f"Adding {new_datum['did']} at {new_datum['location']}")
+            logger.debug(f"Adding {new_datum['did']} at {new_datum['location']}")
             db.update_data(run_number, new_datum)
 
         for rse in rses_common:
@@ -125,6 +129,8 @@ def synchronize(run_number):
                 status = 'transferring'
             elif rule['state'] == 'STUCK':
                 status = 'stuck'
+            elif rule['state'] == 'SUSPENDED':
+                status = 'error'
             else:
                 raise ValueError(f"rule {rule['id']} is in an unknown state: {rule['state']}")
 
@@ -132,19 +138,18 @@ def synchronize(run_number):
             # this is edge case I found during outsource once
             if status == 'transferred':
                 if not has_metadata(did):
-                    print(f"Warning! no metadata found for {did}")
+                    logger.debug(f"Warning! no metadata found for {did}")
                     status = 'transferring'
 
             if db_datum['status'] != status:
                 updatum = db_datum.copy()
                 updatum['status'] = status
-                print(f"updating {updatum['did']} at {updatum['location']}")
+                logger.debug(f"Updating {updatum['did']} at {updatum['location']}")
                 db.update_data(run_number, updatum)
 
         if len(duplicated_rses):
-            print("We have duplicates! Cleaning up.")
             for rse in duplicated_rses:
-                print(f"We have duplicate entries for {did} at {rse}.")
+                logger.debug(f"We have duplicate entries for {did} at {rse}.")
                 # let's just remove all of them and then add back in
                 ddocs = [ddoc for ddoc in copies if ddoc['location'] == rse]
 
@@ -161,7 +166,7 @@ def add_rucio_protocol(run_number):
         if d.get('protocol', 'no_protocol') != 'rucio':
             updatum = d.copy()
             updatum['protocol'] = 'rucio'
-            print(f"Updating {d['did']} at {d['location']}")
+            logger.debug(f"Updating {d['did']} at {d['location']}")
             db.update_data(run_number, updatum)
 
 
@@ -258,7 +263,7 @@ def containerize(run_number, straxen_version, context='xenonnt_online',
     # this list will be used to create the new container
     high_level_dids = []
     for d in data:
-        if d['type'] not in low_level_data:
+        if d['type'] not in RAWish_DTYPES:
             if hashes.get(d['type']) in d.get('did', ''):
                 if d['did'] not in high_level_dids:
                     high_level_dids.append(d['did'])

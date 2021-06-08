@@ -9,7 +9,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.accountclient import AccountClient
 from rucio.client.rseclient import RSEClient
 from . import logger
-from .utils import from_did, db
+from .utils import parse_did, db
 
 
 rucio_client = Client()
@@ -28,7 +28,7 @@ def requires_production(func):
 
 
 def build_data_dict(did, rse, status):
-    number, dtype, h = from_did(did)
+    number, dtype, h = parse_did(did)
     files = list_files(did, verbose=True)
     size = sum([f['bytes'] for f in files]) / 1e6
     data = dict(did=did,
@@ -57,7 +57,7 @@ def update_db(mode):
                 return func(*args, **kwargs)
 
             func(did, rse, **kwargs)
-            number, dtype, h = from_did(did)
+            number, dtype, h = parse_did(did)
             if mode == 'add':
                 data = build_data_dict(did, rse, status='transferring')
                 db.update_data(number, data)
