@@ -4,6 +4,7 @@ import os
 from admix.helper import helper
 import time
 import shutil
+import psutil
 
 from admix.interfaces.database import ConnectMongoDB
 from admix.helper.decorator import Collector
@@ -29,16 +30,17 @@ class Upload():
         #Take all data types categories
         self.NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
         self.RAW_RECORDS_DTYPES = helper.get_hostconfig()['raw_records_types']
+        self.LIGHT_RAW_RECORDS_DTYPES = helper.get_hostconfig()['light_raw_records_types']
         self.RECORDS_DTYPES = helper.get_hostconfig()['records_types']
 
         # Choose which RSE you want upload to
         self.UPLOAD_TO = helper.get_hostconfig()['upload_to']
 
         #Choose which data type you want to treat
-        self.DTYPES = self.NORECORDS_DTYPES + self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES
+        self.DTYPES = self.NORECORDS_DTYPES + self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
 
         if helper.global_dictionary.get('high'):
-               self.DTYPES = self.NORECORDS_DTYPES               
+               self.DTYPES = self.NORECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
 
         if helper.global_dictionary.get('low'):
                self.DTYPES = self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES
@@ -94,6 +96,9 @@ class Upload():
             # Get run number
             number = run['number']
 
+#            if number!=12504:
+#                continue
+
             # Forget about old runs
             if number<10000:
                 continue
@@ -111,6 +116,10 @@ class Upload():
             # Look for the first data type available to be uploaded
             datum = None
             for dtype in self.DTYPES:
+
+#                if dtype!='raw_records_nv':
+#                    continue
+
 
                 # start patch
 #                run_numbers = ['010644', '010801', '010802', '010803', '010878', '010879', '010910', '010912', '010913', '010919', '010932', '010933', '010934', '010935', '010936', '010937', '010938', '010939', '010940', '010941', '010942', '010943', '010944', '010945', '010946', '010947', '010948', '010951', '010952', '010964', '010966', '010967', '010973', '010976', '010977', '010978', '010979', '010980', '010982', '010984', '010985', '010986', '010987', '010988', '010989', '010990', '010991', '010992', '010993', '010994', '010995', '010996', '010997', '010998', '010999', '011000', '011001', '011002', '011003', '011004', '011005', '011006', '011007', '011008', '011009', '011010', '011011', '011012', '011013', '011014', '011015', '011016', '011017', '011018', '011019', '011020', '011021', '011022', '011023', '011024', '011025', '011026', '011027', '011028', '011029', '011030', '011032', '011050', '011051']
@@ -215,6 +224,55 @@ class Upload():
             self.db.AddDatafield(docid, data_dict)
 
 
+    def book(self,did):
+        process = psutil.Process()
+        screen = process.parent().parent().parent().parent().cmdline()[-1]
+        pid = str(os.getpid())
+        with open("/tmp/admix-booking","r") as f:
+            data = json.load(f)
+            f.close()
+        data.append({'screen':screen, 'pid':pid, 'did':did})
+        with open("/tmp/admix-booking","w") as f:
+            json.dump(data,f)
+            f.close()
+
+        time.sleep(5)
+
+        with open("/tmp/admix-booking","r") as f:
+            data = json.load(f)
+            f.close()
+
+        won = False
+        for d in data:
+            if d['did']==did:
+                if d['pid']==pid:
+                    won = True
+                break
+
+        if won:
+            newdata = []
+            for d in data:
+                if d['did']!=did or d['pid']==pid:
+                    newdata.append(d)
+            with open("/tmp/admix-booking","w") as f:
+                json.dump(newdata,f)
+                f.close()
+
+        return(won)
+
+    def remove_booking(self,did):
+        with open("/tmp/admix-booking","r") as f:
+            data = json.load(f)
+            f.close()
+        newdata = []
+        for d in data:
+            if d['did'] != did:
+                newdata.append(d)
+        with open("/tmp/admix-booking", "w") as f:
+            json.dump(newdata, f)
+            f.close()
+
+
 
     def run(self,*args, **kwargs):
         helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
@@ -258,28 +316,44 @@ class Upload():
         helper.global_dictionary['logger'].Info('\t==> Run {0}, trying to book data type {1} for uploading. Starting match'.format(number,dtype))
 
         # Books the eb data entry by setting its status to the PID of the process
-        PID = str(os.getpid())
-        self.db.db.find_one_and_update({'_id': id_to_upload,'data': {'$elemMatch': datum}},
-                                       {'$set': {'data.$.status': PID}})
+#        PID = str(os.getpid())
+#        self.db.db.find_one_and_update({'_id': id_to_upload,'data': {'$elemMatch': datum}},
+#                                       {'$set': {'data.$.status': PID}})
 
-        # Wait for 20 seconds
-        time.sleep(20)
+        # Book the eb data entry
+        did = make_did(number, dtype, hash)
+
+        # If booking unsuccessful, skip the upload
+        if not self.book(did):
+            helper.global_dictionary['logger'].Info(
+                '\t==> Run {0}, lost challenge, data type {1} not available any more'.format(number, dtype))
+            return 0
+
+        # If booking successful, proceeding with upload
+        helper.global_dictionary['logger'].Info('\t==> Run {0}, match won, starting uploading data type {1}'.format(number,dtype))
+
+
+#        # Wait for 20 seconds
+#        time.sleep(20)
 
         # Then check if this status is still equal to the same PID
-        run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1, 'data': 1, 'bootstrax': 1})
-        datum = None
-        for d in run['data']:
-            if d['type'] == dtype and eb in d['host'] and hash in d['location'] and d['status']==PID:
-                datum = d
-                break
+#        run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1, 'data': 1, 'bootstrax': 1})
+#        datum = None
+#        for d in run['data']:
+#            if d['type'] == dtype and eb in d['host'] and hash in d['location'] and d['status']==PID:
+#                datum = d
+#                break
         
         # If there is no data available to upload any more, exit
-        if datum is None:
-           helper.global_dictionary['logger'].Info('\t==> Run {0}, lost challenge, data type {1} not available any more'.format(number,dtype))
-           return 0
+#        if datum is None:
+#           helper.global_dictionary['logger'].Info('\t==> Run {0}, lost challenge, data type {1} not available any more'.format(number,dtype))
+#           return 0
 
-        # Match won. Proceeding with uploading
-        helper.global_dictionary['logger'].Info('\t==> Run {0}, match won, starting uploading data type {1}'.format(number,dtype))
+#        # Match won. Proceeding with uploading
+#        helper.global_dictionary['logger'].Info('\t==> Run {0}, match won, starting uploading data type {1}'.format(number,dtype))
+
+
+#        return 0
 
         # Modify data type status to "transferring"
         self.db.db.find_one_and_update({'_id': id_to_upload,'data': {'$elemMatch': datum}},
@@ -350,6 +424,9 @@ class Upload():
         self.db.db.find_one_and_update({'_id': id_to_upload,'data': {'$elemMatch': datum}},
                                        {'$set': {'data.$.status': "transferred"}})
 
+        # unbook the did
+        self.remove_booking(did)
+
         # Add a new data field with LNGS as RSE and with status "trasferred"
         data_dict = datum.copy()
         data_dict.update({'host': "rucio-catalogue",
@@ -364,21 +441,16 @@ class Upload():
 
         # set a rule to ship data on GRID
         if rucio_rule['state'] == 'OK':
-            if dtype in self.NORECORDS_DTYPES:
+            if dtype in self.NORECORDS_DTYPES+self.LIGHT_RAW_RECORDS_DTYPES:
                 self.add_rule(number, dtype, hash, 'UC_DALI_USERDISK',datum=datum)
-#                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
-#                self.add_conditional_rule(number, dtype, hash, 'UC_DALI_USERDISK', 'UC_OSG_USERDISK',datum=datum)
-                self.add_conditional_rule(number, dtype, hash, 'UC_DALI_USERDISK', 'CCIN2P3_USERDISK',datum=datum)
+                if dtype in self.LIGHT_RAW_RECORDS_DTYPES:
+                    self.add_conditional_rule(number, dtype, hash, 'UC_DALI_USERDISK', 'SURFSARA_USERDISK', datum=datum)
             elif dtype in self.RECORDS_DTYPES:
-#                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
-                self.add_rule(number, dtype, hash, 'CCIN2P3_USERDISK',datum=datum)
-#                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CCIN2P3_USERDISK',datum=datum)
-                self.add_conditional_rule(number, dtype, hash, 'CCIN2P3_USERDISK', 'SURFSARA_USERDISK',datum=datum)
+                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
+                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'SURFSARA_USERDISK',datum=datum)
             elif dtype in self.RAW_RECORDS_DTYPES:
-#                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
-                self.add_rule(number, dtype, hash, 'CCIN2P3_USERDISK',datum=datum)
-#                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'CNAF_TAPE2_USERDISK',datum=datum)
-                self.add_conditional_rule(number, dtype, hash, 'CCIN2P3_USERDISK', 'CNAF_TAPE2_USERDISK',datum=datum)
+                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
+                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'SURFSARA_USERDISK', datum=datum)
 
         return 0
 

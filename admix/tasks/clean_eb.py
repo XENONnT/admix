@@ -31,6 +31,7 @@ class CleanEB():
         #Define data types
         self.NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
         self.RAW_RECORDS_DTYPES = helper.get_hostconfig()['raw_records_types']
+        self.LIGHT_RAW_RECORDS_DTYPES = helper.get_hostconfig()['light_raw_records_types']
         self.RECORDS_DTYPES = helper.get_hostconfig()['records_types']
 
         #Get other parameters
@@ -47,7 +48,7 @@ class CleanEB():
         self.minimum_deltadays_allowed_heavy = 0 #1
         self.dtype_delayed_delete = ['raw_records_aqmon','raw_records_aqmon_nv','raw_records_he','raw_records_mv','raw_records_nv','pulse_counts','pulse_counts_he','veto_regions','peaklets','peaklets_he','records_he']
         self.dtype_delayed_delete_heavy = ['raw_records','records']
-        self.dtype_never_delete = ['lone_hits','merged_s2s','peak_basics','peaklet_classification']
+        self.dtype_never_delete = ['lone_hits','merged_s2s','peak_basics','peaklet_classification','peak_positions_cnn', 'peak_positions_mlp', 'peak_positions_gcn', 'peak_positions']
 
         #Init the runDB
         self.db = ConnectMongoDB()
@@ -91,7 +92,7 @@ class CleanEB():
         helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
 
 
-        data_types = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES + self.NORECORDS_DTYPES
+        data_types = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES + self.NORECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
 #        data_types = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES
 
 
@@ -103,7 +104,7 @@ class CleanEB():
 #            'number': {"$gte": 7330},
 #            'number': {"$gte": 8500},
             'number': {"$gte": 10800},
-#            'number': 7580,
+#            'number': 8013,
 #            'data' : { "$elemMatch": { "host" : {"$regex" : ".*eb.*"} , "type" : {"$in" : data_types}} },
 #            'status': 'transferred'
             'status': { '$in': ['transferred','transferring']}
@@ -179,7 +180,7 @@ class CleanEB():
                 #
                 # Phase 1 : Deleting data in EB
                 #
-
+                
 
 #                if datum is None:
 #                    helper.global_dictionary['logger'].Info('Data type not in eb')
