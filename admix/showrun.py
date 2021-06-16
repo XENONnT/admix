@@ -4,7 +4,7 @@ import admix.helper.helper as helper
 from admix import DEFAULT_CONFIG, __version__
 from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
-from admix.utils.naming import make_did
+from admix.utils.naming import make_did,get_did
 from admix.utils.list_file_replicas import list_file_replicas
 from utilix.config import Config
 import utilix
@@ -12,11 +12,12 @@ from bson.json_util import dumps
 from datetime import timezone, datetime, timedelta
 import pymongo
 
-def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg_latest):
+def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg_latest,arg_did):
 
     #Define data types
     NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
     RAW_RECORDS_DTYPES = helper.get_hostconfig()['raw_records_types']
+    LIGHT_RAW_RECORDS_DTYPES = helper.get_hostconfig()['light_raw_records_types']
     RECORDS_DTYPES = helper.get_hostconfig()['records_types']
 
     #Get other parameters
@@ -45,7 +46,11 @@ def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg
     rc.SetProxyTicket("rucio_x509")
 
 
-    data_types = RAW_RECORDS_DTYPES + RECORDS_DTYPES + NORECORDS_DTYPES
+    data_types = RAW_RECORDS_DTYPES + RECORDS_DTYPES + NORECORDS_DTYPES + LIGHT_RAW_RECORDS_DTYPES
+
+    if len(arg_did)>0:
+        arg_number, dtype, hash = get_did(arg_did[0])
+        arg_dtypes = [dtype]
 
     if arg_number == -1 and arg_latest == 0:
         arg_latest = 5
@@ -285,6 +290,7 @@ def main():
     config = Config()
 
     parser.add_argument("number", type=int, nargs='?', help="Run number to show", default=-1)
+    parser.add_argument("--did", nargs=1, help="Restricts infos on the given dids (run number is not necessary)")
     parser.add_argument("--dtypes", nargs="*", help="Restricts infos on the given data types")
     parser.add_argument("--to", type=int, help="Shows runs from the run number up to this value", default=0)
     parser.add_argument("--compact", help="Just list few DB infos as run number, status, date, comments", action='store_true')
@@ -299,10 +305,17 @@ def main():
     else:
         dtypes = []
 
+    if args.did:
+        did = args.did
+    else:
+        did = []
+
+
+
     helper.make_global("admix_config", os.path.abspath(config.get('Admix','config_file')))
 
     try:
-        showrun(args.number,args.to,dtypes,args.compact,args.json,args.status,args.latest)
+        showrun(args.number,args.to,dtypes,args.compact,args.json,args.status,args.latest,did)
     except KeyboardInterrupt:
         return 0
 
