@@ -13,6 +13,7 @@ import utilix
 from bson.json_util import dumps
 from datetime import timezone, datetime, timedelta
 import pymongo
+import glob
 
 class Fix():
 
@@ -112,7 +113,22 @@ class Fix():
                 print("Deleting rucio rule = ", rucio_rule['id'], "from RSE = ",rse)
                 self.rc.DeleteRule(rucio_rule['id'])
                 deleted_any_rule = True
-        
+
+
+        # Third action: remove possible files in datamanager in case the Rucio rule does not exists
+        datamanager_rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
+        if not datamanager_rucio_rule['exists']:
+            print("Rucio rule not existing. Deleting data in datamanager without Rucio")
+            filelistname = os.path.join("/archive/data/rucio/xnt_%06d/*/*/" % number, dtype+"-"+hash+"*")
+            filelist = glob.glob(filelistname)
+            for filePath in filelist:
+                try:
+                    os.remove(filePath)
+                except:
+                    print("Error while deleting file : ", filePath)
+
+
+
         # If some rule has been deleted, wait for 1 hour (plus 5 minutes of margin)
         if deleted_any_rule:
             delay = 3600+60*5
@@ -123,7 +139,7 @@ class Fix():
 
 
 
-        # Third action: set the EB status as 'eb_ready_to_upload' 
+        # Fourth action: set the EB status as 'eb_ready_to_upload' 
         self.db.db.find_one_and_update({'_id': run['_id'],'data': {'$elemMatch': datum}},
                                   {'$set': {'data.$.status': 'eb_ready_to_upload'}})
         print("EB status changed to eb_ready_to_upload")
@@ -256,6 +272,16 @@ class Fix():
         else:
             print('There is no Rucio rule to delete')
 
+        #In case it is datamanager, directly delete files
+        if rse == self.UPLOAD_TO:
+            files = list_file_replicas(number, dtype, hash, self.UPLOAD_TO)
+            print("Deleting rucio data in datamanager disk. Deleting",len(files),"files")
+            for file in files:
+                try:
+                    os.remove(file)
+                except:
+                    print("File: {0} not found".format(file))
+
         print("Done.")
 
 
@@ -369,13 +395,169 @@ class Fix():
 
 
 
+    def list_non_transferred_runs(self):
         
+        runs = self.db.db.find({'status' : "transferring"},{'number' : 1, 'data' : 1})
+    
+#        dtypes = ["records","records_he", "records_nv", "records_mv"]
+#        dtypes = ["records_nv"]
+        dtypes = ["raw_records"]
+
+        for run in runs:
+            
+            for d in run['data']:
+                if d['type'] in dtypes and d['host'] == 'rucio-catalogue' and d['location'] == 'LNGS_USERDISK':
+                    print(run['number'],d['did'],d['status']," ",end='')
+                    for deb in run['data']:
+                        if deb['type'] == d['type'] and 'eb' in deb['host']:
+                            print(deb['host'],deb['status'],end='')
+                    print("")
+
+    def test_db_modification(self, did, new_status_name):
+
+        hash = did.split('-')[-1]
+        dtype = did.split('-')[0].split(':')[-1]
+        number = int(did.split(':')[0].split('_')[-1])
+
+        print("Testing how quickly a modification in DB is registered. Using DID: {0}".format(did))
+        print("Run number: {0}".format(number))
+        print("Data type: {0}".format(dtype))
+        print("Hash: {0}".format(hash))
+
+        run = self.db.db.find_one({'number': number})
+
+        # Gets the status
+        if 'status' in run:
+            print('Run status: {0}'.format(run['status']))
+        else:
+            print('Run status: {0}'.format('Not available'))
+
+        # Extracts the correct Event Builder machine who processed this run
+        # Then also the bootstrax state and, in case it was abandoned, the reason
+        if 'bootstrax' in run:
+            bootstrax = run['bootstrax']
+            eb = bootstrax['host'].split('.')[0]
+        else:
+            print('Not processed')
+            return (0)
+
+        # Get the EB datum and its status
+        ebstatus = ""
+        datum = None
+        for d in run['data']:
+            if d['type'] == dtype and eb in d['host']:
+                datum = d
+                if 'status' in d:
+                    ebstatus = d['status']
+
+        if datum is None:
+            print('There is no EB datum. No reset is possible')
+            return (0)
+
+        if ebstatus != "":
+            print('EB status: {0}'.format(ebstatus))
+        else:
+            print('EB status: not available')
+
+
+        # Start the changes: set the EB status as 'eb_ready_to_upload'
+        self.db.db.find_one_and_update({'_id': run['_id'], 'data': {'$elemMatch': datum}},
+                                       {'$set': {'data.$.status': new_status_name}})
+        print("EB status changed to {0}".format(new_status_name))
+
+        # Reload the run
+        run = self.db.db.find_one({'number': number})
+
+        # Get the EB datum and its status
+        ebstatus = ""
+        datum = None
+        for d in run['data']:
+            if d['type'] == dtype and eb in d['host']:
+                datum = d
+                if 'status' in d:
+                    ebstatus = d['status']
+
+        # Prints the eb status as a confirmation of the performed change
+        if ebstatus != "":
+            print('New EB status: {0}'.format(ebstatus))
+        else:
+            print('New EB status: not available')
 
     def __del__(self):
         pass
 
 
 
+    def fix_upload_db(self,did):
+
+        hash = did.split('-')[-1]
+        dtype = did.split('-')[0].split(':')[-1]
+        number = int(did.split(':')[0].split('_')[-1])
+
+        print("Fixing the upload associated to the DID: {0}".format(did))
+        print("Run number: {0}".format(number))
+        print("Data type: {0}".format(dtype))
+        print("Hash: {0}".format(hash))
+
+        run = self.db.db.find_one({'number' : number})
+
+        # Gets the status
+        if 'status' in run:
+            print('Run status: {0}'.format(run['status']))
+        else:
+            print('Run status: {0}'.format('Not available'))
+
+        # Extracts the correct Event Builder machine who processed this run
+        # Then also the bootstrax state and, in case it was abandoned, the reason
+        if 'bootstrax' in run:
+            bootstrax = run['bootstrax']
+            eb = bootstrax['host'].split('.')[0]
+        else:
+            print('Not processed')
+            return(0)
+
+        #Checks if the LNGS datum exists already in the DB
+        for d in run['data']:
+            if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == "LNGS_USERDISK":
+                print('The datum concerning did {0} for location {1} is already present in DB. Forced to stop'.format(did,"LNGS_USERDISK"))
+                return(0)
+                
+
+        # Get the EB datum and its status
+        ebstatus = ""
+        datum = None
+        for d in run['data']:
+            if d['type'] == dtype and eb in d['host']:
+                datum = d
+                if 'status' in d:
+                    ebstatus = d['status']
+
+        if datum is None:
+            print('There is no EB datum. No fix is possible')
+            return(0)
+
+        # Update the eb data entry with status "transferred"
+        self.db.db.find_one_and_update({'_id': id_to_upload,'data': {'$elemMatch': datum}},
+                                       {'$set': {'data.$.status': "transferred"}})
+
+        # Add a new data field with LNGS as RSE and with status "trasferred"
+        data_dict = datum.copy()
+        data_dict.update({'host': "rucio-catalogue",
+                          'type': dtype,
+                          'location': "LNGS_USERDISK",
+                          'lifetime': 0,
+                          'status': 'transferred',
+                          'did': did,
+                          'protocol': 'rucio'
+                      })
+        self.db.AddDatafield(run['_id'], data_dict)
+
+        if ebstatus != "":
+            print('EB status: {0}'.format(ebstatus))
+        else:
+            print('EB status: not available')
+
+        print('Done')
 
     
 
@@ -384,14 +566,7 @@ def main():
 
     config = Config()
 
-#    parser.add_argument("--number", type=int, help="Run number to fix", default=-1)
-#    parser.add_argument("--dtype", help="Data type to fix", default="")
-#    parser.add_argument("--did", help="DID to fix")
-#    parser.add_argument("--action", help="Which action you want to take")
-#    parser.add_argument("--fromrse", help="From which RSE you want to copy data")
-#    parser.add_argument("--torse", help="To which RSE you want to copy data")
-
-    parser.add_argument("--reset_upload", nargs=1, help="Deletes everything related a given DID, exept data in EB. The deletion includes the entries in the Rucio catalogue and the related data in the DB rundoc. This is ideal if you want to retry an upload that failed", metavar=('DID'))
+    parser.add_argument("--reset_upload", nargs=1, help="Deletes everything related a given DID, except data in EB. The deletion includes the entries in the Rucio catalogue and the related data in the DB rundoc. This is ideal if you want to retry an upload that failed", metavar=('DID'))
     parser.add_argument("--add_rule", nargs=3, help="Add a new replication rule of a given DID from one RSE to another one. The rundoc in DB is updated with a new datum as well", metavar=('DID','FROM_RSE','TO_RSE'))
     parser.add_argument("--delete_rule", nargs=2, help="Delete a replication rule of a given DID from one RSE. The rundoc in DB is deleted as well", metavar=('DID','RSE'))
     parser.add_argument("--delete_db_datum", nargs=2, help="Deletes the db datum corresponding to a given DID. The SITE can be either a specific EB machine (ex: eb1) or a specific RSE", metavar=('DID','SITE'))
@@ -401,6 +576,10 @@ def main():
 
     parser.add_argument("--priority", type=int, help="Priority to assign to Rucio rules (default: %(default)s)", default=3)
     parser.add_argument("--skip_rucio", help="Add this flag in context of add_rule in case you just want to update DB since Rucio rule exists already", action='store_true')
+    parser.add_argument("--list_non_transferred_runs", help="Lists all runs whose status is still not transferred", action='store_true')
+
+    parser.add_argument("--test_db_modification", nargs=2, help="Test how quickly a modification in DB is registered", metavar=('DID','STATUS'))
+    parser.add_argument("--fix_upload_db", nargs=1, help="To be used when the upload done by Rucio has been completed but then admix crashed before updating the DB. Note: it's up to you to create the rules to ship data abroad", metavar=('DID'))
 
     args = parser.parse_args()
 
@@ -426,6 +605,15 @@ def main():
             fix.set_run_status(args.set_run_status[0],args.set_run_status[1])
         if args.set_eb_status:
             fix.set_eb_status(args.set_eb_status[0],args.set_eb_status[1])
+
+        if args.list_non_transferred_runs:
+            fix.list_non_transferred_runs()
+
+        if args.test_db_modification:
+            fix.test_db_modification(args.test_db_modification[0],args.test_db_modification[1])
+
+        if args.fix_upload_db:
+            fix.fix_upload_db(args.fix_upload_db[0])
 
 #        if args.action == "reset_upload" and args.did:
 #            fix.reset_upload(args.did)
