@@ -62,94 +62,38 @@ class Upload():
         self.rc.SetProxyTicket("rucio_x509")
 
 
-    def find_next_run_to_upload(self):
-#        cursor = self.db.db.find({'status': 'eb_ready_to_upload', 'bootstrax.state': 'done' }, {'number': 1, 'data': 1})
-        cursor = self.db.db.find({'status': { '$in': ['eb_ready_to_upload','transferring']}, 'bootstrax.state': 'done' }, {'number': 1, 'data': 1})
-        id_run = 0
-        min_run = float('inf')
+    def get_dataset_to_upload_from_manager(self):
+        process = psutil.Process()
+        screen = process.parent().parent().parent().parent().cmdline()[-1]
+        filename = "/tmp/admix-"+screen
+        dataset = {}
+        if os.path.isfile(filename):
+            with open(filename, 'r') as f:
+                dataset = json.load(f)
+                f.close()
 
-        for run in cursor:
-            print(run['number'])
-            if run['number']<10000:
-                continue
-#            if run['number'] not in [11345, 11346, 11379]:
-#                 continue
-
-            if run['number'] < min_run:
-                min_run = run['number']
-                id_run = run['_id']
-        print("   ",min_run)
-        return id_run
-
-
-    def find_next_run_and_dtype_to_upload(self):
-        cursor = self.db.db.find({'status': { '$in': ['eb_ready_to_upload','transferring']}, 'bootstrax.state': 'done' }, {'number': 1, 'data': 1, 'bootstrax': 1}).sort('number',pymongo.ASCENDING)
-        id_run = 0
-        min_run = float('inf')
-
-        cursor = list(cursor)
-
-        helper.global_dictionary['logger'].Info('\t==> Runs in queue: {0}'.format(len(cursor)))
-
-        for run in cursor:
+        if thread != {}:
+            run = self.db.db.find_one({'number': dataset['number']}, {'number': 1, 'data': 1, 'bootstrax': 1})
 
             # Get run number
             number = run['number']
 
-#            if number!=12504:
-#                continue
-
-            # Forget about old runs
-            if number<10000:
-                continue
-
-            # For debugging: select a specific run
-#            if number not in [7235]:
-#                continue
-#            if run['number'] not in [11345, 11346, 11379]:
-#                 continue
-
-            # Extracts the correct Event Builder machine who processed this run
-            bootstrax = run['bootstrax']
-            eb = bootstrax['host'].split('.')[0]
-
-            # Look for the first data type available to be uploaded
-            datum = None
-            for dtype in self.DTYPES:
-
-#                if dtype!='raw_records_nv':
-#                    continue
-
-
-                # start patch
-#                run_numbers = ['010644', '010801', '010802', '010803', '010878', '010879', '010910', '010912', '010913', '010919', '010932', '010933', '010934', '010935', '010936', '010937', '010938', '010939', '010940', '010941', '010942', '010943', '010944', '010945', '010946', '010947', '010948', '010951', '010952', '010964', '010966', '010967', '010973', '010976', '010977', '010978', '010979', '010980', '010982', '010984', '010985', '010986', '010987', '010988', '010989', '010990', '010991', '010992', '010993', '010994', '010995', '010996', '010997', '010998', '010999', '011000', '011001', '011002', '011003', '011004', '011005', '011006', '011007', '011008', '011009', '011010', '011011', '011012', '011013', '011014', '011015', '011016', '011017', '011018', '011019', '011020', '011021', '011022', '011023', '011024', '011025', '011026', '011027', '011028', '011029', '011030', '011032', '011050', '011051']
-#                if '%06d' % number not in run_numbers:
-#                    continue
-#                dtypes = ['peaklets', 'lone_hits', 'records', 'veto_regions', 'pulse_counts']
-#                if dtype not in dtypes:
-#                    continue
-#                eb = 'eb3'
-
-
-                #if dtype != "raw_records_aqmon":
-                #    continue
-
-                # search if dtype still has to be uploaded
-                for d in run['data']:
-                    if d['type'] == dtype and eb in d['host'] and ('status' not in d or ('status' in d and d['status'] == 'eb_ready_to_upload')):
-                        datum = d
-                        break
- 
-                if datum is not None:
-                    break
-
-            # If there is a candidate data type, return run_id and data type
-            if datum is not None:
-                return run['_id'], datum
-
+            # search the dtype that has to be uploaded
+            for d in run['data']:
+                if d['type'] == dataset['type'] and dataset['eb'] in d['host'] and dataset['hash'] in d['location']:
+                    return run['_id'], d
+                
         return 0,''
 
 
+    def reset_upload_to_manager(self):
+        process = psutil.Process()
+        screen = process.parent().parent().parent().parent().cmdline()[-1]
+        filename = "/tmp/admix-"+screen
+        if os.path.isfile(filename):
+            with open(filename, 'w') as f:
+                json.dump({},f)
+                f.close()
 
 
     def add_rule(self,run_number, dtype, hash, rse, datum=None, lifetime=None, update_db=True):
@@ -224,151 +168,31 @@ class Upload():
             self.db.AddDatafield(docid, data_dict)
 
 
-    def book(self,did):
-        process = psutil.Process()
-        screen = process.parent().parent().parent().parent().cmdline()[-1]
-        pid = str(os.getpid())
-        with open("/tmp/admix-booking","r") as f:
-            data = json.load(f)
-            f.close()
-        data.append({'screen':screen, 'pid':pid, 'did':did})
-        with open("/tmp/admix-booking","w") as f:
-            json.dump(data,f)
-            f.close()
-
-        time.sleep(5)
-
-        with open("/tmp/admix-booking","r") as f:
-            data = json.load(f)
-            f.close()
-
-        won = False
-        for d in data:
-            if d['did']==did:
-                if d['pid']==pid:
-                    won = True
-                break
-
-        if won:
-            newdata = []
-            for d in data:
-                if d['did']!=did or d['pid']==pid:
-                    newdata.append(d)
-            with open("/tmp/admix-booking","w") as f:
-                json.dump(newdata,f)
-                f.close()
-
-        return(won)
-
-    def remove_booking(self,did):
-        with open("/tmp/admix-booking","r") as f:
-            data = json.load(f)
-            f.close()
-        newdata = []
-        for d in data:
-            if d['did'] != did:
-                newdata.append(d)
-        with open("/tmp/admix-booking", "w") as f:
-            json.dump(newdata, f)
-            f.close()
-
-
 
     def run(self,*args, **kwargs):
         helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
 
-        if helper.global_dictionary.get('high'):
-            helper.global_dictionary['logger'].Info(f'Only high level datatypes')
-
-        if helper.global_dictionary.get('low'):
-            helper.global_dictionary['logger'].Info(f'Only low level datatypes')
-
-
-        # Get a new run to upload
-        id_to_upload, datum = self.find_next_run_and_dtype_to_upload()
+        # Get a new dataset to upload
+        id_to_upload, datum = self.get_dataset_to_upload_from_manager()
         if id_to_upload == 0:
             helper.global_dictionary['logger'].Info('\t==> No data type available to upload')
             return 0
 
-        # Load the run
-        run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1, 'data': 1, 'bootstrax': 1})
+        # Get the run
+        run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1})
 
-        # Get run number
+        # Building the did
         number = run['number']
-
-        # Set run status to "transferring"
-        self.db.SetStatus(number, 'transferring')
-
-        # Extracts the correct Event Builder machine who processed this run
-        bootstrax = run['bootstrax']
-        eb = bootstrax['host'].split('.')[0]
-
-#        eb = 'eb3'
-
-#        # Performs upload on selected run
-#        helper.global_dictionary['logger'].Info('Uploading run {0} from {1}'.format(number,eb))
-
-
-        # Attempting to book this data type
         dtype = datum['type']
         file = datum['location'].split('/')[-1]
         hash = file.split('-')[-1]
-        helper.global_dictionary['logger'].Info('\t==> Run {0}, trying to book data type {1} for uploading. Starting match'.format(number,dtype))
-
-        # Books the eb data entry by setting its status to the PID of the process
-#        PID = str(os.getpid())
-#        self.db.db.find_one_and_update({'_id': id_to_upload,'data': {'$elemMatch': datum}},
-#                                       {'$set': {'data.$.status': PID}})
-
-        # Book the eb data entry
         did = make_did(number, dtype, hash)
-
-        # If booking unsuccessful, skip the upload
-        if not self.book(did):
-            helper.global_dictionary['logger'].Info(
-                '\t==> Run {0}, lost challenge, data type {1} not available any more'.format(number, dtype))
-            return 0
-
-        # If booking successful, proceeding with upload
-        helper.global_dictionary['logger'].Info('\t==> Run {0}, match won, starting uploading data type {1}'.format(number,dtype))
-
-
-#        # Wait for 20 seconds
-#        time.sleep(20)
-
-        # Then check if this status is still equal to the same PID
-#        run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1, 'data': 1, 'bootstrax': 1})
-#        datum = None
-#        for d in run['data']:
-#            if d['type'] == dtype and eb in d['host'] and hash in d['location'] and d['status']==PID:
-#                datum = d
-#                break
-        
-        # If there is no data available to upload any more, exit
-#        if datum is None:
-#           helper.global_dictionary['logger'].Info('\t==> Run {0}, lost challenge, data type {1} not available any more'.format(number,dtype))
-#           return 0
-
-#        # Match won. Proceeding with uploading
-#        helper.global_dictionary['logger'].Info('\t==> Run {0}, match won, starting uploading data type {1}'.format(number,dtype))
-
-
-#        return 0
+        eb = datum['host'].split('.')[0]
+        helper.global_dictionary['logger'].Info('\t==> Uploading did {0} from host {1}'.format(did,eb))
 
         # Modify data type status to "transferring"
-        self.db.db.find_one_and_update({'_id': id_to_upload,'data': {'$elemMatch': datum}},
-                                       {'$set': {'data.$.status': "transferring"}})
-
-        # Wait for 3 seconds
-        time.sleep(3)
-
-        # Reloading the updated datum
-        run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1, 'data': 1, 'bootstrax': 1})
-        datum = None
-        for d in run['data']:
-            if d['type'] == dtype and eb in d['host'] and hash in d['location']:
-                datum = d
-                break
+        self.db.db.find_one_and_update({'_id': id_to_upload, 'data.type' : datum['type'], 'data.location' : datum['location'], 'data.host' : datum['host'] },
+                          { '$set': { "data.$.status" : "transferring" } })
 
         # Check, for coherency, if there is no rucio entry in DB for this data type
         in_rucio_upload_rse = False
@@ -378,21 +202,12 @@ class Upload():
                 in_rucio_upload_rse = True
             if d['type'] == datum['type'] and d['host'] == 'rucio-catalogue' and hash in d['did'] and d['location'] != self.UPLOAD_TO:
                 in_rucio_somewhere_else = True
-
         if in_rucio_upload_rse:
             helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1} has already a DB entry for RSE {2}. Forced to stop'.format(number,dtype,self.UPLOAD_TO))
             return 0
-
         if in_rucio_somewhere_else:
             helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1} has already a DB entry for some external RSE. Forced to stop'.format(number,dtype))
             return 0
-
-        # Preparing relevant info for uploading
-        
-        file = datum['location'].split('/')[-1]
-        hash = file.split('-')[-1]
-        upload_path = os.path.join(self.DATADIR, eb, file)
-        did = make_did(number, dtype, hash)
 
         # Querying Rucio: if a rule exists already for this DID on LNGS, skip uploading
         rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
@@ -400,10 +215,12 @@ class Upload():
             helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1} has already a Rucio rule for RSE {2}. Forced to stop'.format(number,dtype,self.UPLOAD_TO))
             return 0
             
+        # Building the full path of data to upload
+        upload_path = os.path.join(self.DATADIR, eb, file)
+
         # Finally, start uploading with Rucio
-        helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}, start uploading, DID = {2}'.format(number,dtype,did))
         result = self.rc.Upload(did, upload_path, self.UPLOAD_TO, lifetime=None)
-        helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}, uploaded, DID = {2}'.format(number,dtype,did))
+        helper.global_dictionary['logger'].Info('\t==> Uploading did {0} from host {1} done'.format(did,eb))
 
         # Wait for 10 seconds
         time.sleep(10)
@@ -414,18 +231,9 @@ class Upload():
             helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}, according to Rucio, uploading failed. Forced to stop'.format(number,dtype))
             exit()
 
-        # Checking the actual number of files uploaded
-#        nfiles = len(list_file_replicas(number, dtype, hash, rucio_rule['rse']))
-#        if nfiles != datum['file_count']:
-#            helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}, unconsistent number of files (Rucio: {2}, DB: {3}). Forced to stop'.format(number,dtype,nfiles,datum['file_count']))
-#            exit()        
-
-        # Update the eb data entry with status "transferred"
-        self.db.db.find_one_and_update({'_id': id_to_upload,'data': {'$elemMatch': datum}},
-                                       {'$set': {'data.$.status': "transferred"}})
-
-        # unbook the did
-        self.remove_booking(did)
+        # Modify data type status to "transferred"
+        self.db.db.find_one_and_update({'_id': id_to_upload, 'data.type' : datum['type'], 'data.location' : datum['location'], 'data.host' : datum['host'] },
+                          { '$set': { "data.$.status" : "transferred" } })
 
         # Add a new data field with LNGS as RSE and with status "trasferred"
         data_dict = datum.copy()
@@ -451,6 +259,9 @@ class Upload():
             elif dtype in self.RAW_RECORDS_DTYPES:
                 self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
                 self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'SURFSARA_USERDISK', datum=datum)
+
+        # unbook the did
+        self.reset_upload_to_manager()
 
         return 0
 
