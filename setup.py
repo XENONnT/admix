@@ -43,6 +43,7 @@ setup(
         'console_scripts': [
             'admix-version=admix.admix:version',
             'admix=admix.admix:your_admix',
+            'admix-upload-manager=admix.uploadmanager:main',
             'admix-download=admix.download:main',
             'admix-showrun=admix.showrun:main',
             'admix-fix=admix.fix:main',

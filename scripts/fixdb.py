@@ -156,6 +156,93 @@ def remove_datatype_from_db_and_datamanager(did):
         os.remove(file)
 
 
+
+def remove_datatype_from_db_and_rule(number,dtype,rse):
+
+    config = Config()
+    helper.make_global("admix_config", os.path.abspath(config.get('Admix','config_file')))
+    RSES = helper.get_hostconfig()['rses']
+
+
+    DB = ConnectMongoDB()
+    rc = RucioSummoner()
+
+    print("Removing",number,dtype)
+
+
+    rundoc = DB.db.find_one({'number' : number})
+
+    print("status = ",rundoc['status'])
+
+    run_id = "%06d" % number
+
+    # make it uploadable
+#    DB.db.find_one_and_update({'number':number},{'$set':{"status": "transferring"}})
+
+
+    for d in rundoc['data']:
+        if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == rse:
+
+            # Remove the data entry in DB
+            print("Deleting datum from DB = ",d)
+            DB.db.update_one({"_id" : rundoc['_id']},
+                              {"$pull" : {"data" : d} })
+
+            # Remove Rucio rule
+            rucio_rule = rc.GetRule(upload_structure=d['did'], rse=rse)
+            if rucio_rule['exists']:
+                print("Deleting rucio rule = ", rucio_rule['id'])
+                rc.DeleteRule(rucio_rule['id'])
+
+
+
+
+
+def remove_datatype_from_db(did,rse):
+
+    config = Config()
+    helper.make_global("admix_config", os.path.abspath(config.get('Admix','config_file')))
+    RSES = helper.get_hostconfig()['rses']
+
+
+    DB = ConnectMongoDB()
+    rc = RucioSummoner()
+
+    hash = did.split('-')[-1]
+    dtype = did.split('-')[0].split(':')[-1]
+    number = int(did.split(':')[0].split('_')[-1])
+
+    print("Removing",number,dtype,hash)
+
+
+    rundoc = DB.db.find_one({'number' : number})
+
+    print("status = ",rundoc['status'])
+
+    run_id = "%06d" % number
+
+    # make it uploadable
+    DB.db.find_one_and_update({'number':number},{'$set':{"status": "transferring"}})
+
+    # Remove DB entries for all RSEs
+    for d in rundoc['data']:
+        if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['did'] == did and d['location'] == rse:
+
+            # Remove the data entry in DB
+            print("Deleting data = ",d)
+            DB.db.update_one({"_id" : rundoc['_id']},
+                              {"$pull" : {"data" : d} })
+
+    # Remove Rucio rules for all RSEs
+#    for rse in RSES:
+
+#        rucio_rule = rc.GetRule(upload_structure=did, rse=rse)
+#        if rucio_rule['exists']:
+#            print("Deleting rucio rule = ", rucio_rule['id'])
+#            rc.DeleteRule(rucio_rule['id'])
+
+
+
 def reset_upload(did):
 
     config = Config()
@@ -285,6 +372,146 @@ def reset_upload(did):
 
 
 
+
+
+def add_rule(did,from_rse,to_rse,priority=3):
+
+    config = Config()
+    helper.make_global("admix_config", os.path.abspath(config.get('Admix','config_file')))
+    RSES = helper.get_hostconfig()['rses']
+
+
+    DB = ConnectMongoDB()
+    rc = RucioSummoner()
+
+    hash = did.split('-')[-1]
+    dtype = did.split('-')[0].split(':')[-1]
+    number = int(did.split(':')[0].split('_')[-1])
+
+    print("Adding a new rule {0} from {1} to {2}".format(did,from_rse,to_rse))
+    print("Run number: {0}".format(number))
+    print("Data type: {0}".format(dtype))
+    print("Hash: {0}".format(hash))
+
+    run = DB.db.find_one({'number' : number})
+
+    # Gets the status
+    if 'status' in run:
+        print('Run status: {0}'.format(run['status']))
+    else:
+        print('Run status: {0}'.format('Not available'))
+
+    #Checks if the datum of the sender exists in the DB
+    datum = None
+    for d in run['data']:
+        if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == from_rse:
+            datum = d
+            continue
+    if datum is None:
+        print('The datum concerning data type {0} and site {1} is missing in the DB. Forced to stop'.format(dtype,from_rse))
+        return(0)
+
+
+    # Checks the rule status of the sender RSE
+    rucio_rule = rc.GetRule(upload_structure=did, rse=from_rse)
+    if rucio_rule['state'] != 'OK':
+        print('The rule in {0} is not OK. Forced to stop'.format(from_rse))
+        return(0)
+
+    # set the new rule
+    result = rc.AddConditionalRule(did, from_rse, to_rse, lifetime=None, priority=priority)
+    rucio_rule = rc.GetRule(did, rse=to_rse)
+
+    # Update run status
+    DB.db.find_one_and_update({'number': number},{'$set': {'status': 'transferring'}})
+
+    # Add a new datum in the run document
+    updated_fields = {'host': "rucio-catalogue",
+                      'type': dtype,
+                      'location': to_rse,
+                      'lifetime': rucio_rule['expires'],
+                      'status': 'transferring',
+                      'did': did,
+                      'protocol': 'rucio'
+            }
+    data_dict = datum.copy()
+    data_dict.update(updated_fields)
+    DB.AddDatafield(run['_id'], data_dict)
+
+
+
+
+def add_rule_run_dtype(number,dtype,from_rse,to_rse,priority=3):
+
+    config = Config()
+    helper.make_global("admix_config", os.path.abspath(config.get('Admix','config_file')))
+    RSES = helper.get_hostconfig()['rses']
+
+
+    DB = ConnectMongoDB()
+    rc = RucioSummoner()
+
+    print("Adding a new rule from {0} to {1}".format(from_rse,to_rse))
+    print("Run number: {0}".format(number))
+    print("Data type: {0}".format(dtype))
+
+    run = DB.db.find_one({'number' : number})
+
+    # Gets the status
+    if 'status' in run:
+        print('Run status: {0}'.format(run['status']))
+    else:
+        print('Run status: {0}'.format('Not available'))
+
+    #Checks if the datum of the sender exists in the DB
+    datum = None
+    for d in run['data']:
+        if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == from_rse:
+            datum = d
+            continue
+    if datum is None:
+        print('The datum concerning data type {0} and site {1} is missing in the DB. Forced to stop'.format(dtype,from_rse))
+        return(0)
+
+    print("DID: {0}".format(datum['did']))
+
+
+    #Checks if the destination datum exists already in the DB
+    for d in run['data']:
+        if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == to_rse:
+            print('Rule already exists')
+            return(0)
+
+
+    # Checks the rule status of the sender RSE
+    rucio_rule = rc.GetRule(upload_structure=datum['did'], rse=from_rse)
+    if rucio_rule['state'] != 'OK':
+        print('The rule in {0} is not OK. Forced to stop'.format(from_rse))
+        return(0)
+
+    # set the new rule
+    result = rc.AddConditionalRule(datum['did'], from_rse, to_rse, lifetime=None, priority=priority)
+    rucio_rule = rc.GetRule(datum['did'], rse=to_rse)
+
+    # Update run status
+    DB.db.find_one_and_update({'number': number},{'$set': {'status': 'transferring'}})
+
+    # Add a new datum in the run document
+    updated_fields = {'host': "rucio-catalogue",
+                      'type': dtype,
+                      'location': to_rse,
+                      'lifetime': rucio_rule['expires'],
+                      'status': 'transferring',
+                      'did': datum['did'],
+                      'protocol': 'rucio'
+            }
+    data_dict = datum.copy()
+    data_dict.update(updated_fields)
+    DB.AddDatafield(run['_id'], data_dict)
+
+
+
+
 def change_status(number,status):
 
     DB = ConnectMongoDB()
@@ -347,6 +574,81 @@ if __name__ == "__main__":
 #    remove_datatype_from_db_and_datamanager("xnt_008650:lone_hits-b7dgmtzaef")
 #    remove_datatype_from_db_and_datamanager("xnt_008013:raw_records-rfzvpzj4mf")
 #    remove_datatype_from_db_and_datamanager("xnt_008620:records-jxkqp76kam")
+
+    """
+    runs = [ "010301", "010302", "010303", "010304", "010305", "010321", "010322", "010323", "010324", "010325", "010326", "010327"]
+    for run in runs:
+        did = "xnt_"+run+":raw_records-rfzvpzj4mf"
+        print(did)
+        remove_datatype_from_db(did,"CCIN2P3_USERDISK")
+        remove_datatype_from_db(did,"NIKHEF_USERDISK")
+        remove_datatype_from_db(did,"CNAF_TAPE2_USERDISK")
+        did = "xnt_"+run+":raw_records_he-rfzvpzj4mf"
+        print(did)
+        remove_datatype_from_db(did,"CCIN2P3_USERDISK")
+        remove_datatype_from_db(did,"NIKHEF_USERDISK")
+        remove_datatype_from_db(did,"CNAF_TAPE2_USERDISK")
+        did = "xnt_"+run+":raw_records_aqmon-rfzvpzj4mf"
+        print(did)
+        remove_datatype_from_db(did,"CCIN2P3_USERDISK")
+        remove_datatype_from_db(did,"NIKHEF_USERDISK")
+        remove_datatype_from_db(did,"CNAF_TAPE2_USERDISK")
+        did = "xnt_"+run+":raw_records_mv-rfzvpzj4mf"
+        print(did)
+        remove_datatype_from_db(did,"CCIN2P3_USERDISK")
+        remove_datatype_from_db(did,"NIKHEF_USERDISK")
+        remove_datatype_from_db(did,"CNAF_TAPE2_USERDISK")
+        did = "xnt_"+run+":raw_records_nv-rfzvpzj4mf"
+        print(did)
+        remove_datatype_from_db(did,"CCIN2P3_USERDISK")
+        remove_datatype_from_db(did,"NIKHEF_USERDISK")
+        remove_datatype_from_db(did,"CNAF_TAPE2_USERDISK")
+        did = "xnt_"+run+":raw_records_aqmon_nv-rfzvpzj4mf"
+        print(did)
+        remove_datatype_from_db(did,"CCIN2P3_USERDISK")
+        remove_datatype_from_db(did,"NIKHEF_USERDISK")
+        remove_datatype_from_db(did,"CNAF_TAPE2_USERDISK")
+
+        did = "xnt_"+run+":records-jxkqp76kam"
+        print(did)
+        remove_datatype_from_db(did,"CCIN2P3_USERDISK")
+        remove_datatype_from_db(did,"NIKHEF_USERDISK")
+        did = "xnt_"+run+":records_he-5mepav2zzf"
+        print(did)
+        remove_datatype_from_db(did,"CCIN2P3_USERDISK")
+        remove_datatype_from_db(did,"NIKHEF_USERDISK")
+    """
+    
+#    add_rule_run_dtype(10658,"peak_basics","UC_DALI_USERDISK","UC_OSG_USERDISK",3)
+#    add_rule_run_dtype(10658,"peak_basics","LNGS_USERDISK","UC_DALI_USERDISK",3)
+
+    """
+#    remove_datatype_from_db_and_rule(10301,"peaklets_he","NIKHEF_USERDISK")
+    #runs = [ 10301, 10302, 10303, 10304, 10305, 10321, 10322, 10323, 10324, 10325, 10326, 10327]
+    runs = [ 10328]
+    norecords_types = ["lone_hits", "peak_basics", "pulse_counts", "peaklets", "merged_s2s", "peaklet_classification", "peaklet_classification_he", "veto_regions", "pulse_counts_he", "peaklets_he","led_calibration"]
+    raw_records_types = ["raw_records", "raw_records_he", "raw_records_aqmon", "raw_records_mv", "raw_records_nv", "raw_records_aqmon_nv"]
+    records_types = ["records","records_he"]
+
+    custom_types = ["raw_records_he", "raw_records_aqmon", "raw_records_mv", "raw_records_nv", "raw_records_aqmon_nv"]
+
+    for run in runs:
+        for dtype in norecords_types:
+#        for dtype in custom_types:
+            print(run,dtype)
+            #rse = "NIKHEF_USERDISK"
+            remove_datatype_from_db_and_rule(run,dtype,"NIKHEF_USERDISK")
+#            remove_datatype_from_db_and_rule(run,dtype,"CNAF_TAPE2_USERDISK")
+#            remove_datatype_from_db_and_rule(run,dtype,"CCIN2P3_USERDISK")
+#            add_rule_run_dtype(run,dtype,"UC_DALI_USERDISK","NIKHEF2_USERDISK",3)
+#        for dtype in records_types+raw_records_types:
+#            add_rule_run_dtype(run,dtype,"LNGS_USERDISK","NIKHEF2_USERDISK",3)
+#            add_rule_run_dtype(run,dtype,"NIKHEF2_USERDISK","CCIN2P3_USERDISK",3)
+#            if dtype in raw_records_types:
+#                add_rule_run_dtype(run,dtype,"NIKHEF2_USERDISK","CNAF_TAPE2_USERDISK",3)
+    """
+
+
 #    change_status(10090,"eb_ready_to_upload")
 #    change_status(10088,"eb_ready_to_upload")
 #    change_status(10089,"eb_ready_to_upload")
@@ -354,8 +656,43 @@ if __name__ == "__main__":
 #    change_status(10093,"eb_ready_to_upload")
 #    change_status(10066,"eb_ready_to_upload")
 
-#    reset_upload("xnt_010215:raw_records_he-rfzvpzj4mf")
-    reset_upload("xnt_010277:peaklets_he-2bwh4goml5")
+#    reset_upload("xnt_010427:raw_records-rfzvpzj4mf")
+#    reset_upload("xnt_010427:records-jxkqp76kam")
+#    reset_upload("xnt_010427:merged_s2s-vukfnvrgnj")
+#    reset_upload("xnt_010465:raw_records_aqmon_nv-rfzvpzj4mf")
+
+#    reset_upload("xnt_010520:raw_records-rfzvpzj4mf")
+    reset_upload("xnt_010659:peaklet_classification_he-c6h5hdbtcv")
+
+#    reset_upload("xnt_010427:raw_records_mv-rfzvpzj4mf")
+#    reset_upload("xnt_010427:raw_records_nv-rfzvpzj4mf")
+#    reset_upload("xnt_010427:raw_records_aqmon_nv-rfzvpzj4mf")
+#    reset_upload("xnt_010427:records-jxkqp76kam")
+#    reset_upload("")
+#    reset_upload("")
+#    reset_upload("")
+    
+
+    """
+    reset_upload("")
+    reset_upload("")
+    reset_upload("")
+    reset_upload("")
+    reset_upload("")
+    reset_upload("")
+    reset_upload("")
+    """
+
+#    reset_upload("xnt_010380:raw_records-rfzvpzj4mf")
+#    reset_upload("xnt_010380:led_calibration-lsdigsccxn")
+#    reset_upload("xnt_010380:peaklets_he-2bwh4goml5")
+#    reset_upload("xnt_010402:raw_records_aqmon-rfzvpzj4mf")
+#    reset_upload("xnt_010402:records_he-5mepav2zzf")
+#    reset_upload("xnt_010402:raw_records-rfzvpzj4mf")
+#    reset_upload("xnt_010402:raw_records_he-rfzvpzj4mf")
+
+#    reset_upload("xnt_010277:peaklets_he-2bwh4goml5")
+#    add_rule("xnt_010301:raw_records_aqmon_nv-rfzvpzj4mf","LNGS_USERDISK","NIKHEF2_USERDISK",3)
 #    change_status(9678,"eb_ready_to_upload")
 #    change_status(9614,"eb_ready_to_upload")
 #    change_status(9615,"eb_ready_to_upload")

@@ -25,7 +25,7 @@ class Upload():
     def init(self):
         helper.global_dictionary['logger'].Info(f'Init task {self.__class__.__name__}')
 
-        open("/tmp/admix-upload_from_lngs", 'a').close()
+#        open("/tmp/admix-upload_from_lngs", 'a').close()
 
         #Take all data types categories
         self.NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
@@ -63,16 +63,23 @@ class Upload():
 
 
     def get_dataset_to_upload_from_manager(self):
+
+        # Get the current screen session
         process = psutil.Process()
         screen = process.parent().parent().parent().parent().cmdline()[-1]
+
+        # Load the tmp file for this session written by the upload manager
         filename = "/tmp/admix-"+screen
         dataset = {}
         if os.path.isfile(filename):
             with open(filename, 'r') as f:
-                dataset = json.load(f)
+                try:
+                    dataset = json.load(f)
+                except json.decoder.JSONDecodeError:
+                    pass
                 f.close()
 
-        if thread != {}:
+        if dataset != {}:
             run = self.db.db.find_one({'number': dataset['number']}, {'number': 1, 'data': 1, 'bootstrax': 1})
 
             # Get run number
@@ -170,16 +177,20 @@ class Upload():
 
 
     def run(self,*args, **kwargs):
-        helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
+#        helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
 
         # Get a new dataset to upload
         id_to_upload, datum = self.get_dataset_to_upload_from_manager()
         if id_to_upload == 0:
-            helper.global_dictionary['logger'].Info('\t==> No data type available to upload')
+#            helper.global_dictionary['logger'].Info('\t==> No data type available to upload')
             return 0
 
         # Get the run
-        run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1})
+        run = self.db.db.find_one({'_id': id_to_upload}, {'number': 1, 'data': 1})
+
+        # Get info from the screen session
+        process = psutil.Process()
+        screen = process.parent().parent().parent().parent().cmdline()[-1]
 
         # Building the did
         number = run['number']
@@ -188,11 +199,15 @@ class Upload():
         hash = file.split('-')[-1]
         did = make_did(number, dtype, hash)
         eb = datum['host'].split('.')[0]
-        helper.global_dictionary['logger'].Info('\t==> Uploading did {0} from host {1}'.format(did,eb))
+        helper.global_dictionary['logger'].Info('\t==> Screen {0}. Uploading did {1} from host {2}'.format(screen,did,eb))
 
         # Modify data type status to "transferring"
-        self.db.db.find_one_and_update({'_id': id_to_upload, 'data.type' : datum['type'], 'data.location' : datum['location'], 'data.host' : datum['host'] },
+#        self.db.db.find_one_and_update({'_id': id_to_upload, 'data.type' : datum['type'], 'data.location' : datum['location'], 'data.host' : datum['host'] },
+#                          { '$set': { "data.$.status" : "transferring" } })
+
+        self.db.db.find_one_and_update({'_id': id_to_upload, 'data': {'$elemMatch': {'type' : datum['type'], 'location' : datum['location'], 'host' : datum['host'] }}},
                           { '$set': { "data.$.status" : "transferring" } })
+
 
         # Check, for coherency, if there is no rucio entry in DB for this data type
         in_rucio_upload_rse = False
@@ -203,16 +218,19 @@ class Upload():
             if d['type'] == datum['type'] and d['host'] == 'rucio-catalogue' and hash in d['did'] and d['location'] != self.UPLOAD_TO:
                 in_rucio_somewhere_else = True
         if in_rucio_upload_rse:
-            helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1} has already a DB entry for RSE {2}. Forced to stop'.format(number,dtype,self.UPLOAD_TO))
+            helper.global_dictionary['logger'].Info('\t==> Screen {0}. Run {1}, data type {2} has already a DB entry for RSE {3}. Forced to stop'.format(screen,number,dtype,self.UPLOAD_TO))
+            self.reset_upload_to_manager()
             return 0
         if in_rucio_somewhere_else:
-            helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1} has already a DB entry for some external RSE. Forced to stop'.format(number,dtype))
+            helper.global_dictionary['logger'].Info('\t==> Screen {0}. Run {1}, data type {2} has already a DB entry for some external RSE. Forced to stop'.format(screen,number,dtype))
+            self.reset_upload_to_manager()
             return 0
 
         # Querying Rucio: if a rule exists already for this DID on LNGS, skip uploading
         rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
         if rucio_rule['exists']:
-            helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1} has already a Rucio rule for RSE {2}. Forced to stop'.format(number,dtype,self.UPLOAD_TO))
+            helper.global_dictionary['logger'].Info('\t==> Screen {0}. Run {1}, data type {2} has already a Rucio rule for RSE {3}. Forced to stop'.format(screen,number,dtype,self.UPLOAD_TO))
+            self.reset_upload_to_manager()
             return 0
             
         # Building the full path of data to upload
@@ -220,7 +238,7 @@ class Upload():
 
         # Finally, start uploading with Rucio
         result = self.rc.Upload(did, upload_path, self.UPLOAD_TO, lifetime=None)
-        helper.global_dictionary['logger'].Info('\t==> Uploading did {0} from host {1} done'.format(did,eb))
+        helper.global_dictionary['logger'].Info('\t==> Screen {0}. Uploading did {1} from host {2} done'.format(screen,did,eb))
 
         # Wait for 10 seconds
         time.sleep(10)
@@ -228,12 +246,13 @@ class Upload():
         # Checking the status of this new upload rule
         rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
         if rucio_rule['state'] != 'OK':
-            helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}, according to Rucio, uploading failed. Forced to stop'.format(number,dtype))
+            helper.global_dictionary['logger'].Info('\t==> Screen {0}. Run {1}, data type {2}, according to Rucio, uploading failed. Forced to stop'.format(screen, number,dtype))
             exit()
 
         # Modify data type status to "transferred"
-        self.db.db.find_one_and_update({'_id': id_to_upload, 'data.type' : datum['type'], 'data.location' : datum['location'], 'data.host' : datum['host'] },
+        self.db.db.find_one_and_update({'_id': id_to_upload, 'data': {'$elemMatch': {'type' : datum['type'], 'location' : datum['location'], 'host' : datum['host'] }}},
                           { '$set': { "data.$.status" : "transferred" } })
+
 
         # Add a new data field with LNGS as RSE and with status "trasferred"
         data_dict = datum.copy()

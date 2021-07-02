@@ -32,8 +32,14 @@ class UploadManager():
         self.LIGHT_RAW_RECORDS_DTYPES = helper.get_hostconfig()['light_raw_records_types']
         self.RECORDS_DTYPES = helper.get_hostconfig()['records_types']
 
+        self.n_upload_threads_low = helper.get_hostconfig()['n_upload_threads_low']
+        self.n_upload_threads_high = helper.get_hostconfig()['n_upload_threads_high']
+
         #Choose which data type you want to treat
         self.DTYPES = self.NORECORDS_DTYPES + self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
+
+        self.HIGH_DTYPES = self.NORECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
+        self.LOW_DTYPES = self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES
 
         self.threads = []
 
@@ -75,6 +81,9 @@ class UploadManager():
                         dataset_to_upload['hash'] = hash
                         dataset_to_upload['eb'] = eb
                         dataset_to_upload['priority'] = run['priority']
+                        #                        if run['number']==23951 and d['type']=='raw_records' and hash=='rfzvpzj4mf' and eb=='eb3':
+                        if run['number'] in [23951,23948]:
+                            continue
                         datasets_to_upload.append(dataset_to_upload)
 
         return(datasets_to_upload)
@@ -98,19 +107,22 @@ class UploadManager():
             filename = "/tmp/admix-"+thread['screen']
             if os.path.isfile(filename):
                 with open(filename, 'r') as f:
-#                    thread['datum'] = json.load(f)
-                    thread['datum'] = {}
+                    try:
+                        thread['datum'] = json.load(f)
+                    except json.decoder.JSONDecodeError:
+                        thread['datum'] = {}
                     f.close()
         return(threads)
 
     def AssignDatasetToThread(self, datum, thread_name):
         filename = "/tmp/admix-"+thread_name
         with open(filename, 'w') as f:
+            datum['assign_time'] = int(time.time())
             json.dump(datum,f)
             f.close()
     
 
-    def SendAlarm(crashed_threads):
+    def SendAlarm(self,crashed_threads):
         timestamp = int(time.time())
         print("Alarm on ",time.ctime(timestamp))
         print("List of threads that crashed:\n")
@@ -118,15 +130,27 @@ class UploadManager():
             print("Task: "+thread['task']+", from screen session: "+thread['screen']+"\n")
 
 
+    def CompareData(self,datum1,datum2):
+        return(datum1['number']==datum2['number'] and datum1['type']==datum2['type'] and datum1['hash']==datum2['hash'] and datum1['eb']==datum2['eb'])
+
+    def ShowDuration(self,duration):
+        return(time.strftime('%H:%M:%S', time.gmtime(duration)))
+
+
     def run(self):
+
+        print("")
+        print("Run")
 
         # Get the list of datasets to upload
         datasets_to_upload = self.GetDatasetsToUpload()
-        
+
+        print("Datasets still to upload: {0}".format(len(datasets_to_upload)))
+
         # Show the list of datasets to upload
-        print("Runs to upload:")
-        for run in datasets_to_upload:
-            print(f"Run {run['number']:6d} Type {run['type']:30s} Hash {run['hash']} EB {run['eb']} Priority {run['priority']}")
+#        print("Runs to upload:")
+#        for run in datasets_to_upload:
+#            print(f"Run {run['number']:6d} Type {run['type']:30s} Hash {run['hash']} EB {run['eb']} Priority {run['priority']}")
 
         # Get the list of threads that are currently running
         current_threads = self.GetThreads()
@@ -151,17 +175,62 @@ class UploadManager():
         # Add to the threads the datasets that they are currently treating
         current_threads = self.UpdateThreads(current_threads)
 
+        # Count how many high and low data types are being uploaded
+        n_high = 0
+        n_low = 0
+        for thread in current_threads:
+            if 'datum' in thread:
+                if 'type' in thread['datum']:
+                    dtype = thread['datum']['type']
+                    if dtype in self.HIGH_DTYPES:
+                        n_high = n_high + 1
+                    if dtype in self.LOW_DTYPES:
+                        n_low = n_low + 1
+
+        # Print threads status
+        print("")
+        print("---------------------------------------------------------------------")
+        print("There are currently {0} active threads, {1}/{2} high level and {3}/{4} low level:".format(len(current_threads),n_high,self.n_upload_threads_high,n_low,self.n_upload_threads_low))
+        for thread in sorted(current_threads, key=lambda k: k['screen']):
+            print("Task: {0}, Screen: {1:8s}, ".format(thread['task'],thread['screen']),end='')
+            if thread['task'] in ['CheckTransfers','CleanEB']:
+                print("Running")
+                continue                
+            if 'datum' not in thread:
+                print("not yet assigned")
+                continue
+            if thread['datum']=={}:
+                print("not yet assigned")
+                continue
+            datum = thread['datum']
+            if 'assign_time' in thread['datum']:
+                delta_time = int(time.time()) - datum['assign_time']
+                since = '{0} ago'.format(self.ShowDuration(delta_time))
+            else:
+                since = "unknown"
+            print("Run: {0}, Type {1:30s}, Hash {2}, EB {3}, Priority {4}, Since {5}".format(datum['number'],datum['type'],datum['hash'],datum['eb'],datum['priority'],since))
+        print("---------------------------------------------------------------------")
+
         # Assign datasets to Upload tasks that are currently available
         for dataset in datasets_to_upload:
 
-            # First, check is the dataset has not been already assigned
+            # First, check if the dataset has not been already assigned
             assigned = False
             for thread in current_threads:
                 if thread['task']!="Upload":
                     continue
                 if 'datum' in thread:
-                    if thread['datum']==dataset:
-                        assigned = True
+                    if thread['datum']!={}:
+                        if self.CompareData(thread['datum'],dataset):
+                            assigned = True
+
+            # Then, check if there are not already too many uploads for its category (low or high)
+            if dataset['type'] in self.HIGH_DTYPES:
+                if n_high >= self.n_upload_threads_high:
+                    continue
+            if dataset['type'] in self.LOW_DTYPES:
+                if n_low >= self.n_upload_threads_low:
+                    continue
             
             # If not, then assign it to the first thread available
             if not assigned:
@@ -172,7 +241,11 @@ class UploadManager():
                         if thread['datum']=={}:
                             thread['datum'] = dataset
                             print(f"Assigning run {dataset['number']:6d} Type {dataset['type']:30s} Hash {dataset['hash']} EB {dataset['eb']} to task {thread['screen']}")
-                            #self.AssignDatasetToThread(dataset, thread['screen'])
+                            self.AssignDatasetToThread(dataset, thread['screen'])
+                            if dataset['type'] in self.HIGH_DTYPES:
+                                n_high = n_high + 1
+                            if dataset['type'] in self.LOW_DTYPES:
+                                n_low = n_low + 1
                             break
         
         
