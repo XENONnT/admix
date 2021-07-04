@@ -10,22 +10,9 @@ import admix.helper.helper as helper
 from admix import DEFAULT_CONFIG, __version__
 
 from admix.helper.decorator import NameCollector, ClassCollector
-from admix.tasks.example_task import RunExampleTask
-from admix.tasks.upload_with_mongodb import UploadMongoDB
-from admix.tasks.update_runDB import UpdateRunDBMongoDB
-from admix.tasks.init_transfers_with_mongodb import InitTransfersMongoDB
-from admix.tasks.download_with_mongodb import DownloadMongoDB
-from admix.tasks.clear_transfers_with_mongdb import ClearTransfersMongoDB
-from admix.tasks.purge_with_mongodb import PurgeMongoDB
-from admix.tasks.upload_from_lngs import UploadFromLNGS
-from admix.tasks.fix_upload import FixUpload
 from admix.tasks.clean_eb import CleanEB
-from admix.tasks.clean import Clean
-from admix.tasks.upload_from_lngs_single_thread import UploadFromLNGSSingleThread
 from admix.tasks.upload import Upload
 from admix.tasks.check_transfers import CheckTransfers
-from admix.tasks.move_data_to_rse import MoveDataToRSE
-from admix.tasks.monitor_run import MonitorRun
 from utilix.config import Config
 
 def version():
