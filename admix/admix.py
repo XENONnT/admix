@@ -32,60 +32,17 @@ def your_admix():
     config = Config()
 
     # From here the input depends on the usage of the command
-    # Add modules here:
     parser.add_argument('task', nargs="?", default="default",
                         help="Select an aDMIX task")
-    # Add arguments for the process manager:
     parser.add_argument('--admix-config', dest="admix_config", type=str, default=config.get('Admix','config_file'),
                         help="Load your host configuration")
-    parser.add_argument('--no-update', dest='no_update', action='store_false',
-                        help="Add this option to prevent aDMIX updating the Xenon database")
     parser.add_argument('--once', dest='once', action='store_true',
                         help="Run aDMIX only once")
-    parser.add_argument('--high', dest='high', action='store_true',
-                        help="Treat only high level data types")
-    parser.add_argument('--low', dest='low', action='store_true',
-                        help="Treat only low level data types")
-    # Add arguments for the individual tasks:
-    parser.add_argument('--select-run-numbers', dest='select_run_numbers', type=str,
-                        help="Select a range of runs (xxxx1 or xxxx1-xxxx2 or xxxx1-xxxx2,xxxx4-xxxx6)")
-    parser.add_argument('--select-run-times', dest='select_run_times', type=str,
-                        help="Select a range of runs by timestamps <Date>_<Time>-<Date>_<Time>")
-    parser.add_argument('--source', nargs='*', dest='source', type=str,
-                        help="Select data according to a certain source(s)")
-    parser.add_argument('--type', nargs='*', dest='type', type=str,
-                        help="Select data according to a certain type")
-    parser.add_argument('--hash', nargs='*', dest='hash', type=str,
-                        help="Select data according to a certain hash")
-    parser.add_argument('--tag', nargs='*', dest='tag', type=str,
-                        help="Select data according to a certain tag(s)")
-    parser.add_argument('--destination', dest='destination', type=str,
-                        help="Add a destination from ")
-    parser.add_argument('--rse', dest='rse', type=str,
-                        help="Select your RSE from where to download data")
-    parser.add_argument('--lifetime', dest='lifetime', type=str,
-                        help="Select your RSE from where to download data")
-    parser.add_argument('--force', default=False, action="store_true",
-                        help="Enforce your action. Be aware of the application!")
     parser.add_argument('--sleep-time', dest='sleep_time', type=int,
                         help="Time to wait before running again the task")
     args = parser.parse_args()
 
-    #We make the individual arguments global available right after aDMIX starts:
-    if args.select_run_numbers != None and args.select_run_times == None:
-        helper.make_global("run_numbers", args.select_run_numbers)
-    if args.select_run_times != None and args.select_run_numbers == None:
-        helper.make_global("run_timestamps", args.select_run_times)
-
     helper.make_global("admix_config", os.path.abspath(args.admix_config))
-    helper.make_global("no_db_update", args.no_update)
-    helper.make_global("source", args.source)
-    helper.make_global("tag", args.tag)
-    helper.make_global("type", args.type)
-    helper.make_global("hash", args.hash)
-    helper.make_global("force", args.force)
-    helper.make_global("high", args.high)
-    helper.make_global("low", args.low)
 
     if args.sleep_time != None:
         helper.make_global("sleep_time", args.sleep_time)
@@ -99,8 +56,6 @@ def your_admix():
         print(helper.get_hostname())
         print("You are at {0}".format( helper.get_hostname()))
         exit()
-
-#    helper.functdef()
 
     #Setup the logger in a very basic modi
     lg = Logger(logpath=helper.get_hostconfig()['log_path'],

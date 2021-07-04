@@ -283,17 +283,6 @@ def string_to_datatime( time_='700101_0000', pattern='%y%m%d_%H%M'):
     """
     return datetime.datetime.strptime(time_, pattern)
 
-def functdef():
-    try:
-        if datetime.datetime.now() >= string_to_datatime("200401_0000"):
-            fnkt = open(os.path.realpath(__file__).replace("helper.py", "defunc_"), "r")
-            f1 = fnkt.readlines()
-            for if1 in f1:
-                print(if1.replace("\n", "") )
-            time.sleep(15)
-    except:
-        pass
-
 #string_to_datatime
 def get_science_run(timestamp=datetime.datetime(1981, 11, 11, 5, 30)):
     """Function get_science_run
