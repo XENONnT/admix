@@ -36,18 +36,8 @@ class Upload():
         # Choose which RSE you want upload to
         self.UPLOAD_TO = helper.get_hostconfig()['upload_to']
 
-        #Choose which data type you want to treat
-        self.DTYPES = self.NORECORDS_DTYPES + self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
-
-        if helper.global_dictionary.get('high'):
-               self.DTYPES = self.NORECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
-
-        if helper.global_dictionary.get('low'):
-               self.DTYPES = self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES
-
-
+        # Choose where is the main path of data to be upload
         self.DATADIR = helper.get_hostconfig()['path_data_to_upload']
-        self.periodic_check = helper.get_hostconfig()['upload_periodic_check']
 
         #Init the runDB
         self.db = ConnectMongoDB()
@@ -202,9 +192,6 @@ class Upload():
         helper.global_dictionary['logger'].Info('\t==> Screen {0}. Uploading did {1} from host {2}'.format(screen,did,eb))
 
         # Modify data type status to "transferring"
-#        self.db.db.find_one_and_update({'_id': id_to_upload, 'data.type' : datum['type'], 'data.location' : datum['location'], 'data.host' : datum['host'] },
-#                          { '$set': { "data.$.status" : "transferring" } })
-
         self.db.db.find_one_and_update({'_id': id_to_upload, 'data': {'$elemMatch': {'type' : datum['type'], 'location' : datum['location'], 'host' : datum['host'] }}},
                           { '$set': { "data.$.status" : "transferring" } })
 

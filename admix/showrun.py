@@ -12,7 +12,7 @@ from bson.json_util import dumps
 from datetime import timezone, datetime, timedelta
 import pymongo
 
-def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg_latest,arg_did):
+def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg_latest):
 
     #Define data types
     NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
@@ -22,7 +22,6 @@ def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg
 
     #Get other parameters
     DATADIR = helper.get_hostconfig()['path_data_to_upload']
-    periodic_check = helper.get_hostconfig()['upload_periodic_check']
     RSES = helper.get_hostconfig()['rses']
 
     minimum_number_acceptable_rses = 2
@@ -48,31 +47,38 @@ def showrun(arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg
 
     data_types = RAW_RECORDS_DTYPES + RECORDS_DTYPES + NORECORDS_DTYPES + LIGHT_RAW_RECORDS_DTYPES
 
-    if len(arg_did)>0:
-        arg_number, dtype, hash = get_did(arg_did[0])
-        arg_dtypes = [dtype]
 
-    if arg_number == -1 and arg_latest == 0:
-        arg_latest = 5
-        arg_compact = True
+    # if arg_number has been given
+    if arg_number != "":
+
+        # if the "number" argument is a number, it is converted as integer
+        if arg_number.isdigit():
+            arg_number = int(arg_number)
+        # otherwise it is assumed that a DID has been given and run number and other parameters are extracted from the DID
+        else:
+            arg_number, dtype, hash = get_did(arg_number)
+            arg_dtypes = [dtype]
+
+    # if no arg_number has been given, then the "latest" option is activated (with 5 run numbers by default) in compact modality
+    else:
+        if arg_latest == 0:
+            arg_latest = 5
+            arg_compact = True
 
     if arg_latest > 0:
         cursor = db.db.find({}).sort('number',pymongo.DESCENDING).limit(1)
         cursor = list(cursor)
         arg_to = cursor[0]['number']
         arg_number = arg_to - arg_latest + 1
-        print('Processing latest {0} runs'.format(arg_latest))            
+        print('Processing latest {0} runs'.format(arg_latest))
 
     if arg_to>arg_number:
-        cursor = db.db.find({
-            'number': {'$gte': arg_number, '$lte': arg_to}
-        }).sort('number',pymongo.ASCENDING)
+        cursor = db.db.find({'number': {'$gte': arg_number, '$lte': arg_to}}).sort('number',pymongo.ASCENDING)
         print('Runs that will be processed are from {0} to {1}'.format(arg_number,arg_to))
     else:
-        cursor = db.db.find({
-            'number': arg_number
-        })
-        print('Run that will be processed is {0}'.format(arg_number))
+        cursor = db.db.find({'number': arg_number})
+
+    print('Run that will be processed is {0}'.format(arg_number))
     cursor = list(cursor)
 
     # Runs over all listed runs
@@ -289,8 +295,7 @@ def main():
 
     config = Config()
 
-    parser.add_argument("number", type=int, nargs='?', help="Run number to show", default=-1)
-    parser.add_argument("--did", nargs=1, help="Restricts infos on the given dids (run number is not necessary)")
+    parser.add_argument("number", nargs='?', help="Run number or DID to show", default="")
     parser.add_argument("--dtypes", nargs="*", help="Restricts infos on the given data types")
     parser.add_argument("--to", type=int, help="Shows runs from the run number up to this value", default=0)
     parser.add_argument("--compact", help="Just list few DB infos as run number, status, date, comments", action='store_true')
@@ -305,17 +310,10 @@ def main():
     else:
         dtypes = []
 
-    if args.did:
-        did = args.did
-    else:
-        did = []
-
-
-
     helper.make_global("admix_config", os.path.abspath(config.get('Admix','config_file')))
 
     try:
-        showrun(args.number,args.to,dtypes,args.compact,args.json,args.status,args.latest,did)
+        showrun(args.number,args.to,dtypes,args.compact,args.json,args.status,args.latest)
     except KeyboardInterrupt:
         return 0
 

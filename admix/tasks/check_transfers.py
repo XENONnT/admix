@@ -62,7 +62,7 @@ class CheckTransfers():
     def check_transfers(self):
         cursor = self.db.db.find(
             {'status': 'transferring'},
-#            {'number': 10742},
+#            {'number': 11924},
             {'number': 1, 'data': 1, 'bootstrax': 1})
 
         cursor = list(cursor)
@@ -103,6 +103,7 @@ class CheckTransfers():
                             rucio_stati.append('stuck')
                     else:
                         rucio_stati.append(d['status'])
+#                        print(d['did'])
 
 
                 # search if dtype still has to be uploaded

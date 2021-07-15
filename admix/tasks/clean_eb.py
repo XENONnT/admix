@@ -37,7 +37,6 @@ class CleanEB():
         #Get other parameters
         self.DATADIR = helper.get_hostconfig()['path_data_to_upload']
         self.RUCIODATADIR = helper.get_hostconfig()['path_rucio_data']
-        self.periodic_check = helper.get_hostconfig()['upload_periodic_check']
         self.RSES = helper.get_hostconfig()['rses']
 
         # Choose which RSE is used for the upload (usually it is LNGS_USERDISK)
