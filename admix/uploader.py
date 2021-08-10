@@ -13,11 +13,12 @@ def get_default_scope():
     return 'user.' + upload_client.client.account
 
 
-# TODO add decorator for runDB?
+# TODO automatically update RunDB
 # TODO could we make this use multithreading or multiprocessing to speed things up?
-def upload(path, rse, did=None, check_existing=True, lifetime=None):
+def upload(path, rse, did=None, check_existing=True, lifetime=None,
+           update_db=False):
 
-    # set scope initially to default one. will overwrite it later if did passed
+    # set scope initially to default one. will overwrite it below if did passed
     scope = get_default_scope()
 
     if did:

@@ -1,4 +1,3 @@
-import time
 from admix.manager import synchronize
 from .daemon import AdmixDaemon
 
