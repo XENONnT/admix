@@ -12,7 +12,6 @@ class UploadDaemon(AdmixDaemon):
 
     def do_task(self, rundoc):
         # get the datatypes that are on EB machines
-        on_ebs = []
         for data_doc in rundoc['data']:
             if 'eb' in data_doc['host']:
                 # get did for unique identifier
