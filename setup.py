@@ -41,12 +41,8 @@ setup(
     install_requires=requirements,
     entry_points={
         'console_scripts': [
-            'admix-version=admix.admix:version',
-            'admix=admix.admix:your_admix',
+            'admix=admix.admix:main',
             'admix-download=admix.download:main',
-            'admix-showrun=admix.showrun:main',
-            'admix-fix=admix.fix:main',
-            'admix-showcontexts=admix.showcontexts:main'
         ]
     },
     license="BSD license",

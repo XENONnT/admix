@@ -17,12 +17,21 @@ def has_metadata(did):
     return metadata_file in files
 
 
-def synchronize(run_number):
-    db_data = db.get_data(run_number, host='rucio-catalogue')
+def synchronize(run_number, dtype=None):
+    # use dtype a lot below so set the arg to _dtype
+    _dtype = dtype
+    del dtype
+    if _dtype is not None:
+        db_data = db.get_data(run_number, host='rucio-catalogue', type=_dtype)
+    else:
+        db_data = db.get_data(run_number, host='rucio-catalogue')
+
     db_datasets = list(set([d['did'].split(':')[1] for d in db_data]))
 
     scope = f'xnt_{run_number:06d}'
     rucio_datasets = rucio.list_datasets(scope)
+    if _dtype is not None:
+        rucio_datasets = [ds for ds in rucio_datasets if ds.split('-')[0] == _dtype]
 
     # find datasets that are in rucio but not in DB
     missing_db = set(rucio_datasets) - set(db_datasets)
@@ -32,6 +41,7 @@ def synchronize(run_number):
         did = f"{scope}:{dset}"
 
         dtype, strax_hash = dset.split('-')
+
 
         # get the locations of this dataset
         rules = rucio.list_rules(did)

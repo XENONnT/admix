@@ -1,7 +1,7 @@
 
 from ..utils import RAW_DTYPES
 from ..uploader import upload
-from .admix_daemon import AdmixDaemon
+from .daemon import AdmixDaemon
 
 
 class UploadDaemon(AdmixDaemon):

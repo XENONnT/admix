@@ -11,6 +11,9 @@ class AdmixDaemon:
     query = {}
     projection = {'number': 1}
 
+    # description for tqdm
+    desc = "admix loop"
+
     def __init__(self, db_query=None):
 
         if db_query is not None:
@@ -19,21 +22,21 @@ class AdmixDaemon:
 
         self.collection = xent_collection()
 
-    def data_find(self, limit=None):
+    def data_find(self, limit=0):
         """Uses the db_query to find data that we must do something with"""
-        cursor = self.collection.find(self.query, {'number': 1, 'data': 1}, limit=limit)
+        cursor = self.collection.find(self.query, self.projection, limit=limit)
         return cursor
 
     def do_task(self, rundoc):
         """Define in the children classes"""
         raise NotImplementedError
 
-    def single_loop(self, max_iterations=None, progress_bar=True):
+    def single_loop(self, max_iterations=0, progress_bar=True):
         cursor = list(self.data_find(limit=max_iterations))
         logger.info(f"Running {self.__class__.__name__} on {len(cursor)} entries")
         iterable = cursor
         if progress_bar:
-            iterable = tqdm(iterable)
+            iterable = tqdm(iterable, desc=self.desc)
         for doc in iterable:
             self.do_task(doc)
 

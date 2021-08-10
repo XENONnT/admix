@@ -1,166 +1,46 @@
 import argparse
-import logging
-import numpy as np
-import os
-import time
-import psutil
-
-from admix.helper.logger import Logger
-import admix.helper.helper as helper
-from admix import DEFAULT_CONFIG, __version__
+from admix.daemons.sync import SyncDaemon
+from datetime import datetime, timedelta
+from admix import __version__
 
 
-def version():
+def version(args):
     print(__version__)
 
-def end_admix():
-    process = psutil.Process()
-    screen = process.parent().parent().parent().parent().cmdline()[-1]
-    os.remove("/tmp/admix-"+screen)
+
+def sync(args):
+    query = SyncDaemon.query
+    if args.run:
+        query['number'] = args.run
+    if args.days_ago:
+        query['start'] = {'$gt': datetime.utcnow() - timedelta(args.days_ago)}
+
+    syncer = SyncDaemon(db_query=query, dtype=args.dtype)
+    syncer.single_loop(max_iterations=args.limit, progress_bar=args.progress)
 
 
-def your_admix():
-    print("advanced Data Management in XENON")
+def main():
+    parser = argparse.ArgumentParser(description="Main admix command. Use this to call various subcommands.")
 
-    parser = argparse.ArgumentParser(description="Run your favourite aDMIX")
+    subparsers = parser.add_subparsers(help='sub-command help')
 
-    config = Config()
+    # version subcommand
+    version_parser = subparsers.add_parser('version', help='Print version and exit')
+    version_parser.set_defaults(func=version)
 
-    # From here the input depends on the usage of the command
-    # Add modules here:
-    parser.add_argument('task', nargs="?", default="default",
-                        help="Select an aDMIX task")
-    # Add arguments for the process manager:
-    parser.add_argument('--admix-config', dest="admix_config", type=str, default=config.get('Admix','config_file'),
-                        help="Load your host configuration")
-    parser.add_argument('--no-update', dest='no_update', action='store_false',
-                        help="Add this option to prevent aDMIX updating the Xenon database")
-    parser.add_argument('--once', dest='once', action='store_true',
-                        help="Run aDMIX only once")
-    parser.add_argument('--high', dest='high', action='store_true',
-                        help="Treat only high level data types")
-    parser.add_argument('--low', dest='low', action='store_true',
-                        help="Treat only low level data types")
-    # Add arguments for the individual tasks:
-    parser.add_argument('--select-run-numbers', dest='select_run_numbers', type=str,
-                        help="Select a range of runs (xxxx1 or xxxx1-xxxx2 or xxxx1-xxxx2,xxxx4-xxxx6)")
-    parser.add_argument('--select-run-times', dest='select_run_times', type=str,
-                        help="Select a range of runs by timestamps <Date>_<Time>-<Date>_<Time>")
-    parser.add_argument('--source', nargs='*', dest='source', type=str,
-                        help="Select data according to a certain source(s)")
-    parser.add_argument('--type', nargs='*', dest='type', type=str,
-                        help="Select data according to a certain type")
-    parser.add_argument('--hash', nargs='*', dest='hash', type=str,
-                        help="Select data according to a certain hash")
-    parser.add_argument('--tag', nargs='*', dest='tag', type=str,
-                        help="Select data according to a certain tag(s)")
-    parser.add_argument('--destination', dest='destination', type=str,
-                        help="Add a destination from ")
-    parser.add_argument('--rse', dest='rse', type=str,
-                        help="Select your RSE from where to download data")
-    parser.add_argument('--lifetime', dest='lifetime', type=str,
-                        help="Select your RSE from where to download data")
-    parser.add_argument('--force', default=False, action="store_true",
-                        help="Enforce your action. Be aware of the application!")
-    parser.add_argument('--sleep-time', dest='sleep_time', type=int,
-                        help="Time to wait before running again the task")
+    # sync subcommand
+    sync_parser = subparsers.add_parser('sync', help='admix sync: to sync rucio with the runsDB')
+    sync_parser.add_argument('--run', type=int, help='Run number')
+    sync_parser.add_argument('--days_ago', type=int, help='Sync runs taken in the last DAYS_AGO days')
+    sync_parser.add_argument('--dtype', help='Only sync the DTYPE strax datatype')
+    sync_parser.add_argument('--limit', help='Only sync a max of LIMIT runs', default=0)
+    sync_parser.add_argument('--progress', action='store_true', help='Display progress')
+    sync_parser.set_defaults(func=sync)
+
+    # now do the thing
     args = parser.parse_args()
-
-    #We make the individual arguments global available right after aDMIX starts:
-    if args.select_run_numbers != None and args.select_run_times == None:
-        helper.make_global("run_numbers", args.select_run_numbers)
-    if args.select_run_times != None and args.select_run_numbers == None:
-        helper.make_global("run_timestamps", args.select_run_times)
-
-    helper.make_global("admix_config", os.path.abspath(args.admix_config))
-    helper.make_global("no_db_update", args.no_update)
-    helper.make_global("source", args.source)
-    helper.make_global("tag", args.tag)
-    helper.make_global("type", args.type)
-    helper.make_global("hash", args.hash)
-    helper.make_global("force", args.force)
-    helper.make_global("high", args.high)
-    helper.make_global("low", args.low)
-
-    if args.sleep_time != None:
-        helper.make_global("sleep_time", args.sleep_time)
-    else:
-        helper.make_global("sleep_time",helper.get_hostconfig()['sleep_time'])
-
-    #Pre tests:
-    # admix host configuration must match the hostname:
-    if helper.get_hostconfig()['hostname'] != helper.get_hostname():
-        print("admix configuration file for %s" % helper.get_hostconfig()['hostname'])
-        print(helper.get_hostname())
-        print("You are at {0}".format( helper.get_hostname()))
-        exit()
-
-#    helper.functdef()
-
-    #Setup the logger in a very basic modi
-    lg = Logger(logpath=helper.get_hostconfig()['log_path'],
-                loglevel=logging.DEBUG)
-    lg.Info("-----------------------------------------")
-    lg.Info("aDMIX - advanced Data Management in XENON")
-    helper.make_global("logger", lg)
-
-    #Determine which tasks are addressed:
-    # - if it comes from args.task use it, nevertheless what is defined in hostconfig("task")
-    # - if args.task == default use hostconfig("task") information
-    task_list = []
-    if args.task == "default":
-        task_list.extend(helper.get_hostconfig("task"))
-    else:
-        task_list = [args.task]
-
-    #test if the list of tasks is available from the decorator
-    task_test = [True if i_task in NameCollector else False for i_task in task_list]
-    task_list = np.array(task_list)[task_test]
-
-    if len(task_list) == 0:
-        print("Select a task from this list:")
-        for i_task in NameCollector:
-            print("  <> {0}".format(i_task))
-        print("or adjust the 'task' field in your configuration")
-        print("file: {0}".format(helper.global_dictionary["admix_config"]))
-        exit()
-
-    #Create a tmp file named as the screen session that contains this process
-    process = psutil.Process()
-    screen = process.parent().parent().parent().parent().cmdline()[-1]
-    open("/tmp/admix-"+screen, 'a').close()
-
-    #Loop over the inizialization of all classes
-    for i_task in task_list:
-        ClassCollector[i_task].init()
-
-    #Go for the loop
-    while True:
-
-        for i_task in task_list:
-            ClassCollector[i_task].run()
+    args.func(args)
 
 
-        if args.once == True:
-            end_admix()
-            break
-
-        if os.path.exists("/tmp/admix-stop"):
-            print("Exiting because of the presence of /tmp/admix-stop file")
-            end_admix()
-            break
-
-        wait_time = helper.global_dictionary['sleep_time']
-        if "CheckTransfers" in task_list or "CleanEB" in task_list:
-            wait_time = 600
-
-        print('Waiting for {0} seconds'.format(wait_time))
-        print("You can safely CTRL-C now if you need to stop me")
-        try:
-            time.sleep(wait_time)
-
-        except KeyboardInterrupt:
-            end_admix()
-            break
-
-
+if __name__ == "__main__":
+    main()

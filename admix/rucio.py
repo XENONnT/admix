@@ -9,7 +9,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.accountclient import AccountClient
 from rucio.client.rseclient import RSEClient
 from . import logger
-from .utils import parse_did, db
+from .utils import parse_did, db, RAW_DTYPES
 
 
 rucio_client = Client()
@@ -129,7 +129,8 @@ def add_rule(did, rse, copies=1, update_db=False, quiet=False, **kwargs):
 @requires_production
 @update_db('delete')
 def delete_rule(did, rse, purge_replicas=True, _careful=True, _required_copies=1, update_db=False):
-    if 'raw_records' in did and _required_copies < 1:
+    number, dtype, hsh = parse_did(did)
+    if dtype in RAW_DTYPES and _required_copies < 1:
         raise DataPolicyError("You cant remove raw_records data. Shame on you. ")
     rule = get_rule(did, rse)
     if not rule:
