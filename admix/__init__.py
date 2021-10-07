@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """Top-level package for aDMIX."""
-__version__ = '0.3.1'
+__version__ = '1.0.0'
 
 import os
 import logging
@@ -28,4 +28,3 @@ from .downloader import download
 from .uploader import upload
 from . import manager
 from . import monitor
-

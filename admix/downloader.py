@@ -3,8 +3,9 @@ from argparse import ArgumentParser
 from rucio.client.downloadclient import DownloadClient
 import socket
 
+import admix.rucio
 from .utils import  xe1t_runs_collection
-from .rucio import list_rules, get_did_type
+from .rucio import list_rules, get_did_type, get_rses
 from . import logger
 try:
     from straxen import __version__
@@ -22,8 +23,6 @@ class NoRSEForCountry(Exception):
 class RucioDownloadError(Exception):
     pass
 
-
-DSET_CACHE = {}
 
 def determine_rse(rse_list):
     # TODO put this in config or something?
@@ -87,14 +86,8 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
 
     if did_type == 'FILE':
         # make sure we didn't pass certain args
-        assert chunks is None, f"You passed the chunks argument, but the DID {did} is FILE"
+        assert chunks is None, f"You passed the chunks argument, but the DID {did} is a FILE"
 
-    if not rse:
-        # determine which rses this did is on
-        rules = list_rules(did, state='OK')
-        rses = [r['rse_expression'] for r in rules]
-        # find closest rse
-        rse = determine_rse(rses)
 
     if chunks:
         dids = []
@@ -105,7 +98,8 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
         if metadata:
             dids.append(did + '-metadata.json')
     else:
-        dids = [did]
+        scope = did.split(':')[0]
+        dids = [f"{scope}:{f}" for f in admix.rucio.list_files(did)]
 
     path = did.replace(':', '-')
     # drop the xnt at the beginning
@@ -117,15 +111,24 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
     os.makedirs(location, exist_ok=True)
 
     already_exist = []
+    already_exist_files = []
     for _did in dids:
-        if os.path.exists(os.path.join(location, _did.split(':')[1])):
+        file = os.path.join(location, _did.split(':')[1])
+        if os.path.exists(file):
             already_exist.append(_did)
+            already_exist_files.append(os.path.abspath(file))
 
     dids = list(set(dids) - set(already_exist))
 
     if len(dids) == 0:
         logger.info(f"All files already present at {location}")
-        return
+        return already_exist_files
+
+    if not rse:
+        # determine which rses this did is on
+        rses = get_rses(did, state='OK')
+        # find closest rse
+        rse = determine_rse(rses)
 
     if chunks:
         logger.info(f"Downloading {len(dids)} file{'s'*(len(dids)>1)} of {did} from {rse}")
@@ -150,6 +153,10 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
     else:
         raise RucioDownloadError(f"Download of {did} failed")
 
+    downloaded_paths = [r['dest_file_paths'][0] for r in result]
+    # return list of all files
+    paths = sorted(downloaded_paths + already_exist_files)
+    return paths
 
 def get_did_1t(number, dtype):
     query = {'number': number}

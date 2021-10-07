@@ -1,7 +1,6 @@
 """
 Contains rucio commands with XENON-specific wrappers
 """
-from datetime import datetime
 from functools import wraps
 import re
 from tqdm import tqdm

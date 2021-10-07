@@ -1,2 +1,4 @@
-utilix
 pymongo
+rucio-clients
+tqdm
+utilix

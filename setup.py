@@ -25,7 +25,7 @@ test_requirements = [
 
 setup(
     name='xe-admix',
-    version='0.3.1',
+    version='1.0.0',
     description="advanced Data Management In Xenon (aDMIX)",
     long_description=readme + '\n\n' + history,
     url='https://github.com/XENON1T/admix',
