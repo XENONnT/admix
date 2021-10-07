@@ -1,13 +1,18 @@
 """
 Common data management functions
 """
+import os
+import shutil
+import tempfile
 
 from packaging import version
 from tqdm import tqdm
+import rucio.common.exception
 
+import admix.rucio
 from . import rucio, logger
-from .utils import db, xent_runs_collection, xent_context_collection, RAWish_DTYPES, make_highlevel_container_did
-
+from . import utils
+from .utils import db
 
 
 def has_metadata(did):
@@ -26,7 +31,10 @@ def synchronize(run_number, dtype=None):
     else:
         db_data = db.get_data(run_number, host='rucio-catalogue')
 
-    db_datasets = list(set([d['did'].split(':')[1] for d in db_data]))
+    try:
+        db_datasets = list(set([d['did'].split(':')[1] for d in db_data]))
+    except KeyError:
+        db_datasets = []
 
     scope = f'xnt_{run_number:06d}'
     rucio_datasets = rucio.list_datasets(scope)
@@ -41,7 +49,6 @@ def synchronize(run_number, dtype=None):
         did = f"{scope}:{dset}"
 
         dtype, strax_hash = dset.split('-')
-
 
         # get the locations of this dataset
         rules = rucio.list_rules(did)
@@ -180,23 +187,33 @@ def add_rucio_protocol(run_number):
             db.update_data(run_number, updatum)
 
 
-def get_outdated_strax_info(not_outdated_version, context='xenonnt_online'):
+def get_outdated_strax_info(not_outdated_version, context='xenonnt_online',
+                            return_current_hashes=False
+                            ):
     # get versions of all straxen versions before some given 'good' version
     thresh_version = version.parse(not_outdated_version)
 
-    cursor = list(xent_context_collection.find({}, {'straxen_version': 1}))
+    cursor = list(utils.xent_context_collection.find({'name': context}, {'straxen_version': 1}))
     versions = set([version.parse(d['straxen_version']) for d in cursor])
     outdated_versions = set(sorted([v for v in versions if v < thresh_version], reverse=True))
     save_versions = versions - outdated_versions
-    save_hashes = dict()
-    for v in save_versions:
+    # if no save_versions, then save the raw data of the latest version
+    if not len(save_versions) and 'simulation' not in context:
+        v = sorted(list(versions))[-1]
         hashes = db.get_context(context, v.public)['hashes']
-        for dtype, h in hashes.items():
-            if dtype in save_hashes:
-                if h not in save_hashes[dtype]:
-                    save_hashes[dtype].append(h)
-            else:
-                save_hashes[dtype] = [h]
+        save_hashes = {dtype: h for dtype, h in hashes.items() if dtype in utils.RAW_DTYPES}
+
+    # if there are versions we should save, get the hashes of all datatypes
+    else:
+        save_hashes = dict()
+        for v in save_versions:
+            hashes = db.get_context(context, v.public)['hashes']
+            for dtype, h in hashes.items():
+                if dtype in save_hashes:
+                    if h not in save_hashes[dtype]:
+                        save_hashes[dtype].append(h)
+                else:
+                    save_hashes[dtype] = [h]
 
     delete_hashes = dict()
     for v in outdated_versions:
@@ -215,7 +232,11 @@ def get_outdated_strax_info(not_outdated_version, context='xenonnt_online'):
     for dtype, h in delete_hashes.items():
         if dtype in save_hashes:
             assert h not in save_hashes[dtype]
-    assert 'raw_records' not in delete_hashes
+    if 'simulation' not in context:
+        for raw_dtype in utils.RAW_DTYPES:
+            assert raw_dtype not in delete_hashes, f"{raw_dtype} cannot be deleted!!"
+    if return_current_hashes:
+        return delete_hashes, save_hashes
     return delete_hashes
 
 
@@ -245,7 +266,7 @@ def find_outdated_data(max_straxen_version, specific_dtype=None, context='xenonn
                                                   'did': {'$regex': h}}}}
                          for h in hsh_list]
                  }
-        cursor = list(xent_runs_collection.find(query, {'number': 1, 'data': 1}))
+        cursor = list(utils.xent_runs_collection.find(query, {'number': 1, 'data': 1}))
         if len(cursor) > 0:
             if dtype not in outdated_dids:
                 outdated_dids[dtype] = list()
@@ -273,7 +294,7 @@ def containerize(run_number, straxen_version, context='xenonnt_online',
     # this list will be used to create the new container
     high_level_dids = []
     for d in data:
-        if d['type'] not in RAWish_DTYPES:
+        if d['type'] not in utils.RAWish_DTYPES:
             if hashes.get(d['type']) in d.get('did', ''):
                 if d['did'] not in high_level_dids:
                     high_level_dids.append(d['did'])
@@ -283,7 +304,7 @@ def containerize(run_number, straxen_version, context='xenonnt_online',
         print(f"No high-level DIDs found for run {run_number}, straxen {straxen_version}, context {context}")
         return
 
-    container_did = make_highlevel_container_did(run_number, straxen_version)
+    container_did = utils.make_highlevel_container_did(run_number, straxen_version)
 
     # if container does not exist, make it
     scope, container_name = container_did.split(':')
@@ -305,4 +326,67 @@ def containerize(run_number, straxen_version, context='xenonnt_online',
         rucio.attach(container_did, to_attach, rse=rse)
     else:
         print(f"Nothing to attach for run {run_number}, straxen {straxen_version}, context {context}")
+
+
+def clean_local_dir(path, before_straxen_version, ensure_rucio=False, dry_run=True):
+
+    """Checks a local directory for any outdated straxen version and deletes it.
+
+    :param: path: Local data path to check for outdated data.
+    :param: before_straxen_version: Delete any data OLDER than this version. This version will not be deleted.
+    :param: ensure_rucio: check if data is uploaded to rucio before deleting.
+    :param: dry_run: When True, do not delete anything -- just compile a list of the datasets that can be deleted and write to stdout.
+    """
+
+    # get context names from the runDB
+    cursor = utils.xent_context_collection.find({}, {'name': 1})
+    contexts = set([c['name'] for c in cursor if c.get('name')])
+
+    save_hashes = {}
+    for context in contexts:
+        _delete_hashes, _save_hashes = get_outdated_strax_info(before_straxen_version,
+                                                               context=context,
+                                                               return_current_hashes=True)
+        for dtype, hash_list in _save_hashes.items():
+            if dtype in save_hashes:
+                save_hashes[dtype] = save_hashes[dtype] | set(hash_list)
+
+            else:
+                save_hashes[dtype] = set(hash_list)
+
+
+    # only used for when dry_run = True
+    to_delete = []
+    desc = f"Finding outdated data in {path}" if dry_run else f"Deleting outdated data in {path}"
+    for dataset in tqdm(os.listdir(path), desc=desc):
+        number, dtype, lineage_hash = utils.parse_dirname(dataset)
+        if not save_hashes.get(dtype) or lineage_hash in save_hashes[dtype]:
+            # if dtype not in save_hashes, assume it is from another context (so dont delete)
+            # if is in save_hashes but the specific hash is in a version to save, dont delete
+            continue
+        # if we get here, then this dtype-hash pair can be deleted in principle
+        if ensure_rucio:
+            # check that the data is in rucio first
+            # do direct rucio query lest we rely on runDB-rucio synchronization
+            did = utils.make_did(number, dtype, lineage_hash)
+            try:
+                rules = admix.rucio.get_rses(did, state="OK")
+                if not len(rules):
+                    continue
+            except rucio.common.exception.DataIdentifierNotFound:
+                continue
+
+        if dry_run:
+            # dont delete now, just add to a running list we will output later
+            to_delete.append(dataset)
+        else:
+            shutil.rmtree(os.path.join(path, dataset))
+
+    if dry_run:
+        _, tmpfile = tempfile.mkstemp(suffix='.txt', dir="./")
+        with open(tmpfile, 'w') as f:
+            for dataset in to_delete:
+                f.write(f"{os.path.join(path, dataset)}\n")
+        print(f"Files that we can delete written to {tmpfile}")
+
 
