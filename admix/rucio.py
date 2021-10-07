@@ -93,6 +93,14 @@ def update_db(mode):
     return decorator
 
 
+def get_did(did):
+    scope, name = did.split(':')
+    try:
+        return rucio_client.get_did(scope, name)
+    except rucio.common.exception.DataIdentifierNotFound:
+        pass
+
+
 def get_did_type(did):
     scope, name = did.split(':')
     return rucio_client.get_did(scope, name)['type']

@@ -107,7 +107,6 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
     else:
         dids = [did]
 
-
     path = did.replace(':', '-')
     # drop the xnt at the beginning
     path = path.replace('xnt_', '')
