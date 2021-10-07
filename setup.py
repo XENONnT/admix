@@ -18,7 +18,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='xe-admix',
-    version='1.0.0',
+    version='1.0.1',
     description="advanced Data Management In Xenon (aDMIX)",
     long_description=readme + '\n\n' + history,
     url='https://github.com/XENON1T/admix',
