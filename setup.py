@@ -15,13 +15,6 @@ with open('HISTORY.rst') as history_file:
 with open('requirements.txt') as f:
     requirements = [r.split('/')[-1] if r.startswith('git+') else r for r in f.read().splitlines()]
 
-setup_requirements = [
-    # TODO(XeBoris): put setup requirements (distutils extensions, etc.) here
-]
-
-test_requirements = [
-    # TODO: put package test requirements here
-]
 
 setup(
     name='xe-admix',
@@ -29,22 +22,8 @@ setup(
     description="advanced Data Management In Xenon (aDMIX)",
     long_description=readme + '\n\n' + history,
     url='https://github.com/XENON1T/admix',
-    packages=find_packages(include=['admix',
-                                    'admix.interfaces',
-                                    'admix.tasks',
-                                    'admix.helper',
-                                    'admix.utils'
-                                    ]),
-    package_data={'admix.helper': ['defunc_'],
-                  'admix': ['config/*.*', 'config/rucio_cli/*.*']},
-    include_package_data=True,
     install_requires=requirements,
-    entry_points={
-        'console_scripts': [
-            'admix=admix.admix:main',
-            'admix-download=admix.download:main',
-        ]
-    },
+    scripts=['bin/admix-download'],
     license="BSD license",
     zip_safe=False,
     keywords='admix',
@@ -56,6 +35,4 @@ setup(
         'Programming Language :: Python :: 3.6'
     ],
     test_suite='tests',
-    tests_require=test_requirements,
-    setup_requires=setup_requirements,
 )

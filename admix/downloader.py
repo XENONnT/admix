@@ -214,38 +214,3 @@ def download_1t(number, dtype, location='.',  tries=3, num_threads=5, **kwargs):
         print(f"Download successful to {location}")
     else:
         raise RucioDownloadError("Download of {did} failed")
-
-
-def main():
-    parser = ArgumentParser("admix-download")
-
-    parser.add_argument("number", type=int, help="Run number to download")
-    parser.add_argument("dtype", help="Data type to download")
-    parser.add_argument("--chunks", nargs="*", help="Space-separated list of chunks to download.")
-    parser.add_argument("--dir", help="Path to put the downloaded data.", default='.')
-    parser.add_argument('--tries', type=int, help="Number of tries to download the data.", default=3)
-    parser.add_argument('--rse', help='RSE to download from')
-    parser.add_argument('--threads', help='Number of threads to use', default=3, type=int)
-    parser.add_argument('--context', help='strax context you need -- this determines the hash',
-                         default='xenonnt_online')
-    parser.add_argument('--straxen_version', help='straxen version', default=None)
-    parser.add_argument('--experiment', help="xent or xe1t", choices=['xe1t', 'xent'], default='xent')
-
-    args = parser.parse_args()
-
-    if args.experiment == 'xent':
-        # use system straxen version if none passed
-        version = args.straxen_version if args.straxen_version else straxen_version
-        utilix_db = utilix.DB()
-        hash = utilix_db.get_hash(args.context, args.dtype, version)
-        if args.chunks:
-            chunks = [int(c) for c in args.chunks]
-        else:
-            chunks=None
-
-        download(args.number, args.dtype, hash, chunks=chunks, location=args.dir, tries=args.tries,
-                 rse=args.rse, num_threads=args.threads)
-
-    elif args.experiment == 'xe1t':
-        download_1t(args.number, args.dtype, location=args.dir, tries=args.tries, rse=args.rse,
-                    num_threads=args.threads)
