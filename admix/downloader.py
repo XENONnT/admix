@@ -1,8 +1,10 @@
 import os
 from argparse import ArgumentParser
 from rucio.client.downloadclient import DownloadClient
-from .utils import make_did, db, xent_runs_collection, xe1t_runs_collection
-from .rucio import list_rules
+import socket
+
+from .utils import  xe1t_runs_collection
+from .rucio import list_rules, get_did_type
 from . import logger
 try:
     from straxen import __version__
@@ -14,7 +16,6 @@ import utilix
 
 download_client = DownloadClient(logger=logger)
 
-
 class NoRSEForCountry(Exception):
     pass
 
@@ -22,78 +23,48 @@ class RucioDownloadError(Exception):
     pass
 
 
-def determine_rse(rse_list, glidein_country):
+DSET_CACHE = {}
+
+def determine_rse(rse_list):
     # TODO put this in config or something?
-    EURO_SITES = ["CCIN2P3_USERDISK",
-                  "NIKHEF_USERDISK",
-                  "NIKHEF2_USERDISK",
-                  "WEIZMANN_USERDISK",
-                  "CNAF_USERDISK",
-                  "SURFSARA_USERDISK"]
 
-    US_SITES = ["UC_OSG_USERDISK", "UC_DALI_USERDISK"]
+    preferred_host_rses = {'rcc': ['UC_DALI_USERDISK', 'UC_OSG_USERDISK', 'SDSC_USERDISK'],
+                           'sdsc': ['SDSC_USERDISK', 'UC_OSG_USERDISK', 'UC_DALI_USERDISK'],
+                           'in2p3': ['CCIN2P3_USERDISK', 'NIKHEF2_USERDISK', 'CNAF_USERDISK'],
+                           'nikhef': ['NIKHEF2_USERDISK', 'SURFSARA_USERDISK', 'CNAF_USERDISK'],
+                           'surf': ['SURFSARA_USERDISK', 'NIKHEF2_USERDISK', 'CNAF_USERDISK'],
+                          }
 
-    if glidein_country == "US":
-        for site in US_SITES:
-            if site in rse_list:
-                return site
-        for site in EURO_SITES:
-            if site in rse_list:
-                return site
+    preferred_glidein_rses = {'US,CA':  ['UC_OSG_USERDISK', 'SDSC_USERDISK', 'UC_DALI_USERDISK'],
+                              'EUROPE,NL,IT,FR,IL': ['NIKHEF2_USERDISK', 'CNAF_USERDISK', 'SURFSARA_USERDISK']
+                              }
 
-    elif glidein_country == "CA":
-        # Canada
-        for site in US_SITES:
-            if site in rse_list:
-                return site
-        for site in EURO_SITES:
-            if site in rse_list:
-                return site
+    hostname = socket.getfqdn()
 
-    elif glidein_country == "EUROPE":
-        for site in EURO_SITES:
-            if site in rse_list:
-                return site
-        for site in US_SITES:
-            if site in rse_list:
-                return site
+    # check if we are running on a specific host that's very close to our rses
+    for host, pref_rses in preferred_host_rses.items():
+        if host in hostname:
+            for rse in pref_rses:
+                if rse in rse_list:
+                    return rse
 
-    elif glidein_country == "FR":
-        for site in EURO_SITES:
-            if site in rse_list:
-                return site
-        for site in US_SITES:
-            if site in rse_list:
-                return site
+    # in case we are on an OSG job, check the GLIDEIN_Country
+    glidein_country = os.environ.get('GLIDEIN_Country')
+    if glidein_country:
+        for country_list, pref_rses in preferred_glidein_rses.items():
+            country_list = country_list.split(',')
+            if glidein_country in country_list:
+                for rse in pref_rses:
+                    if rse in rse_list:
+                        return rse
 
-    elif glidein_country == "NL":
-        for site in reversed(EURO_SITES):
-            if site in rse_list:
-                return site
-        for site in US_SITES:
-            if site in rse_list:
-                return site
+    # as last ditch effort, default to UC_OSG or SDSC
+    for pref_rse in ['UC_OSG_USERDISK', 'SDSC_USERDISK']:
+        if pref_rse in rse_list:
+            return pref_rse
 
-    elif glidein_country == "IL":
-        for site in EURO_SITES:
-            if site in rse_list:
-                return site
-        for site in US_SITES:
-            if site in rse_list:
-                return site
-
-    elif glidein_country == "IT":
-        for site in EURO_SITES:
-            if site in rse_list:
-                return site
-        for site in US_SITES:
-            if site in rse_list:
-                return site
-
-    if US_SITES[0] in rse_list:
-        return US_SITES[0]
-
-    return None
+    # if get here, return None and let rucio figure it out
+    return
 
 
 def download_dids(dids, num_threads=8, **kwargs):
@@ -108,30 +79,22 @@ def download_dids(dids, num_threads=8, **kwargs):
 
 
 def download(did, chunks=None, location='.',  tries=3, metadata=True,
-             num_threads=8, my_country=None, **kwargs):
+             num_threads=5, rse=None):
     """Function download()
 
-    Downloads a given run number using rucio
-    :param number: A run number (integer)
-    :param dtype: The datatype to download.
-    :param chunks: List of integers representing the desired chunks. If None, the whole run will be downloaded.
-    :param location: String for the path where you want to put the data. Defaults to current directory.
-    :param tries: Integer specifying number of times to try downloading the data. Defaults to 2.
-    :param version: Context version as listed in the data_hashes collection
-    :param kwargs: Keyword args passed to DownloadDids
     """
+    did_type = get_did_type(did)
 
-    # if we didn't pass an rse, determine the best one
-    rse = kwargs.pop('rse', None)
+    if did_type == 'FILE':
+        # make sure we didn't pass certain args
+        assert chunks is None, f"You passed the chunks argument, but the DID {did} is FILE"
 
     if not rse:
         # determine which rses this did is on
         rules = list_rules(did, state='OK')
         rses = [r['rse_expression'] for r in rules]
         # find closest rse
-        if not my_country:
-            my_country = os.environ.get('GLIDEIN_Country', "US")
-        rse = determine_rse(rses, my_country)
+        rse = determine_rse(rses)
 
     if chunks:
         dids = []
@@ -141,43 +104,52 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
         # also download metadata
         if metadata:
             dids.append(did + '-metadata.json')
-
     else:
         dids = [did]
 
-    # rename the folder that will be downloaded
+
     path = did.replace(':', '-')
     # drop the xnt at the beginning
     path = path.replace('xnt_', '')
-
+    if did_type == 'FILE':
+        path = '-'.join(path.split('-')[:-1])
     location = os.path.join(location, path)
+
     os.makedirs(location, exist_ok=True)
 
-    # TODO check if files already exist?
+    already_exist = []
+    for _did in dids:
+        if os.path.exists(os.path.join(location, _did.split(':')[1])):
+            already_exist.append(_did)
 
-    print(f"Downloading {did} from {rse}")
+    dids = list(set(dids) - set(already_exist))
+
+    if len(dids) == 0:
+        logger.info(f"All files already present at {location}")
+        return
+
+    if chunks:
+        logger.info(f"Downloading {len(dids)} file{'s'*(len(dids)>1)} of {did} from {rse}")
+    else:
+        logger.info(f"Downloading {did} from {rse}")
 
     _try = 1
     success = False
-
     while _try <= tries and not success:
         if _try == tries:
             rse = None
         try:
-            result = download_dids(dids, base_dir=location, no_subdir=True, rse=rse,
-                                   num_threads=num_threads
-                                   )
-            print(result)
+            result = download_dids(dids, base_dir=location, no_subdir=True, rse=rse, num_threads=num_threads)
             success = True
         except:
-            print(f"Download try #{_try} failed. Sleeping for {5**_try} seconds.")
-            time.sleep(5 ** _try)
+            logger.debug(f"Download try #{_try} failed. Sleeping for {3*_try} seconds.")
+            time.sleep(3 ** _try)
             _try += 1
 
     if success:
-        print(f"Download successful to {location}")
+        logger.debug(f"Download successful to {location}")
     else:
-        raise RucioDownloadError("Download of {did} failed")
+        raise RucioDownloadError(f"Download of {did} failed")
 
 
 def get_did_1t(number, dtype):
@@ -196,22 +168,17 @@ def get_did_1t(number, dtype):
     raise ValueError(f"No rucio DID found for run {number} with dtype {dtype}")
 
 
-def download_1t(number, dtype, location='.',  tries=3, num_threads=8, **kwargs):
+def download_1t(number, dtype, location='.',  tries=3, num_threads=5, **kwargs):
     did = get_did_1t(number, dtype)
 
     # if we didn't pass an rse, determine the best one
     rse = kwargs.pop('rse', None)
 
     if not rse:
-        # determine which rses this did is on
-        rules = rc.ListDidRules(did)
-        rses = []
-        for r in rules:
-            if r['state'] == 'OK':
-                rses.append(r['rse_expression'])
-        # find closest one, otherwise start at the US end at TAPE
-        glidein_region = os.environ.get('GLIDEIN_Country', 'US')
-        rse = determine_rse(rses, glidein_region)
+        rules = list_rules(did, state='OK')
+        rses = [r['rse_expression'] for r in rules]
+        # find closest rse
+        rse = determine_rse(rses)
 
     if dtype == 'raw':
         # get run name
@@ -228,8 +195,7 @@ def download_1t(number, dtype, location='.',  tries=3, num_threads=8, **kwargs):
     while _try <= tries and not success:
         if _try == tries:
             rse = None
-        result = rc.DownloadDids([did], download_path=location, no_subdir=True, rse=rse,
-                                 num_threads=num_threads, **kwargs)
+        result = download_dids(did, base_dir=location, no_subdir=True, rse=rse, num_threads=num_threads)
         if isinstance(result, int):
             print(f"Download try #{_try} failed.")
             time.sleep(5**_try)

@@ -3,11 +3,17 @@ Contains rucio commands with XENON-specific wrappers
 """
 from datetime import datetime
 from functools import wraps
+import re
 from tqdm import tqdm
+
+import rucio.common.exception
 from rucio.client.client import Client
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.accountclient import AccountClient
 from rucio.client.rseclient import RSEClient
+
+
+import admix.utils
 from . import logger
 from .utils import parse_did, db, RAW_DTYPES
 
@@ -87,9 +93,19 @@ def update_db(mode):
     return decorator
 
 
+def get_did_type(did):
+    scope, name = did.split(':')
+    return rucio_client.get_did(scope, name)['type']
+
+
 def list_rules(did, **filters):
     scope, name = did.split(':')
-    rules = rucio_client.list_did_rules(scope, name)
+    # check if did is a file or a dataset
+    if get_did_type(did) == 'FILE':
+        rules = rucio_client.list_associated_rules_for_file(scope, name)
+
+    else:
+        rules = rucio_client.list_did_rules(scope, name)
     # get rules that pass some filter(s)
     ret = []
     for rule in rules:
@@ -121,14 +137,20 @@ def get_rule(did, rse):
 def add_rule(did, rse, copies=1, update_db=False, quiet=False, **kwargs):
     scope, name = did.split(':')
     did_dict = dict(scope=scope, name=name)
-    rucio_client.add_replication_rule([did_dict], copies, rse_expression=rse, **kwargs)
+    try:
+        rucio_client.add_replication_rule([did_dict], copies, rse_expression=rse, **kwargs)
+    except rucio.common.exception.DuplicateRule:
+        if not quiet:
+            print(f"Rule already exists for {did} at {rse}")
+        return
     if not quiet:
         print(f"Replication rule added for {did} at {rse}")
 
 
 @requires_production
 @update_db('delete')
-def delete_rule(did, rse, purge_replicas=True, _careful=True, _required_copies=1, update_db=False):
+def delete_rule(did, rse, purge_replicas=True, _careful=True, _required_copies=1, update_db=False,
+                quiet=False):
     number, dtype, hsh = parse_did(did)
     if dtype in RAW_DTYPES and _required_copies < 1:
         raise DataPolicyError("You cant remove raw_records data. Shame on you. ")
@@ -146,7 +168,29 @@ def delete_rule(did, rse, purge_replicas=True, _careful=True, _required_copies=1
                                   f"and deleting one for {did} would result in {len(other_rules)}."
                                   )
     rucio_client.delete_replication_rule(rule['id'], purge_replicas=purge_replicas)
-    print(f"Replication rule for {did} at {rse} removed.")
+    if not quiet:
+        print(f"Replication rule for {did} at {rse} removed.")
+
+
+@requires_production
+def erase(did, now=False, update_db=False):
+    scope, name = did.split(':')
+    number, dtype, hsh = parse_did(did)
+    if dtype in admix.utils.RAW_DTYPES:
+        print(f"You cannot erase {dtype} data. Shame on you")
+        return
+    # delete DID in 10 seconds if pass now=True, else copy what rucio does and set it to 24 hours.
+    # see https://github.com/rucio/rucio/blob/master/bin/rucio#L883
+    value = 10 if now else 86400
+    if update_db:
+        number, dtype, h = parse_did(did)
+        data = db.get_data(number, did=did)
+        for d in data:
+            db.delete_data(number, d)
+    try:
+        rucio_client.set_metadata(scope, name, key='lifetime', value=value)
+    except rucio.common.exception.DataIdentifierNotFound:
+        print(f"{did} does not exist")
 
 
 @requires_production
@@ -184,6 +228,13 @@ def list_datasets(scope):
 def list_containers(scope):
     containers = [d for d in rucio_client.list_dids(scope, {'type': 'container'}, type='container')]
     return containers
+
+
+def list_scopes(regex_pattern='.*'):
+    pattern = re.compile(regex_pattern)
+    _scopes = rucio_client.list_scopes()
+    scopes = [s for s in _scopes if pattern.match(s)]
+    return scopes
 
 
 def list_content(did, full_output=False):
@@ -248,15 +299,11 @@ def list_file_replicas(did, rse=None, **kwargs):
 
 
 def get_account_usage(account='production', rse=None):
-    """We need to update rucio server first"""
-    raise NotImplementedError
-    #account_client.get_global_account_usage(account, rse_expression=rse)
+    return account_client.get_global_account_usage(account, rse_expression=rse)
 
 
 def get_account_limits(account='production'):
-    """We need to update rucio server first"""
-    raise NotImplementedError
-    #account_client.get_global_account_limit(account)
+   return account_client.get_global_account_limit(account)
 
 
 def get_rse_prefix(rse):

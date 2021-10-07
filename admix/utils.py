@@ -8,6 +8,7 @@ from . import logger
 try:
     db = DB()
 except:
+    print("DB initialization failed")
     logger.warning(f"Initializing utilix DB failed. You cannot do database operations")
     db = None
 
@@ -59,3 +60,9 @@ def make_highlevel_container_did(run_number, straxen_version):
         straxen_version = 'v' + straxen_version
     container_name = 'highlevel_' + straxen_version.replace('.', '-')
     return f"{scope}:{container_name}"
+
+
+def parse_dirname(dirname):
+    number, dtype, lineage_hash = dirname.split('-')
+    number = int(number)
+    return number, dtype, lineage_hash

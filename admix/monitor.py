@@ -45,18 +45,12 @@ def get_dtype_status(run, dtype, hash, rse=None):
 
 
 def get_run_status(run, dtype=None, rse=None):
-    if dtype:
-        if hasattr(dtype, '__len__'):
-            pass
-        else:
-            dtype = (dtype,)
-
     scope = f"xnt_{run:06d}"
     datasets = rucio.list_datasets(scope)
     for d in datasets:
         dt, hsh = d.split('-')
         if dtype:
-            if dt in dtype:
+            if dt == dtype:
                 get_dtype_status(run, dt, hsh, rse=rse)
         else:
             get_dtype_status(run, dt, hsh, rse=rse)

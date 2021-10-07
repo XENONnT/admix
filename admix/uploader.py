@@ -41,7 +41,7 @@ def upload(path, rse, did=None, check_existing=True, lifetime=None,
             existing_files = list_files(did)
             local_files = os.listdir(path)
             to_upload = []
-            for missing_file in (set(local_files) - set(existing_files)):
+            for missing_file in set(local_files) - set(existing_files):
                 _path = os.path.join(path, missing_file)
                 to_upload.append(dict(path=_path,
                                       rse=rse,
