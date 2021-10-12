@@ -24,6 +24,7 @@ setup(
     url='https://github.com/XENON1T/admix',
     install_requires=requirements,
     scripts=['bin/admix-download'],
+    packages=find_packages(),
     license="BSD license",
     zip_safe=False,
     keywords='admix',
