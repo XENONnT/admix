@@ -9,13 +9,16 @@ import rucio.common.exception
 import admix.utils
 from . import logger
 from .utils import parse_did, db, RAW_DTYPES
-from .clients import rucio_client, rse_client, account_client, replica_client, needs_client
+from . import clients
+
+
+needs_client = clients.needs_client
 
 
 def requires_production(func):
     """Decorator used for functions that require the production account credentials"""
     def wrapped(*args, **kwargs):
-        if rucio_client.account != 'production':
+        if clients.rucio_client.account != 'production':
             raise RucioPermissionError(f"You must be the production user to call {func.__name__}")
         return func(*args, **kwargs)
     return wrapped
@@ -84,7 +87,7 @@ def update_db(mode):
 def get_did(did):
     scope, name = did.split(':')
     try:
-        return rucio_client.get_did(scope, name)
+        return clients.rucio_client.get_did(scope, name)
     except rucio.common.exception.DataIdentifierNotFound:
         pass
 
@@ -92,7 +95,7 @@ def get_did(did):
 @needs_client
 def get_did_type(did):
     scope, name = did.split(':')
-    return rucio_client.get_did(scope, name)['type']
+    return clients.rucio_client.get_did(scope, name)['type']
 
 
 @needs_client
@@ -100,10 +103,10 @@ def list_rules(did, **filters):
     scope, name = did.split(':')
     # check if did is a file or a dataset
     if get_did_type(did) == 'FILE':
-        rules = rucio_client.list_associated_rules_for_file(scope, name)
+        rules = clients.rucio_client.list_associated_rules_for_file(scope, name)
 
     else:
-        rules = rucio_client.list_did_rules(scope, name)
+        rules = clients.rucio_client.list_did_rules(scope, name)
     # get rules that pass some filter(s)
     ret = []
     for rule in rules:
@@ -137,7 +140,7 @@ def add_rule(did, rse, copies=1, update_db=False, quiet=False, **kwargs):
     scope, name = did.split(':')
     did_dict = dict(scope=scope, name=name)
     try:
-        rucio_client.add_replication_rule([did_dict], copies, rse_expression=rse, **kwargs)
+        clients.rucio_client.add_replication_rule([did_dict], copies, rse_expression=rse, **kwargs)
     except rucio.common.exception.DuplicateRule:
         if not quiet:
             print(f"Rule already exists for {did} at {rse}")
@@ -167,7 +170,7 @@ def delete_rule(did, rse, purge_replicas=True, _careful=True, _required_copies=1
             raise DataPolicyError(f"We require at least {_required_copies} long-term copies "
                                   f"and deleting one for {did} would result in {len(other_rules)}."
                                   )
-    rucio_client.delete_replication_rule(rule['id'], purge_replicas=purge_replicas)
+    clients.rucio_client.delete_replication_rule(rule['id'], purge_replicas=purge_replicas)
     if not quiet:
         print(f"Replication rule for {did} at {rse} removed.")
 
@@ -189,7 +192,7 @@ def erase(did, now=False, update_db=False):
         for d in data:
             db.delete_data(number, d)
     try:
-        rucio_client.set_metadata(scope, name, key='lifetime', value=value)
+        clients.rucio_client.set_metadata(scope, name, key='lifetime', value=value)
     except rucio.common.exception.DataIdentifierNotFound:
         print(f"{did} does not exist")
 
@@ -209,7 +212,7 @@ def move_rule(did, rse, from_rse, update_db=False):
 
 @needs_client
 def add_scope(account, scope):
-    return rucio_client.add_scope(account, scope)
+    return clients.rucio_client.add_scope(account, scope)
 
 
 @needs_client
@@ -221,25 +224,25 @@ def add_production_scope(scope):
 @needs_client
 @requires_production
 def add_container(scope, name, **kwargs):
-    return rucio_client.add_container(scope, name, **kwargs)
+    return clients.rucio_client.add_container(scope, name, **kwargs)
 
 
 @needs_client
 def list_datasets(scope):
-    datasets = [d for d in rucio_client.list_dids(scope, {'type': 'dataset'}, type='dataset')]
+    datasets = [d for d in clients.rucio_client.list_dids(scope, {'type': 'dataset'}, type='dataset')]
     return datasets
 
 
 @needs_client
 def list_containers(scope):
-    containers = [d for d in rucio_client.list_dids(scope, {'type': 'container'}, type='container')]
+    containers = [d for d in clients.rucio_client.list_dids(scope, {'type': 'container'}, type='container')]
     return containers
 
 
 @needs_client
 def list_scopes(regex_pattern='.*'):
     pattern = re.compile(regex_pattern)
-    _scopes = rucio_client.list_scopes()
+    _scopes = clients.rucio_client.list_scopes()
     scopes = [s for s in _scopes if pattern.match(s)]
     return scopes
 
@@ -250,9 +253,9 @@ def list_content(did, full_output=False):
     # otherwise, return a list of dicts with everythign rucio sends back
     scope, name = did.split(':')
     if full_output:
-        content = [d for d in rucio_client.list_content(scope, name)]
+        content = [d for d in clients.rucio_client.list_content(scope, name)]
     else:
-        content = [f"{d['scope']}:{d['name']}" for d in rucio_client.list_content(scope, name)]
+        content = [f"{d['scope']}:{d['name']}" for d in clients.rucio_client.list_content(scope, name)]
     return content
 
 
@@ -260,9 +263,9 @@ def list_content(did, full_output=False):
 def list_files(did, verbose=False):
     scope, name = did.split(':')
     if verbose:
-        files = [f for f in rucio_client.list_files(scope, name)]
+        files = [f for f in clients.rucio_client.list_files(scope, name)]
     else:
-        files = [f['name'] for f in rucio_client.list_files(scope, name)]
+        files = [f['name'] for f in clients.rucio_client.list_files(scope, name)]
     return files
 
 
@@ -275,7 +278,7 @@ def attach(main_did, attachments, rse=None):
         _scope, _name = did.split(':')
         attachment_dicts.append(dict(scope=_scope, name=_name))
     main_scope, main_name = main_did.split(':')
-    return rucio_client.attach_dids(main_scope, main_name, attachment_dicts)
+    return clients.rucio_client.attach_dids(main_scope, main_name, attachment_dicts)
 
 
 @needs_client
@@ -289,7 +292,7 @@ def get_size_mb(did):
             raise ValueError(f"did must be a string (or an iterable of strings). You passed a {type(did)}")
         scope, name = did.split(':')
         total_size = 0
-        for f in rucio_client.list_files(scope, name):
+        for f in clients.rucio_client.list_files(scope, name):
             total_size += int(f['bytes'])/1e6
     return total_size
 
@@ -302,7 +305,7 @@ def list_file_replicas(did, rse=None, **kwargs):
             raise ValueError(f"You passed rse={rse} and rse_expression={rse_expression}. Pick one.")
     scope, name = did.split(':')
     did_dict = [dict(scope=scope, name=name)]
-    replicas = replica_client.list_replicas(did_dict, rse_expression=rse, **kwargs)
+    replicas = clients.replica_client.list_replicas(did_dict, rse_expression=rse, **kwargs)
     ret = []
     for r in replicas:
         d = dict(name=r['name'], rses=r['rses'])
@@ -312,24 +315,24 @@ def list_file_replicas(did, rse=None, **kwargs):
 
 @needs_client
 def get_account_usage(account='production', rse=None):
-    return account_client.get_global_account_usage(account, rse_expression=rse)
+    return clients.account_client.get_global_account_usage(account, rse_expression=rse)
 
 
 @needs_client
 def get_account_limits(account='production'):
-   return account_client.get_global_account_limit(account)
+   return clients.account_client.get_global_account_limit(account)
 
 
 @needs_client
 def get_rse_prefix(rse):
-    rse_info = rse_client.get_rse(rse)
+    rse_info = clients.rse_client.get_rse(rse)
     prefix = rse_info['protocols'][0]['prefix']
     return prefix
 
 
 @needs_client
 def get_rse_datasets(rse):
-    datasets = replica_client.list_datasets_per_rse(rse)
+    datasets = clients.replica_client.list_datasets_per_rse(rse)
     ret = []
     for d in tqdm(datasets, desc=f'Finding all datasets at {rse}'):
         ret.append(f"{d['scope']}:{d['name']}")

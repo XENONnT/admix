@@ -7,7 +7,7 @@ import admix.rucio
 from .utils import xe1t_runs_collection
 from .rucio import list_rules, get_did_type, get_rses
 from . import logger
-from .clients import download_client
+from . import clients
 try:
     from straxen import __version__
     straxen_version = __version__
@@ -74,7 +74,7 @@ def download_dids(dids, num_threads=8, **kwargs):
                         **kwargs
                         )
         did_list.append(did_dict)
-    return download_client.download_dids(did_list, num_threads=num_threads)
+    return clients.download_client.download_dids(did_list, num_threads=num_threads)
 
 
 def download(did, chunks=None, location='.',  tries=3, metadata=True,

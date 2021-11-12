@@ -1,11 +1,11 @@
 import os.path
 from rucio.common.exception import Duplicate, DataIdentifierNotFound
 from .rucio import add_scope, list_files
-from .clients import upload_client
+from . import clients
 
 
 def get_default_scope():
-    return 'user.' + upload_client.client.account
+    return 'user.' + clients.upload_client.client.account
 
 
 # TODO automatically update RunDB
@@ -25,7 +25,7 @@ def upload(path, rse, did=None, lifetime=None, update_db=False):
         did = f"{scope}:{name}"
 
     try:
-        add_scope(upload_client.client.account, scope)
+        add_scope(clients.upload_client.client.account, scope)
     except Duplicate:
         pass
 
@@ -64,7 +64,7 @@ def upload(path, rse, did=None, lifetime=None, update_db=False):
         to_upload = [upload_dict]
 
     if len(to_upload):
-        upload_client.upload(to_upload)
+        clients.upload_client.upload(to_upload)
     else:
         print(f"Nothing to upload at {path}")
 
