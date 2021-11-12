@@ -4,23 +4,12 @@ Contains rucio commands with XENON-specific wrappers
 from functools import wraps
 import re
 from tqdm import tqdm
-
 import rucio.common.exception
-from rucio.client.client import Client
-from rucio.client.replicaclient import ReplicaClient
-from rucio.client.accountclient import AccountClient
-from rucio.client.rseclient import RSEClient
-
 
 import admix.utils
 from . import logger
 from .utils import parse_did, db, RAW_DTYPES
-
-
-rucio_client = Client()
-replica_client = ReplicaClient()
-account_client = AccountClient()
-rse_client = RSEClient()
+from .clients import rucio_client, rse_client, account_client, replica_client, needs_client
 
 
 def requires_production(func):
@@ -100,11 +89,13 @@ def get_did(did):
         pass
 
 
+@needs_client
 def get_did_type(did):
     scope, name = did.split(':')
     return rucio_client.get_did(scope, name)['type']
 
 
+@needs_client
 def list_rules(did, **filters):
     scope, name = did.split(':')
     # check if did is a file or a dataset
@@ -124,13 +115,13 @@ def list_rules(did, **filters):
             ret.append(rule)
     return ret
 
-
+@needs_client
 def get_rses(did, **filters):
     rules = list_rules(did, **filters)
     rses = [r['rse_expression'] for r in rules]
     return rses
 
-
+@needs_client
 def get_rule(did, rse):
     rules = list_rules(did, rse_expression=rse)
     if len(rules) == 0:
@@ -139,6 +130,7 @@ def get_rule(did, rse):
     return rules[0]
 
 
+@needs_client
 @requires_production
 @update_db('add')
 def add_rule(did, rse, copies=1, update_db=False, quiet=False, **kwargs):
@@ -154,6 +146,7 @@ def add_rule(did, rse, copies=1, update_db=False, quiet=False, **kwargs):
         print(f"Replication rule added for {did} at {rse}")
 
 
+@needs_client
 @requires_production
 @update_db('delete')
 def delete_rule(did, rse, purge_replicas=True, _careful=True, _required_copies=1, update_db=False,
@@ -179,6 +172,7 @@ def delete_rule(did, rse, purge_replicas=True, _careful=True, _required_copies=1
         print(f"Replication rule for {did} at {rse} removed.")
 
 
+@needs_client
 @requires_production
 def erase(did, now=False, update_db=False):
     scope, name = did.split(':')
@@ -213,30 +207,36 @@ def move_rule(did, rse, from_rse, update_db=False):
     pass
 
 
+@needs_client
 def add_scope(account, scope):
     return rucio_client.add_scope(account, scope)
 
 
+@needs_client
 @requires_production
 def add_production_scope(scope):
     return add_scope('production', scope)
 
 
+@needs_client
 @requires_production
 def add_container(scope, name, **kwargs):
     return rucio_client.add_container(scope, name, **kwargs)
 
 
+@needs_client
 def list_datasets(scope):
     datasets = [d for d in rucio_client.list_dids(scope, {'type': 'dataset'}, type='dataset')]
     return datasets
 
 
+@needs_client
 def list_containers(scope):
     containers = [d for d in rucio_client.list_dids(scope, {'type': 'container'}, type='container')]
     return containers
 
 
+@needs_client
 def list_scopes(regex_pattern='.*'):
     pattern = re.compile(regex_pattern)
     _scopes = rucio_client.list_scopes()
@@ -244,6 +244,7 @@ def list_scopes(regex_pattern='.*'):
     return scopes
 
 
+@needs_client
 def list_content(did, full_output=False):
     # if full_output is False (default), just return a list of content names in the DID
     # otherwise, return a list of dicts with everythign rucio sends back
@@ -255,6 +256,7 @@ def list_content(did, full_output=False):
     return content
 
 
+@needs_client
 def list_files(did, verbose=False):
     scope, name = did.split(':')
     if verbose:
@@ -264,6 +266,7 @@ def list_files(did, verbose=False):
     return files
 
 
+@needs_client
 def attach(main_did, attachments, rse=None):
     # attach a list of attachments to the main_did, either a dataset or container
     # the attachments are a list of DIDs
@@ -275,6 +278,7 @@ def attach(main_did, attachments, rse=None):
     return rucio_client.attach_dids(main_scope, main_name, attachment_dicts)
 
 
+@needs_client
 def get_size_mb(did):
     # returns size of did (or list of dids) in GB
     if not isinstance(did, str):
@@ -290,6 +294,7 @@ def get_size_mb(did):
     return total_size
 
 
+@needs_client
 def list_file_replicas(did, rse=None, **kwargs):
     if 'rse_expression' in kwargs:
         rse_expression = kwargs.pop('rse_expression')
@@ -305,20 +310,24 @@ def list_file_replicas(did, rse=None, **kwargs):
     return ret
 
 
+@needs_client
 def get_account_usage(account='production', rse=None):
     return account_client.get_global_account_usage(account, rse_expression=rse)
 
 
+@needs_client
 def get_account_limits(account='production'):
    return account_client.get_global_account_limit(account)
 
 
+@needs_client
 def get_rse_prefix(rse):
     rse_info = rse_client.get_rse(rse)
     prefix = rse_info['protocols'][0]['prefix']
     return prefix
 
 
+@needs_client
 def get_rse_datasets(rse):
     datasets = replica_client.list_datasets_per_rse(rse)
     ret = []

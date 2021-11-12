@@ -1,12 +1,13 @@
 import os
 from argparse import ArgumentParser
-from rucio.client.downloadclient import DownloadClient
+
 import socket
 
 import admix.rucio
-from .utils import  xe1t_runs_collection
+from .utils import xe1t_runs_collection
 from .rucio import list_rules, get_did_type, get_rses
 from . import logger
+from .clients import download_client
 try:
     from straxen import __version__
     straxen_version = __version__
@@ -15,7 +16,6 @@ except ImportError:
 import time
 import utilix
 
-download_client = DownloadClient(logger=logger)
 
 class NoRSEForCountry(Exception):
     pass
