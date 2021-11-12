@@ -53,4 +53,4 @@ class AdmixDaemon:
                     time.sleep(dt)
                     sleep_left = sleep_left - dt
         except KeyboardInterrupt:
-            print("Exiting.")
+            print("\nExiting.")

@@ -7,7 +7,7 @@ import tempfile
 
 from packaging import version
 from tqdm import tqdm
-import rucio.common.exception
+from rucio.common.exception import DataIdentifierNotFound
 
 import admix.rucio
 from . import rucio, logger
@@ -94,8 +94,12 @@ def synchronize(run_number, dtype=None):
         base_dict['status'] = None
 
         db_rses = [d['location'] for d in copies]
-        rucio_rules = rucio.list_rules(did)
-        rucio_rses = [r['rse_expression'] for r in rucio_rules]
+        try:
+            rucio_rules = rucio.list_rules(did)
+            rucio_rses = [r['rse_expression'] for r in rucio_rules]
+        except DataIdentifierNotFound:
+            rucio_rses = []
+
         # check for dupicate entries in the runDB
         duplicated_rses = []
         if len(db_rses) != len(set(db_rses)):
@@ -373,7 +377,7 @@ def clean_local_dir(path, before_straxen_version, ensure_rucio=False, dry_run=Tr
                 rules = admix.rucio.get_rses(did, state="OK")
                 if not len(rules):
                     continue
-            except rucio.common.exception.DataIdentifierNotFound:
+            except DataIdentifierNotFound:
                 continue
 
         if dry_run:

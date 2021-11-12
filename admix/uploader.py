@@ -1,12 +1,7 @@
 import os.path
-
-from rucio.client.uploadclient import UploadClient
 from rucio.common.exception import Duplicate, DataIdentifierNotFound
-
 from .rucio import add_scope, list_files
-
-
-upload_client = UploadClient()
+from .clients import upload_client
 
 
 def get_default_scope():
