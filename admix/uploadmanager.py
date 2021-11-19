@@ -27,19 +27,25 @@ class UploadManager():
         # Init the runDB
         self.db = ConnectMongoDB()
 
-        self.NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
-        self.RAW_RECORDS_DTYPES = helper.get_hostconfig()['raw_records_types']
-        self.LIGHT_RAW_RECORDS_DTYPES = helper.get_hostconfig()['light_raw_records_types']
-        self.RECORDS_DTYPES = helper.get_hostconfig()['records_types']
+        #Take all data types categories
+        self.RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['raw_records_tpc_types']
+        self.RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['raw_records_mv_types']
+        self.RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['raw_records_nv_types']
+        self.LIGHT_RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['light_raw_records_tpc_types']
+        self.LIGHT_RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['light_raw_records_mv_types']
+        self.LIGHT_RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['light_raw_records_nv_types']
+        self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
+        self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
         self.n_upload_threads_low = helper.get_hostconfig()['n_upload_threads_low']
         self.n_upload_threads_high = helper.get_hostconfig()['n_upload_threads_high']
 
         #Choose which data type you want to treat
-        self.DTYPES = self.NORECORDS_DTYPES + self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
+        self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.RECORDS_TYPES
 
-        self.HIGH_DTYPES = self.NORECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
-        self.LOW_DTYPES = self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES
+        self.HIGH_DTYPES = self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES
+
+        self.LOW_DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.RECORDS_TYPES
 
         self.threads = []
 
@@ -82,8 +88,6 @@ class UploadManager():
                         dataset_to_upload['eb'] = eb
                         dataset_to_upload['priority'] = run['priority']
                         #                        if run['number']==23951 and d['type']=='raw_records' and hash=='rfzvpzj4mf' and eb=='eb3':
-                        if run['number'] in [23951,23948]:
-                            continue
                         datasets_to_upload.append(dataset_to_upload)
 
         return(datasets_to_upload)

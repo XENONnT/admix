@@ -9,6 +9,7 @@ from admix.interfaces.rucio_summoner import RucioSummoner
 from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
 from admix.utils.list_file_replicas import list_file_replicas
+from rucio.client.replicaclient import ReplicaClient
 from utilix.config import Config
 import utilix
 from bson.json_util import dumps
@@ -23,13 +24,17 @@ class Fix():
     def __init__(self):
 
         #Take all data types categories
-        self.NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
-        self.RAW_RECORDS_DTYPES = helper.get_hostconfig()['raw_records_types']
-        self.LIGHT_RAW_RECORDS_DTYPES = helper.get_hostconfig()['light_raw_records_types']
-        self.RECORDS_DTYPES = helper.get_hostconfig()['records_types']
+        self.RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['raw_records_tpc_types']
+        self.RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['raw_records_mv_types']
+        self.RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['raw_records_nv_types']
+        self.LIGHT_RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['light_raw_records_tpc_types']
+        self.LIGHT_RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['light_raw_records_mv_types']
+        self.LIGHT_RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['light_raw_records_nv_types']
+        self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
+        self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
         #Choose which data type you want to treat
-        self.DTYPES = self.NORECORDS_DTYPES + self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
+        self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.RECORDS_TYPES
         
         #Take the list of all XENON RSEs
         self.RSES = helper.get_hostconfig()['rses']
@@ -41,17 +46,23 @@ class Fix():
         self.DATADIR = helper.get_hostconfig()['path_data_to_upload']
 
         # Get the sequence of rules to be created according to the data type
-        self.RAW_RECORDS_RSES = helper.get_hostconfig()["raw_records_rses"]
-        self.LIGHT_RAW_RECORDS_RSES = helper.get_hostconfig()["light_raw_records_rses"]
-        self.NORECORDS_RSES = helper.get_hostconfig()["norecords_rses"]
+        self.RAW_RECORDS_TPC_RSES = helper.get_hostconfig()["raw_records_tpc_rses"]
+        self.RAW_RECORDS_MV_RSES = helper.get_hostconfig()["raw_records_mv_rses"]
+        self.RAW_RECORDS_NV_RSES = helper.get_hostconfig()["raw_records_nv_rses"]
+        self.LIGHT_RAW_RECORDS_TPC_RSES = helper.get_hostconfig()["light_raw_records_tpc_rses"]
+        self.LIGHT_RAW_RECORDS_MV_RSES = helper.get_hostconfig()["light_raw_records_mv_rses"]
+        self.LIGHT_RAW_RECORDS_NV_RSES = helper.get_hostconfig()["light_raw_records_nv_rses"]
+        self.HIGH_LEVEL_RSES = helper.get_hostconfig()["high_level_rses"]
         self.RECORDS_RSES = helper.get_hostconfig()["records_rses"]
-
 
         #Init the runDB
         self.db = ConnectMongoDB()
 
         #Init Rucio for later uploads and handling:
         self.rc = RucioSummoner()
+
+        #Init the Rucio replica client
+        self.replicaclient = ReplicaClient()
 
         #Rucio Rule assignment priority
         self.priority = 3
@@ -257,6 +268,61 @@ class Fix():
         print("Done.")
 
 
+    def add_rules_from_file(self,filename,from_rse,to_rse):
+
+        with open(filename) as f:
+            dids = f.read().splitlines()
+            f.close()
+
+        for did in dids:
+
+            if did[0] == "#":
+                continue
+
+            hash = did.split('-')[-1]
+            dtype = did.split('-')[0].split(':')[-1]
+            number = int(did.split(':')[0].split('_')[-1])
+
+            timestamp = time.strftime("%Y-%m-%d-%H-%M-%S",time.localtime(time.time()))
+
+            print("{0} - Adding a new rule {1} from {2} to {3}".format(timestamp,did,from_rse,to_rse))
+
+            # Checks the rule status of the sender RSE
+            rucio_rule = self.rc.GetRule(upload_structure=did, rse=from_rse)
+            if rucio_rule['state'] != 'OK' and rucio_rule['state'] != 'REPLICATING':
+                print('The rule in {0} is neither OK nor REPLICATING. Skipping this DID'.format(from_rse))
+                continue
+
+            # Checks the rule status of the destination RSE
+            rucio_rule = self.rc.GetRule(upload_structure=did, rse=to_rse)
+            if rucio_rule['exists']:
+                print('The rule in {0} already exists and its status is {1}. Skipping this DID'.format(to_rse,rucio_rule['state']))
+                continue
+
+            # Creates the new rule
+            print("Adding the Rucio rule")
+            self.rc.AddConditionalRule(did, from_rse, to_rse, lifetime=None, priority=5)
+
+            # Waits until Rucio sees this rule as successfully transferred
+            print("Waiting until the transfer is completed")
+            rule_is_ok = False
+            while not rule_is_ok:
+                delay = 10 #60
+                time.sleep(delay)
+                rucio_rule = self.rc.GetRule(did, rse=to_rse)
+                if rucio_rule['state'] == 'OK':
+                    rule_is_ok = True
+            print("Transfer completed")
+
+            wait_time = 10
+            print('Waiting for {0} seconds'.format(wait_time))
+            print("You can safely CTRL-C now if you need to stop me")
+            try:
+                time.sleep(wait_time)
+            except KeyboardInterrupt:
+                break
+
+
 
     def delete_rule(self,did,rse):
 
@@ -309,6 +375,46 @@ class Fix():
 
 
 
+    def create_upload_rules(self,did):
+
+        rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
+
+        dtype = did.split('-')[0].split(':')[-1]
+
+        # Fourth action: creating the rules abroad
+        if rucio_rule['exists'] and rucio_rule['state']=="OK" :
+            print("Adding the Rucio rules abroad...")
+
+            rses = [self.UPLOAD_TO]
+
+            if dtype in self.RAW_RECORDS_TPC_TYPES:
+                rses = rses + self.RAW_RECORDS_TPC_RSES
+            if dtype in self.RAW_RECORDS_MV_TYPES:
+                rses = rses + self.RAW_RECORDS_MV_RSES
+            if dtype in self.RAW_RECORDS_NV_TYPES:
+                rses = rses + self.RAW_RECORDS_NV_RSES
+
+            if dtype in self.LIGHT_RAW_RECORDS_TPC_TYPES:
+                rses = rses + self.LIGHT_RAW_RECORDS_TPC_RSES
+            if dtype in self.LIGHT_RAW_RECORDS_MV_TYPES:
+                rses = rses + self.LIGHT_RAW_RECORDS_MV_RSES
+            if dtype in self.LIGHT_RAW_RECORDS_NV_TYPES:
+                rses = rses + self.LIGHT_RAW_RECORDS_NV_RSES
+
+            if dtype in self.HIGH_LEVEL_TYPES:
+                rses = rses + self.HIGH_LEVEL_RSES
+
+            if dtype in self.RECORDS_TYPES:
+                rses = rses + self.RECORDS_RSES
+
+            for from_rse, to_rse in zip(rses, rses[1:]):
+                to_rule = self.rc.GetRule(upload_structure=did, rse=to_rse)
+                if not to_rule['exists']:
+                    print("Rule from {0} to {1}".format(from_rse,to_rse))
+                    self.add_rule(did, from_rse, to_rse)
+
+
+
 
     def fix_upload(self,did):
 
@@ -358,6 +464,10 @@ class Fix():
         else:
             print('EB status: not available')
 
+        # Get the expected number of files
+        Nfiles = -1
+        if 'file_count' in datum:
+            Nfiles = datum['file_count']
 
 
         # First action: remove files in datamanager no matter if they were already uploaded or not
@@ -377,7 +487,6 @@ class Fix():
         upload_path = os.path.join(self.DATADIR, eb, file)
         self.rc.UploadToDid(did, upload_path, self.UPLOAD_TO)
 
-
         # Third action: check if datum in DB does not exist. If not, add it and mark the EB datum as transferred
         datum_upload = None
         for d in run['data']:
@@ -392,7 +501,7 @@ class Fix():
             self.db.db.find_one_and_update({'_id': run['_id'], 'data': {'$elemMatch': {'type' : datum['type'], 'location' : datum['location'], 'host' : datum['host'] }}},
                                            { '$set': { "data.$.status" : "transferred" } })
 
-            # Add a new data field with LNGS as RSE and with status "trasferred"
+            # Add a new data field with LNGS as RSE and with status "transferred"
             data_dict = datum.copy()
             data_dict.update({'host': "rucio-catalogue",
                               'type': dtype,
@@ -404,21 +513,24 @@ class Fix():
                           })
             self.db.AddDatafield(run['_id'], data_dict)
 
-        # Fourth action: creating the rules abroad
-        print("Adding the Rucio rules abroad...")
-        rses = [self.UPLOAD_TO]
-        if dtype in self.NORECORDS_DTYPES:
-            rses = rses + self.NORECORDS_RSES
-        if dtype in self.RAW_RECORDS_DTYPES:
-            rses = rses + self.RAW_RECORDS_RSES
-        if dtype in self.LIGHT_RAW_RECORDS_DTYPES:
-            rses = rses + self.LIGHT_RAW_RECORDS_RSES
-        if dtype in self.RECORDS_DTYPES:
-            rses = rses + self.RECORDS_RSES
 
-        for from_rse, to_rse in zip(rses, rses[1:]):
-            print("Rule from {0} to {1}".format(from_rse,to_rse))
-            self.add_rule(did, from_rse, to_rse)
+        # Third action: in case the rule itself is missing, this would create it
+        rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
+        #print(rucio_rule)
+        if not rucio_rule['exists']:
+            print('Even if files have been uploaded, the rule has not been created yet. Creating it...')
+            did_dictionary = [{'scope' : did.split(':')[0], 'name' : did.split(':')[1]}]
+            replicas = list(self.replicaclient.list_replicas(did_dictionary,rse_expression=self.UPLOAD_TO))
+            if len(replicas)!=Nfiles:
+                print('Error: the rule cannot be created beause the number of files uploaded ({0}) is different from the expected one ({1})'.format(len(replicas),Nfiles))
+                return(0)
+            if rucio_rule['exists']:
+                print('Error: the rule cannot be created beause it exists already')
+                return(0)
+            os.system('rucio add-rule {0} 1 {1}'.format(did,self.UPLOAD_TO))
+
+        # Fourth action: creating the rules abroad
+        self.create_upload_rules(did)
 
         return(0)
 
@@ -709,6 +821,10 @@ class Fix():
 
 
 
+
+
+
+
     def postpone(self):
 
         # Get the current screen session
@@ -750,8 +866,10 @@ def main():
     parser.add_argument("--list_non_transferred_runs", help="Lists all runs whose status is still not transferred", action='store_true')
 
     parser.add_argument("--test_db_modification", nargs=2, help="Test how quickly a modification in DB is registered", metavar=('DID','STATUS'))
-    parser.add_argument("--fix_upload_db", nargs=1, help="To be used when the upload done by Rucio has been completed but then admix crashed before updating the DB. Note: it's up to you to create the rules to ship data abroad", metavar=('DID'))
+    parser.add_argument("--fix_upload_db", nargs=1, help="To be used when the upload done by Rucio has been completed but then admix crashed before updating the DB", metavar=('DID'))
+    parser.add_argument("--create_upload_rules", nargs=1, help="To be used when the upload done by Rucio has been completed but then admix crashed before creating the rules abroad", metavar=('DID'))
     parser.add_argument("--postpone", help="To be used when an upload failed (for any reason) in a screen session and you want to free the session. Metadata on the failed dataset are copied in a directory and will be fixed by an expert", action='store_true')
+    parser.add_argument("--add_rules_from_file", nargs=3, help="To be used when you want to transfer data from one RSE to another RSE, using rucio and without updating the database. The option requires a FILE containing the list of DIDs to be transferred. Each rule is copied only after the previous one is successfully completed. This is particularly suggested for tapes", metavar=('FILE','FROM_RSE','TO_RSE'))
 
     parser.add_argument("--test", help="It's a test. Never use it",action='store_true')
 
@@ -772,6 +890,8 @@ def main():
             fix.fix_upload(args.fix_upload[0])
         if args.add_rule:
             fix.add_rule(args.add_rule[0],args.add_rule[1],args.add_rule[2])
+        if args.add_rules_from_file:
+            fix.add_rules_from_file(args.add_rules_from_file[0],args.add_rules_from_file[1],args.add_rules_from_file[2])
         if args.delete_rule:
             fix.delete_rule(args.delete_rule[0],args.delete_rule[1])
         if args.delete_db_datum:
@@ -793,6 +913,9 @@ def main():
 
         if args.fix_upload_db:
             fix.fix_upload_db(args.fix_upload_db[0])
+
+        if args.create_upload_rules:
+            fix.create_upload_rules(args.create_upload_rules[0])
 
         if args.postpone:
             fix.postpone()

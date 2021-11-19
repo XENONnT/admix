@@ -28,10 +28,24 @@ class Upload():
 #        open("/tmp/admix-upload_from_lngs", 'a').close()
 
         #Take all data types categories
-        self.NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
-        self.RAW_RECORDS_DTYPES = helper.get_hostconfig()['raw_records_types']
-        self.LIGHT_RAW_RECORDS_DTYPES = helper.get_hostconfig()['light_raw_records_types']
-        self.RECORDS_DTYPES = helper.get_hostconfig()['records_types']
+        self.RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['raw_records_tpc_types']
+        self.RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['raw_records_mv_types']
+        self.RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['raw_records_nv_types']
+        self.LIGHT_RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['light_raw_records_tpc_types']
+        self.LIGHT_RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['light_raw_records_mv_types']
+        self.LIGHT_RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['light_raw_records_nv_types']
+        self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
+        self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
+
+        # Get the sequence of rules to be created according to the data type
+        self.RAW_RECORDS_TPC_RSES = helper.get_hostconfig()["raw_records_tpc_rses"]
+        self.RAW_RECORDS_MV_RSES = helper.get_hostconfig()["raw_records_mv_rses"]
+        self.RAW_RECORDS_NV_RSES = helper.get_hostconfig()["raw_records_nv_rses"]
+        self.LIGHT_RAW_RECORDS_TPC_RSES = helper.get_hostconfig()["light_raw_records_tpc_rses"]
+        self.LIGHT_RAW_RECORDS_MV_RSES = helper.get_hostconfig()["light_raw_records_mv_rses"]
+        self.LIGHT_RAW_RECORDS_NV_RSES = helper.get_hostconfig()["light_raw_records_nv_rses"]
+        self.HIGH_LEVEL_RSES = helper.get_hostconfig()["high_level_rses"]
+        self.RECORDS_RSES = helper.get_hostconfig()["records_rses"]
 
         # Choose which RSE you want upload to
         self.UPLOAD_TO = helper.get_hostconfig()['upload_to']
@@ -93,45 +107,9 @@ class Upload():
                 f.close()
 
 
-    def add_rule(self,run_number, dtype, hash, rse, datum=None, lifetime=None, update_db=True):
+    def add_rule(self,run_number, dtype, hash, from_rse, to_rse, datum=None, lifetime=None, update_db=True):
         did = make_did(run_number, dtype, hash)
-        if dtype in self.NORECORDS_DTYPES:
-            priority = 1
-        else:
-            priority = 3
-        result = self.rc.AddRule(did, rse, lifetime=lifetime, priority=priority)
-        #if result == 1:
-        #   return
-        helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}: rule added: {2} ---> {3}'.format(run_number,dtype,did,rse))
-
-        if update_db:
-            self.db.db.find_one_and_update({'number': run_number},
-                                      {'$set': {'status': 'transferring'}}
-                                  )
-
-            rucio_rule = self.rc.GetRule(did, rse=rse)
-            updated_fields = {'host': "rucio-catalogue",
-                         'type': dtype,
-                         'location': rse,
-                         'lifetime': rucio_rule['expires'],
-                         'status': 'transferring',
-                         'did': did,
-                         'protocol': 'rucio'
-            }
-
-            if datum == None:
-                data_dict = updated_fields
-            else:
-                data_dict = datum.copy()
-                data_dict.update(updated_fields)
-
-            docid = self.db.db.find_one({'number': run_number}, {'_id': 1})['_id']
-            self.db.AddDatafield(docid, data_dict)
-
-
-    def add_conditional_rule(self,run_number, dtype, hash, from_rse, to_rse, datum=None, lifetime=None, update_db=True):
-        did = make_did(run_number, dtype, hash)
-        if dtype in self.NORECORDS_DTYPES:
+        if dtype in self.HIGH_LEVEL_TYPES:
             priority = 1
         else:
             priority = 3
@@ -255,16 +233,33 @@ class Upload():
 
         # set a rule to ship data on GRID
         if rucio_rule['state'] == 'OK':
-            if dtype in self.NORECORDS_DTYPES+self.LIGHT_RAW_RECORDS_DTYPES:
-                self.add_rule(number, dtype, hash, 'UC_DALI_USERDISK',datum=datum)
-                if dtype in self.LIGHT_RAW_RECORDS_DTYPES:
-                    self.add_conditional_rule(number, dtype, hash, 'UC_DALI_USERDISK', 'SURFSARA_USERDISK', datum=datum)
-            elif dtype in self.RECORDS_DTYPES:
-                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
-                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'SURFSARA_USERDISK',datum=datum)
-            elif dtype in self.RAW_RECORDS_DTYPES:
-                self.add_rule(number, dtype, hash, 'UC_OSG_USERDISK',datum=datum)
-                self.add_conditional_rule(number, dtype, hash, 'UC_OSG_USERDISK', 'SURFSARA_USERDISK', datum=datum)
+
+            rses = [self.UPLOAD_TO]
+
+            if dtype in self.RAW_RECORDS_TPC_TYPES:
+                rses = rses + self.RAW_RECORDS_TPC_RSES
+            if dtype in self.RAW_RECORDS_MV_TYPES:
+                rses = rses + self.RAW_RECORDS_MV_RSES
+            if dtype in self.RAW_RECORDS_NV_TYPES:
+                rses = rses + self.RAW_RECORDS_NV_RSES
+
+            if dtype in self.LIGHT_RAW_RECORDS_TPC_TYPES:
+                rses = rses + self.LIGHT_RAW_RECORDS_TPC_RSES
+            if dtype in self.LIGHT_RAW_RECORDS_MV_TYPES:
+                rses = rses + self.LIGHT_RAW_RECORDS_MV_RSES
+            if dtype in self.LIGHT_RAW_RECORDS_NV_TYPES:
+                rses = rses + self.LIGHT_RAW_RECORDS_NV_RSES
+
+            if dtype in self.HIGH_LEVEL_TYPES:
+                rses = rses + self.HIGH_LEVEL_RSES
+
+            if dtype in self.RECORDS_TYPES:
+                rses = rses + self.RECORDS_RSES
+
+            for from_rse, to_rse in zip(rses, rses[1:]):
+                to_rule = self.rc.GetRule(upload_structure=did, rse=to_rse)
+                if not to_rule['exists']:
+                    self.add_rule(number, dtype, hash, from_rse, to_rse, datum=datum)
 
         # unbook the did
         self.reset_upload_to_manager()

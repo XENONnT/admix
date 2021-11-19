@@ -29,10 +29,14 @@ class CleanEB():
 
 
         #Define data types
-        self.NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
-        self.RAW_RECORDS_DTYPES = helper.get_hostconfig()['raw_records_types']
-        self.LIGHT_RAW_RECORDS_DTYPES = helper.get_hostconfig()['light_raw_records_types']
-        self.RECORDS_DTYPES = helper.get_hostconfig()['records_types']
+        self.RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['raw_records_tpc_types']
+        self.RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['raw_records_mv_types']
+        self.RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['raw_records_nv_types']
+        self.LIGHT_RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['light_raw_records_tpc_types']
+        self.LIGHT_RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['light_raw_records_mv_types']
+        self.LIGHT_RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['light_raw_records_nv_types']
+        self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
+        self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
         #Get other parameters
         self.DATADIR = helper.get_hostconfig()['path_data_to_upload']
@@ -91,9 +95,7 @@ class CleanEB():
         helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
 
 
-        data_types = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES + self.NORECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
-#        data_types = self.RAW_RECORDS_DTYPES + self.RECORDS_DTYPES
-
+        data_types = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.RECORDS_TYPES
 
         # Get all runs that are already transferred and that still have some data_types in eb 
         cursor = self.db.db.find({
@@ -103,7 +105,8 @@ class CleanEB():
 #            'number': {"$gte": 7330},
 #            'number': {"$gte": 8500},
             'number': {"$gte": 10800},
-#            'number': 8013,
+#            'number': {"$gte": 8013},
+#            'number': 8075,
 #            'data' : { "$elemMatch": { "host" : {"$regex" : ".*eb.*"} , "type" : {"$in" : data_types}} },
 #            'status': 'transferred'
             'status': { '$in': ['transferred','transferring']}
@@ -131,13 +134,16 @@ class CleanEB():
 #            helper.global_dictionary['logger'].Info('Run {0} has been processed by {1}'.format(number,eb))
 
             # Checks how much date are old
-            run_time = run['bootstrax']['time'].replace(tzinfo=timezone.utc)
-            now_time = datetime.now().replace(tzinfo=timezone.utc)
-            delta_time = now_time - run_time
+            if 'time' in run['bootstrax']:
+                run_time = run['bootstrax']['time'].replace(tzinfo=timezone.utc)
+                now_time = datetime.now().replace(tzinfo=timezone.utc)
+                delta_time = now_time - run_time
+            else:
+                delta_time = timedelta(days=self.minimum_deltadays_allowed)
 
             # Loops on all datatypes that have to be cleaned
             for dtype in data_types:
- #               helper.global_dictionary['logger'].Info('\t==> Looking for data type {0}'.format(dtype))
+#                helper.global_dictionary['logger'].Info('\t==> Looking for data type {0}'.format(dtype))
 
                 # checks the age of the data type
                 is_enough_old = True

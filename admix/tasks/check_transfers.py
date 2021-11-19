@@ -31,16 +31,20 @@ class CheckTransfers():
         helper.global_dictionary['logger'].Info(f'Init task {self.__class__.__name__}')
 
         #Take all data types categories
-        self.NORECORDS_DTYPES = helper.get_hostconfig()['norecords_types']
-        self.RAW_RECORDS_DTYPES = helper.get_hostconfig()['raw_records_types']
-        self.LIGHT_RAW_RECORDS_DTYPES = helper.get_hostconfig()['light_raw_records_types']
-        self.RECORDS_DTYPES = helper.get_hostconfig()['records_types']
+        self.RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['raw_records_tpc_types']
+        self.RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['raw_records_mv_types']
+        self.RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['raw_records_nv_types']
+        self.LIGHT_RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['light_raw_records_tpc_types']
+        self.LIGHT_RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['light_raw_records_mv_types']
+        self.LIGHT_RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['light_raw_records_nv_types']
+        self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
+        self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
         # Choose which RSE you want upload to
         self.UPLOAD_TO = helper.get_hostconfig()['upload_to']
 
         #Choose which data type you want to treat
-        self.DTYPES = self.NORECORDS_DTYPES + self.RECORDS_DTYPES + self.RAW_RECORDS_DTYPES + self.LIGHT_RAW_RECORDS_DTYPES
+        self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.RECORDS_TYPES
 
 
         #Define the waiting time (seconds)
@@ -62,7 +66,7 @@ class CheckTransfers():
     def check_transfers(self):
         cursor = self.db.db.find(
             {'status': 'transferring'},
-#            {'number': 11924},
+            #{'number': 23622},
             {'number': 1, 'data': 1, 'bootstrax': 1})
 
         cursor = list(cursor)
@@ -88,6 +92,7 @@ class CheckTransfers():
                         status = self.rc.CheckRule(did, d['location'])
                         if status == 'REPLICATING':
                             rucio_stati.append('transferring')
+                            #print(d['did'],d['status'])
                         elif status == 'OK':
                             # update database
                             helper.global_dictionary['logger'].Info('Check transfers : Run {0}, data type {1}, location {2}: transferred'.format(run['number'], d['type'],d['location']))
@@ -103,7 +108,7 @@ class CheckTransfers():
                             rucio_stati.append('stuck')
                     else:
                         rucio_stati.append(d['status'])
-#                        print(d['did'])
+                        #print(d['did'],d['status'])
 
 
                 # search if dtype still has to be uploaded
@@ -116,7 +121,7 @@ class CheckTransfers():
 
             # are there any other rucio rules transferring?
             #print(run['number'],eb_still_to_be_uploaded,rucio_stati)
-            if len(rucio_stati) > 0 and all([s == 'transferred' for s in rucio_stati]) and len(eb_still_to_be_uploaded)==0:
+            if len(rucio_stati) > 0 and all([s in ['transferred','processing'] for s in rucio_stati]) and len(eb_still_to_be_uploaded)==0:
                 self.db.SetStatus(run['number'], 'transferred')
                 helper.global_dictionary['logger'].Info('Check transfers : Run {0} fully transferred'.format(run['number']))
 
