@@ -28,7 +28,7 @@ def determine_rse(rse_list, glidein_country):
                   "CNAF_USERDISK",
                   "SURFSARA_USERDISK"]
 
-    US_SITES = ["UC_OSG_USERDISK", "UC_DALI_USERDISK"]
+    US_SITES = ["UC_OSG_USERDISK", "SDSC_USERDISK", "UC_DALI_USERDISK"]
 
     if glidein_country == "US":
         for site in US_SITES:
