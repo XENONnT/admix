@@ -668,10 +668,20 @@ class Fix():
                     print("")
 
     def test(self):
-        runs = self.db.db.find({'number' : "transferring"},{'number' : 1, 'data' : 1})
+#        runs = self.db.db.find({'number' : "transferring"},{'number' : 1, 'data' : 1})
 #        self.db.db.find_one_and_update({'number': 23838, 'deleted_data.type' : 'raw_records' },
 #                          { '$set': { "deleted_data.$.file_count" : 44 } })
-
+        runs = self.db.db.find({'status' : "transferred", 'number': {"$gte": 31113}},{'number' : 1, 'status' : 1, 'data' : 1})
+        
+        for run in runs:
+            doit = False
+            for d in run['data']:
+                if d['type']=='afterpulses':
+                    doit = True
+            if doit:
+                print(run['number'])
+#                self.set_run_status(run['number'],'transferring' )
+            
 
     def test_db_modification(self, did, new_status_name):
 
