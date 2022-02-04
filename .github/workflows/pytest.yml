@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - master
+      - fix_imports
 
 jobs:
   update:
