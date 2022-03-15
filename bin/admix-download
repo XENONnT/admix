@@ -5,11 +5,20 @@ import utilix
 from admix.downloader import download, download_1t
 from admix.utils import make_did
 
+HAVE_STRAXEN = False
+HAVE_CUTAX = False
 
 try:
-    from straxen import __version__ as straxen_version
-except:
-    print("Warning: No installation of straxen found -- you will have to pass them yourself")
+    import straxen
+    HAVE_STRAXEN = True
+except ImportError:
+    print("Warning: No installation of straxen found -- you will have to pass straxen versions yourself")
+
+try:
+    import cutax
+    HAVE_CUTAX = True
+except ImportError:
+    print("Warning: No installation of cutax found -- you will have to pass context names yourself")
 
 
 def main():
@@ -30,10 +39,30 @@ def main():
     args = parser.parse_args()
 
     if args.experiment == 'xent':
-        # use system straxen version if none passed
-        version = args.straxen_version if args.straxen_version else straxen_version
-        utilix_db = utilix.DB()
-        hash = utilix_db.get_hash(args.context, args.dtype, version)
+        # if a particular straxen version is passed, use that
+        if args.straxen_version:
+            utilix_db = utilix.DB()
+            hash = utilix_db.get_hash(args.context, args.dtype, args.straxen_version)
+        # otherwise try to use system
+        else:
+            system_context = None
+            # if we have cutax, try to get context from there
+            err_msg = f"Could not find a useable context called {args.context} in cutax nor straxen"
+            if HAVE_CUTAX:
+                try:
+                    system_context = getattr(cutax, args.context)()
+                except:
+                    try:
+                        system_context = getattr(straxen, args.context)()
+                    except:
+                        raise RuntimeError(err_msg)
+            else:
+                try:
+                    system_context = getattr(straxen, args.context)()
+                except:
+                    raise RuntimeError(err_msg)
+            hash = system_context.provided_dtypes()[args.dtype]['hash']
+
         if args.chunks:
             chunks = [int(c) for c in args.chunks]
         else:
@@ -49,6 +78,5 @@ def main():
     elif args.experiment == 'xe1t':
         download_1t(args.number, args.dtype, location=args.dir, tries=args.tries, rse=args.rse,
                     num_threads=args.threads)
-
 
 main()
