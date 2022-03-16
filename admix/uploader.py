@@ -1,6 +1,7 @@
 import os.path
 from rucio.common.exception import Duplicate, DataIdentifierNotFound
-from .rucio import add_scope, list_files
+from .rucio import add_scope, list_files, build_data_dict
+from .utils import parse_did, db
 from . import clients
 
 
@@ -8,7 +9,6 @@ def get_default_scope():
     return 'user.' + clients.upload_client.client.account
 
 
-# TODO automatically update RunDB
 # TODO could we make this use multithreading or multiprocessing to speed things up?
 def upload(path, rse, did=None, lifetime=None, update_db=False):
 
@@ -63,8 +63,32 @@ def upload(path, rse, did=None, lifetime=None, update_db=False):
                            )
         to_upload = [upload_dict]
 
+    # get data dict to add to database
+    number, dtype, lineage_hash = parse_did(did)
+    data_dict = dict(did=did,
+                     type=dtype,
+                     location=rse,
+                     status='transferring',
+                     host='rucio-catalogue',
+                     meta=dict(),
+                     protocol='rucio',
+                    )
+
     if len(to_upload):
+        if update_db:
+            db.update_data(number, data_dict)
         clients.upload_client.upload(to_upload)
+        # then update db again when complete
+        if update_db:
+            data_dict['status'] = 'transferred'
+            # get files, size etc
+            files = list_files(did, verbose=True)
+            size = sum([f['bytes'] for f in files]) / 1e6
+            data_dict['meta'] = dict(lineage_hash=lineage_hash,
+                                     size_mb=size,
+                                     file_count=len(files)
+                                     )
+            db.update_data(number, data_dict)
     else:
         print(f"Nothing to upload at {path}")
 
