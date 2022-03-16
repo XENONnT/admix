@@ -270,8 +270,9 @@ def find_outdated_data(max_straxen_version, specific_dtype=None, context='xenonn
                                                   'did': {'$regex': h}}}}
                          for h in hsh_list]
                  }
-        cursor = list(utils.xent_runs_collection.find(query, {'number': 1, 'data': 1}))
-        if len(cursor) > 0:
+        ndocs = utils.xent_runs_collection.count_documents(query)
+        if ndocs > 0:
+            cursor = utils.xent_runs_collection.find(query, {'number': 1, 'data': 1})
             if dtype not in outdated_dids:
                 outdated_dids[dtype] = list()
             for run in cursor:
