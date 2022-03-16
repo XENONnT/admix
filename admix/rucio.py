@@ -84,6 +84,7 @@ def update_db(mode):
     return decorator
 
 
+@needs_client
 def get_did(did):
     scope, name = did.split(':')
     try:
@@ -349,5 +350,4 @@ class RuleNotFoundError(Exception):
 
 class DataPolicyError(Exception):
     pass
-
 
