@@ -209,19 +209,18 @@ def get_outdated_strax_info(not_outdated_version,
         save_versions = [v]
         outdated_versions.remove(v)
 
-    # if there are versions we should save, get the hashes of all datatypes
-    else:
-        save_hashes = dict()
-        for v in save_versions:
-            cursor = coll.find({'straxen_version': v.public})
-            for doc in cursor:
-                hashes = doc['hashes']
-                for dtype, h in hashes.items():
-                    if dtype in save_hashes:
-                        if h not in save_hashes[dtype]:
-                            save_hashes[dtype].append(h)
-                    else:
-                        save_hashes[dtype] = [h]
+    # get the hashes of all datatypes we want to save
+    save_hashes = dict()
+    for v in save_versions:
+        cursor = coll.find({'straxen_version': v.public})
+        for doc in cursor:
+            hashes = doc['hashes']
+            for dtype, h in hashes.items():
+                if dtype in save_hashes:
+                    if h not in save_hashes[dtype]:
+                        save_hashes[dtype].append(h)
+                else:
+                    save_hashes[dtype] = [h]
 
     delete_hashes = dict()
     for v in outdated_versions:
