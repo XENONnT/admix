@@ -191,60 +191,63 @@ def add_rucio_protocol(run_number):
             db.update_data(run_number, updatum)
 
 
-def get_outdated_strax_info(not_outdated_version, context='xenonnt_online',
+def get_outdated_strax_info(not_outdated_version,
                             return_current_hashes=False
                             ):
+    coll = utils.xent_context_collection
+
     # get versions of all straxen versions before some given 'good' version
     thresh_version = version.parse(not_outdated_version)
 
-    cursor = list(utils.xent_context_collection.find({'name': context}, {'straxen_version': 1}))
+    cursor = list(coll.find({}, {'straxen_version': 1}))
     versions = set([version.parse(d['straxen_version']) for d in cursor])
     outdated_versions = set(sorted([v for v in versions if v < thresh_version], reverse=True))
     save_versions = versions - outdated_versions
-    # if no save_versions, then save the raw data of the latest version
-    if not len(save_versions) and 'simulation' not in context:
+    # if no save_versions, then save the data of the latest version
+    if not len(save_versions):
         v = sorted(list(versions))[-1]
-        hashes = db.get_context(context, v.public)['hashes']
-        save_hashes = {dtype: h for dtype, h in hashes.items() if dtype in utils.RAW_DTYPES}
+        save_versions = [v]
+        outdated_versions.remove(v)
 
     # if there are versions we should save, get the hashes of all datatypes
     else:
         save_hashes = dict()
         for v in save_versions:
-            hashes = db.get_context(context, v.public)['hashes']
-            for dtype, h in hashes.items():
-                if dtype in save_hashes:
-                    if h not in save_hashes[dtype]:
-                        save_hashes[dtype].append(h)
-                else:
-                    save_hashes[dtype] = [h]
+            cursor = coll.find({'straxen_version': v.public})
+            for doc in cursor:
+                hashes = doc['hashes']
+                for dtype, h in hashes.items():
+                    if dtype in save_hashes:
+                        if h not in save_hashes[dtype]:
+                            save_hashes[dtype].append(h)
+                    else:
+                        save_hashes[dtype] = [h]
 
     delete_hashes = dict()
     for v in outdated_versions:
-        hashes = db.get_context(context, v.public)['hashes']
-        for dtype, h in hashes.items():
-            if dtype in save_hashes and h in save_hashes[dtype]:
-                pass
-            else:
-                if dtype in delete_hashes:
-                    if h not in delete_hashes[dtype]:
-                        delete_hashes[dtype].append(h)
+        cursor = coll.find({'straxen_version': v.public})
+        for doc in cursor:
+            hashes = doc['hashes']
+            for dtype, h in hashes.items():
+                if dtype in save_hashes and h in save_hashes[dtype]:
+                    pass
                 else:
-                    delete_hashes[dtype] = [h]
+                    if dtype in delete_hashes:
+                        if h not in delete_hashes[dtype]:
+                            delete_hashes[dtype].append(h)
+                    else:
+                        delete_hashes[dtype] = [h]
 
     # just to double check
     for dtype, h in delete_hashes.items():
         if dtype in save_hashes:
             assert h not in save_hashes[dtype]
-    if 'simulation' not in context:
-        for raw_dtype in utils.RAW_DTYPES:
-            assert raw_dtype not in delete_hashes, f"{raw_dtype} cannot be deleted!!"
     if return_current_hashes:
         return delete_hashes, save_hashes
     return delete_hashes
 
 
-def find_outdated_data(max_straxen_version, specific_dtype=None, context='xenonnt_online'):
+def find_outdated_data(max_straxen_version, specific_dtype=None):
     def get_dids(ddoc, dtype, hash_list):
         ret = []
         for d in ddoc:
@@ -257,7 +260,7 @@ def find_outdated_data(max_straxen_version, specific_dtype=None, context='xenonn
             raise RuntimeError(f"No dids found for {dtype}")
         return ret
 
-    outdated_info = get_outdated_strax_info(max_straxen_version, context)
+    outdated_info = get_outdated_strax_info(max_straxen_version)
     if specific_dtype:
         if isinstance(specific_dtype, str):
             outdated_info = {specific_dtype: outdated_info[specific_dtype]}
