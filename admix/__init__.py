@@ -28,3 +28,4 @@ from .downloader import download
 from .uploader import upload
 from . import manager
 from . import monitor
+from . import validator

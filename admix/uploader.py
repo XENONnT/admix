@@ -1,6 +1,6 @@
 import os.path
 from rucio.common.exception import Duplicate, DataIdentifierNotFound
-from .rucio import add_scope, list_files, build_data_dict
+from .rucio import add_scope, list_files
 from .utils import parse_did, db
 from . import clients
 
