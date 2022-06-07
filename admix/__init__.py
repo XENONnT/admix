@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """Top-level package for aDMIX."""
-__version__ = '1.0.6'
+__version__ = '1.0.7'
 
 import os
 import logging
