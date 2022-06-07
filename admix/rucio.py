@@ -180,14 +180,17 @@ def delete_rule(did, rse, purge_replicas=True, _careful=True, _required_copies=1
 @requires_production
 def erase(did, now=False, update_db=False):
     scope, name = did.split(':')
-    number, dtype, hsh = parse_did(did)
+    if get_did_type(did) == "FILE":
+        dtype = name.split('-')[0]
+    else:
+        number, dtype, hsh = parse_did(did)
     if dtype in admix.utils.RAW_DTYPES:
         print(f"You cannot erase {dtype} data. Shame on you")
         return
     # delete DID in 10 seconds if pass now=True, else copy what rucio does and set it to 24 hours.
     # see https://github.com/rucio/rucio/blob/master/bin/rucio#L883
     value = 10 if now else 86400
-    if update_db:
+    if update_db and get_did_type(did) == "DATASET":
         number, dtype, h = parse_did(did)
         data = db.get_data(number, did=did)
         for d in data:
@@ -315,14 +318,32 @@ def list_file_replicas(did, rse=None, **kwargs):
 
 
 @needs_client
-def get_account_usage(account='production', rse=None):
-    return clients.account_client.get_global_account_usage(account, rse_expression=rse)
-
+def list_rses():
+    return [rse for rse in clients.rse_client.list_rses()]
 
 @needs_client
-def get_account_limits(account='production'):
-   return clients.account_client.get_global_account_limit(account)
+def get_rse_usage(rse):
+    usage = next(clients.rse_client.get_rse_usage(rse))['used']
+    return usage
 
+@needs_client
+def get_account_usage(account='production', rse=None):
+    keep_fields = ['files', 'bytes', 'bytes_limit', 'bytes_remaining']
+    if rse is None:
+        ret = []
+        for rse in list_rses():
+            ret.append(get_account_usage(account, rse['rse']))
+        return ret
+    else:
+        usage = clients.account_client.get_local_account_usage(account, rse=rse)
+        try:
+            usage = next(usage)
+            for field in list(usage.keys()):
+                if field not in keep_fields:
+                    usage.pop(field)
+        except StopIteration:
+            usage = {field: 0 for field in keep_fields}
+        return usage
 
 @needs_client
 def get_rse_prefix(rse):
