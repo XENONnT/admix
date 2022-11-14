@@ -497,10 +497,6 @@ class Fix():
         if datum_upload is None:
             print('The datum concerning data type {0} and site {1} is missing in the DB. It will be added'.format(did,self.UPLOAD_TO))
 
-            # Update the eb data entry with status "transferred"
-            self.db.db.find_one_and_update({'_id': run['_id'], 'data': {'$elemMatch': {'type' : datum['type'], 'location' : datum['location'], 'host' : datum['host'] }}},
-                                           { '$set': { "data.$.status" : "transferred" } })
-
             # Add a new data field with LNGS as RSE and with status "transferred"
             data_dict = datum.copy()
             data_dict.update({'host': "rucio-catalogue",
@@ -513,8 +509,12 @@ class Fix():
                           })
             self.db.AddDatafield(run['_id'], data_dict)
 
+        
+        # Fourth action: update the eb data entry with status "transferred"
+        self.db.db.find_one_and_update({'_id': run['_id'], 'data': {'$elemMatch': {'type' : datum['type'], 'location' : datum['location'], 'host' : datum['host'] }}},
+                                       { '$set': { "data.$.status" : "transferred" } })
 
-        # Third action: in case the rule itself is missing, this would create it
+        # Fifth action: in case the rule itself is missing, this would create it
         rucio_rule = self.rc.GetRule(upload_structure=did, rse=self.UPLOAD_TO)
         #print(rucio_rule)
         if not rucio_rule['exists']:
@@ -529,7 +529,7 @@ class Fix():
                 return(0)
             os.system('rucio add-rule {0} 1 {1}'.format(did,self.UPLOAD_TO))
 
-        # Fourth action: creating the rules abroad
+        # Sixth action: creating the rules abroad
         self.create_upload_rules(did)
 
         return(0)
