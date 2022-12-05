@@ -51,7 +51,7 @@ class CleanEB():
         self.minimum_deltadays_allowed_heavy = 0 #1
         self.dtype_delayed_delete = ['raw_records_aqmon','raw_records_aqmon_nv','raw_records_he','raw_records_mv','raw_records_nv','pulse_counts','pulse_counts_he','veto_regions','peaklets','peaklets_he','records_he']
         self.dtype_delayed_delete_heavy = ['raw_records','records']
-        self.dtype_never_delete = ['lone_hits','merged_s2s','peak_basics','peaklet_classification','peak_positions_cnn', 'peak_positions_mlp', 'peak_positions_gcn', 'peak_positions']
+        self.dtype_never_delete = ['event_info','lone_hits','merged_s2s','peak_basics','peaklet_classification','peak_positions_cnn', 'peak_positions_mlp', 'peak_positions_gcn', 'peak_positions']
 
         #Init the runDB
         self.db = ConnectMongoDB()
@@ -101,12 +101,12 @@ class CleanEB():
         cursor = self.db.db.find({
 #            'number': {"$lt": 7600, "$gte": 7500},
 #            'number': {"$lt": 7600, "$gte": 7200},
-#            'number': {"$lt": 8570, "$gte": 8550},
-#            'number': {"$gte": 7330},
+#            'number': {"$lt": 30000, "$gte": 7200},
+#            'number': {"$gte": 7200},
 #            'number': {"$gte": 8500},
-            'number': {"$gte": 10800},
-#            'number': {"$gte": 8013},
-#            'number': 8075,
+            'number': {"$gte": 30000},
+#            'number': {"$gt": 12378},
+#            'number': 20255,
 #            'data' : { "$elemMatch": { "host" : {"$regex" : ".*eb.*"} , "type" : {"$in" : data_types}} },
 #            'status': 'transferred'
             'status': { '$in': ['transferred','transferring']}
@@ -163,8 +163,9 @@ class CleanEB():
                 # check first with runDB if the data type already exists in external RSEs
                 rses_in_db = []
                 for d in run['data']:
-                    if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] != self.UPLOAD_TO and d['status'] == 'transferred':
-                        rses_in_db.append(d['location'])
+                    if 'status' in d:
+                        if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] != self.UPLOAD_TO and d['status'] == 'transferred':
+                            rses_in_db.append(d['location'])
 #                helper.global_dictionary['logger'].Info('\t==> According to DB, found in following external RSEs : {0}'.format(rses_in_db))
 
                 # if this is not the case, just skip any attempt of deleting anything
@@ -272,6 +273,7 @@ class CleanEB():
                                 continue
                             rses_with_rule.append(rucio_rule['rse'])
                             nfiles = len(list_file_replicas(number, dtype, hash, rucio_rule['rse']))
+
                             if nfiles == nfiles_upload_to:
                                 rses_with_correct_nfiles.append(rucio_rule['rse'])
 #                    helper.global_dictionary['logger'].Info('\t==> According to Rucio, found in following external RSEs : {0}'.format(rses_with_rule))
@@ -297,7 +299,12 @@ class CleanEB():
 
                             self.db.RemoveDatafield(run['_id'],datum)
                             helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}. Deleted LNGS_USERDISK info from DB'.format(number,dtype))
-                    
+
+#                    elif len(rses_with_rule)>=self.minimum_number_acceptable_rses and nfiles_upload_to==0:
+#                            #self.db.RemoveDatafield(run['_id'],datum)
+#                            helper.global_dictionary['logger'].Info('\t==> Run {0}, data type {1}. Deleted LNGS_USERDISK info from DB okokokok'.format(number,dtype))
+                        
+
 
         return 0
 

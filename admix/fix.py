@@ -10,6 +10,7 @@ from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
 from admix.utils.list_file_replicas import list_file_replicas
 from rucio.client.replicaclient import ReplicaClient
+from rucio.client.client import Client
 from utilix.config import Config
 import utilix
 from bson.json_util import dumps
@@ -667,21 +668,47 @@ class Fix():
                             print(deb['host'],deb['status'],end='')
                     print("")
 
+
+
+    def get_datasets_size(self):
+
+        rucio_client = Client()
+
+        runs = self.db.db.find({
+            'number': {"$gte": 40000, "$lt": 48471},
+#            'number': {"$lt": 48475},
+            'status': 'transferred'
+        },
+        {'_id': 1, 'number': 1})
+
+        for r in runs:
+
+            run = self.db.db.find_one({'_id' : r['_id']},{'_id': 1, 'number': 1, 'mode': 1, 'data': 1, 'bootstrax': 1})
+
+            number = run['number']
+            mode = run['mode']
+
+            for dtype in self.DTYPES:
+
+                found = False
+                for d in run['data']:
+                    if d['type']==dtype and d['host'] == 'rucio-catalogue':
+                        found = True
+                        scope = d['did'].split(':')[0]
+                        dataset = d['did'].split(':')[1]
+                        files = list(rucio_client.list_files(scope,dataset))
+                        size = 0
+                        for ifile in files:
+                            size = size + ifile['bytes']
+                        print(number,mode,d['type'],len(files),size)
+                        break
+#                print(number,found)
+
     def test(self):
-#        runs = self.db.db.find({'number' : "transferring"},{'number' : 1, 'data' : 1})
-#        self.db.db.find_one_and_update({'number': 23838, 'deleted_data.type' : 'raw_records' },
-#                          { '$set': { "deleted_data.$.file_count" : 44 } })
-        runs = self.db.db.find({'status' : "transferred", 'number': {"$gte": 31113}},{'number' : 1, 'status' : 1, 'data' : 1})
-        
-        for run in runs:
-            doit = False
-            for d in run['data']:
-                if d['type']=='afterpulses':
-                    doit = True
-            if doit:
-                print(run['number'])
-#                self.set_run_status(run['number'],'transferring' )
-            
+
+#        runs = self.db.db.find({'status' : "transferring"},{'number' : 1, 'data' : 1})
+        self.get_datasets_size()
+
 
     def test_db_modification(self, did, new_status_name):
 
