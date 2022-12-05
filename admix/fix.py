@@ -325,6 +325,78 @@ class Fix():
 
 
 
+    def add_db_rule_tar(self,did,from_rse,to_rse):
+
+        hash = did.split('-')[-1]
+        dtype = did.split('-')[0].split(':')[-1]
+        dtypetar = dtype+".tar"
+        number = int(did.split(':')[0].split('_')[-1])
+        didtar = make_did(number, dtypetar, hash)
+
+        print("Adding a new tar rule {0} in {1} using infos from {2}".format(did,to_rse,from_rse))
+        print("Run number: {0}".format(number))
+        print("Data type: {0}".format(dtype))
+        print("Data type tar: {0}".format(dtypetar))
+        print("Hash: {0}".format(hash))
+        print("Did tar: {0}".format(didtar))
+
+        run = self.db.db.find_one({'number' : number})
+
+        # Gets the status
+        if 'status' in run:
+            print('Run status: {0}'.format(run['status']))
+        else:
+            print('Run status: {0}'.format('Not available'))
+
+        #Checks if the datum of the sender exists in the DB
+        datum = None
+        for d in run['data']:
+            if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == from_rse:
+                datum = d
+                break
+        if datum is None:
+            print('The datum concerning data type {0} and site {1} is missing in the DB. Forced to stop'.format(dtype,from_rse))
+            return(0)
+
+        #Checks if the datum of the destination does not exist yet in the DB
+        datumtar = None
+        for d in run['data']:
+            if d['type'] == dtypetar and d['host'] == 'rucio-catalogue' and d['location'] == to_rse:
+                datumtar = d
+                break
+        if datumtar is not None:
+            print('The datum concerning data type {0} and site {1} exists already in the DB. Forced to stop'.format(dtype,to_rse))
+            return(0)
+
+
+        # Checks the rule status of the destination RSE
+        rucio_rule = self.rc.GetRule(upload_structure=didtar, rse=to_rse)
+        if not rucio_rule['exists']:
+            print('The rule {0} in {1} does not exist. Forced to stop'.format(didtar,to_rse))
+            return(0)
+
+        if rucio_rule['state'] != 'OK':
+            print('The rule {0} in {1} exists but it is not OK. Forced to stop'.format(didtar,to_rse))
+            return(0)
+
+        # Add a new data field copying from from_rse but with: to_rse as RSE, dtypetar as dtype and with status "trasferred"
+        data_dict = datum.copy()
+        data_dict.update({'host': "rucio-catalogue",
+                          'type': dtypetar,
+                          'location': to_rse,
+                          'lifetime': rucio_rule['expires'],
+                          'status': 'transferred',
+                          'did': didtar,
+                          'protocol': 'rucio'
+                      })
+        print(data_dict)
+#        self.db.AddDatafield(run['_id'], data_dict)
+
+        print("Done.")
+
+
+
+
     def delete_rule(self,did,rse):
 
         hash = did.split('-')[-1]
@@ -892,6 +964,7 @@ def main():
     parser.add_argument("--reset_upload", nargs=1, help="Deletes everything related a given DID, except data in EB. The deletion includes the entries in the Rucio catalogue and the related data in the DB rundoc. This is ideal if you want to retry an upload that failed", metavar=('DID'))
     parser.add_argument("--fix_upload", nargs=1, help="Deletes everything related a given DID, then it retries the upload", metavar=('DID'))
     parser.add_argument("--add_rule", nargs=3, help="Add a new replication rule of a given DID from one RSE to another one. The rundoc in DB is updated with a new datum as well", metavar=('DID','FROM_RSE','TO_RSE'))
+    parser.add_argument("--add_db_rule_tar", nargs=3, help="Add a new data entry in a rundoc for the tar version of a given DID and destination TO_RSE, using FROM_RSE as base", metavar=('DID','FROM_RSE','TO_RSE'))
     parser.add_argument("--delete_rule", nargs=2, help="Delete a replication rule of a given DID from one RSE. The rundoc in DB is deleted as well", metavar=('DID','RSE'))
     parser.add_argument("--delete_db_datum", nargs=2, help="Deletes the db datum corresponding to a given DID. The SITE can be either a specific EB machine (ex: eb1) or a specific RSE", metavar=('DID','SITE'))
 
@@ -929,6 +1002,8 @@ def main():
             fix.add_rule(args.add_rule[0],args.add_rule[1],args.add_rule[2])
         if args.add_rules_from_file:
             fix.add_rules_from_file(args.add_rules_from_file[0],args.add_rules_from_file[1],args.add_rules_from_file[2])
+        if args.add_db_rule_tar:
+            fix.add_db_rule_tar(args.add_db_rule_tar[0],args.add_db_rule_tar[1],args.add_db_rule_tar[2])
         if args.delete_rule:
             fix.delete_rule(args.delete_rule[0],args.delete_rule[1])
         if args.delete_db_datum:
