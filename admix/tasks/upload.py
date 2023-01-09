@@ -35,6 +35,7 @@ class Upload():
         self.LIGHT_RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['light_raw_records_mv_types']
         self.LIGHT_RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['light_raw_records_nv_types']
         self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
+        self.HEAVY_HIGH_LEVEL_TYPES = helper.get_hostconfig()['heavy_high_level_types']
         self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
         # Get the sequence of rules to be created according to the data type
@@ -45,6 +46,7 @@ class Upload():
         self.LIGHT_RAW_RECORDS_MV_RSES = helper.get_hostconfig()["light_raw_records_mv_rses"]
         self.LIGHT_RAW_RECORDS_NV_RSES = helper.get_hostconfig()["light_raw_records_nv_rses"]
         self.HIGH_LEVEL_RSES = helper.get_hostconfig()["high_level_rses"]
+        self.HEAVY_HIGH_LEVEL_RSES = helper.get_hostconfig()["heavy_high_level_rses"]
         self.RECORDS_RSES = helper.get_hostconfig()["records_rses"]
 
         # Choose which RSE you want upload to
@@ -252,6 +254,9 @@ class Upload():
 
             if dtype in self.HIGH_LEVEL_TYPES:
                 rses = rses + self.HIGH_LEVEL_RSES
+
+            if dtype in self.HEAVY_HIGH_LEVEL_TYPES:
+                rses = rses + self.HEAVY_HIGH_LEVEL_RSES
 
             if dtype in self.RECORDS_TYPES:
                 rses = rses + self.RECORDS_RSES

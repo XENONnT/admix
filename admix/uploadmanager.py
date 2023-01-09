@@ -144,12 +144,17 @@ class UploadManager():
     def run(self):
 
         print("")
-        print("Run")
+        print("---------------------------------------------------------------------")
 
         # Get the list of datasets to upload
         datasets_to_upload = self.GetDatasetsToUpload()
 
         print("Datasets still to upload: {0}".format(len(datasets_to_upload)))
+
+        # Show some stats concerning the datasets to upload
+        numbers = [d['number'] for d in datasets_to_upload]
+        if len(numbers)>0:
+            print("(min run number: {0}, max run number: {1})".format(min(numbers),max(numbers)))
 
         # Show the list of datasets to upload
 #        print("Runs to upload:")
@@ -192,7 +197,6 @@ class UploadManager():
                         n_low = n_low + 1
 
         # Print threads status
-        print("")
         print("---------------------------------------------------------------------")
         print("There are currently {0} active threads, {1}/{2} high level and {3}/{4} low level:".format(len(current_threads),n_high,self.n_upload_threads_high,n_low,self.n_upload_threads_low))
         for thread in sorted(current_threads, key=lambda k: k['screen']):
