@@ -10,13 +10,19 @@ from admix.interfaces.database import ConnectMongoDB
 from admix.utils.naming import make_did
 from admix.utils.list_file_replicas import list_file_replicas
 from rucio.client.replicaclient import ReplicaClient
+from rucio.client.uploadclient import UploadClient
+from rucio.client.didclient import DIDClient
 from rucio.client.client import Client
+from admix import download
 from utilix.config import Config
 import utilix
 from bson.json_util import dumps
 from datetime import timezone, datetime, timedelta
 import pymongo
 import glob
+import tarfile
+import gfal2
+from tqdm import tqdm
 
 from pymongo import ReturnDocument
 
@@ -65,8 +71,218 @@ class Fix():
         #Init the Rucio replica client
         self.replicaclient = ReplicaClient()
 
+        #Init the Rucio upload client
+        self.upload_client = UploadClient()
+
+        #Init the Rucio upload client
+        self.did_client = DIDClient()
+
+        #Init the Rucio client
+        self.rucio_client = Client()
+
         #Rucio Rule assignment priority
         self.priority = 3
+
+        self.working_path='/home/XENON/scotto/scratch'
+
+    def tarball_all(self,from_rse,to_rse):
+
+        print("Tarballing all rules from {0} to {1}".format(from_rse,to_rse))
+
+        dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in self.rucio_client.list_datasets_per_rse(from_rse)]))
+        dsns.sort()
+        print("SCOPE:NAME")
+        print('----------')
+        start = False
+        for dsn in tqdm(dsns):
+            if 'xnt' not in dsn:
+                continue
+            if 'tarball' in dsn:
+                continue
+            if start:
+                print("Start tarballing of {0}".format(dsn))
+                if not self.tarball(dsn,from_rse,to_rse):
+                    break
+#                break
+            if dsn == "xnt_042134:raw_records_nv-rfzvpzj4mf":
+                start = True
+
+#            if dsn == "xnt_025860:raw_records_nv-rfzvpzj4mf":
+#                break
+
+
+
+    def tarball(self,did,from_rse,to_rse):
+
+        # check from the name if the rule is already tarballed
+        tar_suffix = did.split('.')[-1]
+        if tar_suffix == "tarball":
+            print("Error! According to the name, the rule {0} is already tarballed".format(did))
+            return(True)
+
+        # define relevant names
+        scope, dataset = did.split(':')
+        dataset_tar = dataset+'.tarball'
+        hash = did.split('-')[-1]
+        dtype = did.split('-')[0].split(':')[-1]
+        number = int(did.split(':')[0].split('_')[-1])
+
+        print("Tarballing rule {0} from {1} to {2}".format(did,from_rse,to_rse))
+#        print("Run number: {0}".format(number))
+#        print("Data type: {0}".format(dtype))
+#        print("Hash: {0}".format(hash))
+
+        # tarball only specific data types
+        if dtype not in ["raw_records","raw_records_mv","raw_records_nv"]:
+            print("Error! This data type cannot be tarballed because usually it has very few files")
+            return True
+
+        # check if the rule exists and it is present in the from_rse
+        rule_is_ok = False
+        nfiles = 0
+        rules = list(self.rucio_client.list_did_rules(scope, dataset))
+        rule_id = 0
+        for rule in rules:
+            if rule['rse_expression']==from_rse:
+#                print(rule['rse_expression'],rule['state'],rule['id'],rule['locks_ok_cnt'])
+                if rule['state']=='OK':
+                    rule_is_ok = True
+                    nfiles = rule['locks_ok_cnt']
+                    rule_id = rule['id']
+        if not rule_is_ok:
+            print("Error! Rule is not OK. Tarballing is stop")
+            return True
+
+        if nfiles<=1:
+            print("Error! Rule is OK but there is only the metadata. Tarballing is stop")
+            return True
+ 
+        print("Rule is OK, the number of files is {0}, its ID is {1}".format(nfiles,rule_id))
+
+#        return
+        # download rule
+        download(number,dtype,hash,rse=from_rse,location=self.working_path)
+
+        # create the directory that will contain the new dataset
+        filename = did.replace(':', '-')
+        filename = filename.replace('xnt_', '')
+        path_to_tar = os.path.join(self.working_path,filename)
+        path_to_upload = path_to_tar+'.tar'
+        os.mkdir(path_to_upload)
+
+        # check if the number of downloaded files corresponds to the ones declared by Rucio
+        downloaded_files = os.listdir(path_to_tar)
+        #print(len(downloaded_files),nfiles)
+        if len(downloaded_files)!=nfiles:
+            print("Error! The number of downloaded files does not correspond to the one declared by Rucio. Tarballing is stop")            
+            return False
+
+        # tarball the rule excluding the metadata
+        tar_filename = os.path.join(path_to_upload,dataset+'.tar')
+        print("Creating tarball {0}".format(tar_filename))
+        tar_file = tarfile.open(tar_filename,"w")
+        for filetoadd in sorted(downloaded_files):
+            filetoadd_with_path = os.path.join(path_to_tar, filetoadd)
+            if "metadata" in filetoadd:
+                continue
+            tar_file.add(filetoadd_with_path,arcname=filetoadd)
+        tar_file.close()
+
+        # (deprecated, we don't need to copy the metadata to upload it, we just need to attach the one already existing in Rucio) copy the metadata in the path to upload
+###        metadata_filename = os.path.join(self.working_path,filename,dataset+'-metadata.json')
+###        shutil.copy(metadata_filename, path_to_upload)
+
+        # remove the downloaded directory
+        print("Removing directory {0}".format(path_to_tar))
+        shutil.rmtree(path_to_tar)
+
+        # don't uncomment this line. creating the scope should not needed in normal situations since the scope already exists
+        # self.rucio_client.add_scope(account='production', scope=scope)
+
+        # upload rule
+        print("Uploading the rule {0}".format(did))
+        upload_dict = dict(path=path_to_upload,
+                           rse=to_rse,
+                           lifetime=None,
+                           did_scope=scope,
+                           dataset_scope=scope,
+                           dataset_name=dataset_tar,
+                           )
+        self.upload_client.upload([upload_dict])
+
+        # attach the already existing metadata to the new, tarball, did
+        print("Attaching the already existing metadata to the rule {0}".format(did))
+        metadata_did = []
+        metadata_did.append(dict(scope=scope, name=dataset+'-metadata.json'))
+        self.did_client.attach_dids(scope,dataset_tar,metadata_did,rse=to_rse)
+
+        # don't uncomment this line. Not needed except for very exceptional cases
+        #os.system("rucio add-rule "+scope+":"+dataset_tar+" 1 "+to_rse) # not needed
+
+        # update database with a new data entry starting with the original did
+        self.add_db_rule_tar(did,from_rse,to_rse)
+
+        # remove from the RSE and from database the non-tarball data entry
+        print("Removing the rule {0} from {1} and from the database".format(did,from_rse))
+        self.delete_rule(did,from_rse)
+
+        # remove the downloaded directory
+        print("Removing the tar directory {0}".format(path_to_upload))
+        shutil.rmtree(path_to_upload)
+
+        return True
+
+
+    def clean_empty_directories_rse(self,rse):
+        print("Cleaning all empty directories present in {0}".format(rse))
+
+        scopes = list(set([dsn['scope'] for dsn in self.rucio_client.list_datasets_per_rse(rse)]))
+        scopes.sort()
+        print("SCOPE:NAME")
+        print('----------')
+        for scope in scopes:
+            if 'xnt' not in scope:
+                continue
+#            if scope!='xnt_007177':
+#                continue
+            print(scope)
+            directory = os.path.join('srm://storm-fe-archive.cr.cnaf.infn.it:8444/srm/managerv2?SFN=/xenon/rucio/',scope)
+            print(directory)
+            number = int(scope.split('_')[-1])
+            print(number)
+            if number>49000:
+                continue
+            self.clean_empty_directories(directory)
+
+
+    def clean_empty_directories(self,directory):
+        print(directory)
+        ctx = gfal2.creat_context()
+        list_subdir_lev1 = ctx.listdir(directory)
+        for subdir_lev1 in list_subdir_lev1:
+            if subdir_lev1 == '.' or subdir_lev1 == '..':
+                continue
+            directory_lev1 = os.path.join(directory,subdir_lev1)
+#            print(directory_lev1)
+            list_subdir_lev2 = ctx.listdir(directory_lev1)
+            for subdir_lev2 in list_subdir_lev2:
+                if subdir_lev2 == '.' or subdir_lev2 == '..':
+                    continue
+                directory_lev2 = os.path.join(directory_lev1,subdir_lev2)
+#                print(directory_lev2)
+                list_subdir_lev3 = ctx.listdir(directory_lev2)
+                if len(list_subdir_lev3)==0:
+                    print("No files. Proceeding with deleting directory {0}".format(directory_lev2))
+                    ctx.rmdir(directory_lev2)
+                for subdir_lev3 in list_subdir_lev3:
+                    if subdir_lev3 == '.' or subdir_lev3 == '..':
+                        continue
+                    files_lev3 = os.path.join(directory_lev2,subdir_lev3)
+#                    print(files_lev3)
+            list_subdir_lev2 = ctx.listdir(directory_lev1)
+            if len(list_subdir_lev2)==0:
+                print("No files. Proceeding with deleting directory {0}".format(directory_lev1))
+                ctx.rmdir(directory_lev1)
 
 
 
@@ -961,6 +1177,11 @@ def main():
 
     config = Config()
 
+    parser.add_argument("--tarball_all", nargs=2, help="Tarballs all data from a given FROM_RSE and upload them to TO_RSE", metavar=('FROM_RSE','TO_RSE'))
+    parser.add_argument("--tarball", nargs=3, help="Extracts data with a given DID from a given FROM_RSE, tarballs it, then uploads it in TO_RSE", metavar=('DID','FROM_RSE','TO_RSE'))
+    parser.add_argument("--clean_empty_directories", nargs=1, help="Removes all empty sub-directories of a given directory DIR", metavar=('DIR'))
+    parser.add_argument("--clean_empty_directories_rse", nargs=1, help="Removes all empty sub-directories of a given RSE", metavar=('RSE'))
+
     parser.add_argument("--reset_upload", nargs=1, help="Deletes everything related a given DID, except data in EB. The deletion includes the entries in the Rucio catalogue and the related data in the DB rundoc. This is ideal if you want to retry an upload that failed", metavar=('DID'))
     parser.add_argument("--fix_upload", nargs=1, help="Deletes everything related a given DID, then it retries the upload", metavar=('DID'))
     parser.add_argument("--add_rule", nargs=3, help="Add a new replication rule of a given DID from one RSE to another one. The rundoc in DB is updated with a new datum as well", metavar=('DID','FROM_RSE','TO_RSE'))
@@ -994,6 +1215,16 @@ def main():
     fix.priority = args.priority
 
     try:
+        if args.tarball_all:
+            fix.tarball_all(args.tarball_all[0],args.tarball_all[1])
+        if args.tarball:
+            fix.tarball(args.tarball[0],args.tarball[1],args.tarball[2])
+        if args.clean_empty_directories:
+            fix.clean_empty_directories(args.clean_empty_directories[0])
+        if args.clean_empty_directories_rse:
+            fix.clean_empty_directories_rse(args.clean_empty_directories_rse[0])
+        if args.add_db_rule_tar:
+            fix.add_db_rule_tar(args.add_db_rule_tar[0],args.add_db_rule_tar[1],args.add_db_rule_tar[2])
         if args.reset_upload:
             fix.reset_upload(args.reset_upload[0])
         if args.fix_upload:
