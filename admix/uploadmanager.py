@@ -34,6 +34,9 @@ class UploadManager():
         # Init the Slack bot and associated variables
         self.bot = AdmixBot('admix')
         self.heartbeat_interval = datetime.timedelta(hours=12)
+        self.n_threads_alert_wait_time = 60  # 60 s
+        self.n_dat_alert_wait_time = 900  # 900 s (15 min)
+        self.n_dat_alert_thr = 25  # n_datasets_to_upload threshold
 
         #Take all data types categories
         self.RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['raw_records_tpc_types']
@@ -173,21 +176,19 @@ class UploadManager():
 
         return next_heartbeat_time
 
-    def SendNdatasetsToBot(self, wait_time, n_dat_alert_wait_time, n_dat_alert_thr,
-                           n_dat_alert_counter, trigger_above_thr, previous_above_zero):
+    def SendNdatasetsToBot(self, wait_time, n_dat_alert_counter,
+                           trigger_above_thr, previous_above_zero):
         """
         Triggers an alert sequence if the number of datasets still to upload
         exceeds a given threshold.
 
-        Every n_dat_alert_wait_time, a message is sent to the Slack channel
+        Every self.n_dat_alert_wait_time, a message is sent to the Slack channel
         to tell people that self.n_datasets_to_upload exceeds zero.
-        An alert sequence starts when it exceeds n_dat_alert_thr,
+        An alert sequence starts when it exceeds self.n_dat_alert_thr,
         and ends when it reaches zero again.
 
         Args:
             wait_time: sleep time between each UploadManager loop.
-            n_dat_alert_wait_time: time interval between alerts sent on Slack.
-            n_dat_alert_thr: number of datasets above which an alert is sent.
             n_dat_alert_counter: alert sending interval counter.
             trigger_above_thr: trigger for an alert sequence (from threshold exceeded back to zero).
             previous_above_zero: switch depending on the number of datasets above zero at the last alert.
@@ -197,8 +198,8 @@ class UploadManager():
             previous_above_zero: updated previous_above_zero.
         """
 
-        if n_dat_alert_counter % int(n_dat_alert_wait_time / wait_time) == 0:
-            if self.n_datasets_to_upload > n_dat_alert_thr:
+        if n_dat_alert_counter % int(self.n_dat_alert_wait_time / wait_time) == 0:
+            if self.n_datasets_to_upload > self.n_dat_alert_thr:
 
                 channel_tag = ' <!channel>' if not trigger_above_thr else ''
 
@@ -208,7 +209,7 @@ class UploadManager():
                 :red_circle: Datasets still to upload: {}
 
                 :hourglass_flowing_sand: Next report about this alert in {} minutes
-                """.format(channel_tag, self.n_datasets_to_upload, int(n_dat_alert_wait_time / 60))))
+                """.format(channel_tag, self.n_datasets_to_upload, int(self.n_dat_alert_wait_time / 60))))
 
                 trigger_above_thr = True
                 previous_above_zero = True
@@ -221,7 +222,7 @@ class UploadManager():
                 :large_orange_circle: Datasets still to upload: {}
 
                 :hourglass_flowing_sand: Next report about this alert in {} minutes
-                """.format(self.n_datasets_to_upload, int(n_dat_alert_wait_time / 60))))
+                """.format(self.n_datasets_to_upload, int(self.n_dat_alert_wait_time / 60))))
 
                 previous_above_zero = True
 
@@ -374,16 +375,8 @@ class UploadManager():
         wait_time = helper.get_hostconfig()['sleep_time']  # 10 s
 
         # Slack bot alert settings (see bot functions for details)
-        #
-        # /!\ SHOULD THESE BE ADDED AS CLASS MEMBERS OR IN CONFIG FILE
-        # /!\ TO ACCESS WITH helper.get_hostconfig()['setting_name']?
         next_heartbeat_time = datetime.datetime.now(pytz.timezone('CET')).replace(hour=9, minute=0, second=0, microsecond=0)
-
-        n_threads_alert_wait_time = 60  # 60 s
-        n_threads_alert_counter = 0
-
-        n_dat_alert_wait_time = 900  # 900 s (15 min)
-        n_dat_alert_thr = 25
+        # n_threads_alert_counter = 0
         n_dat_alert_counter = 0
         trigger_above_thr = False
         previous_above_zero = False
@@ -404,8 +397,7 @@ class UploadManager():
             # Slack bot alert machinery in case of too high
             # a number of datasets still to upload
             trigger_above_thr, previous_above_zero = self.SendNdatasetsToBot(
-                wait_time, n_dat_alert_wait_time, n_dat_alert_thr,
-                n_dat_alert_counter, trigger_above_thr, previous_above_zero)
+                wait_time, n_dat_alert_counter, trigger_above_thr, previous_above_zero)
             n_dat_alert_counter += 1
 
             # Stop if running aDMIX once
