@@ -46,6 +46,7 @@ class UploadManager():
         self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
         self.n_datasets_to_upload = 0
+        self.n_threads = 0
         self.n_upload_threads_low = helper.get_hostconfig()['n_upload_threads_low']
         self.n_upload_threads_high = helper.get_hostconfig()['n_upload_threads_high']
 
@@ -172,22 +173,22 @@ class UploadManager():
 
         return next_heartbeat_time
 
-    def SendNdatasetsToBot(self, wait_time, alert_wait_time, datasets_alert_thr,
-                           alert_counter, trigger_above_thr, previous_above_zero):
+    def SendNdatasetsToBot(self, wait_time, n_dat_alert_wait_time, n_dat_alert_thr,
+                           n_dat_alert_counter, trigger_above_thr, previous_above_zero):
         """
         Triggers an alert sequence if the number of datasets still to upload
         exceeds a given threshold.
 
-        Every alert_wait_time, a message is sent to the Slack channel
+        Every n_dat_alert_wait_time, a message is sent to the Slack channel
         to tell people that self.n_datasets_to_upload exceeds zero.
-        An alert sequence starts when it exceeds datasets_alert_thr,
+        An alert sequence starts when it exceeds n_dat_alert_thr,
         and ends when it reaches zero again.
 
         Args:
             wait_time: sleep time between each UploadManager loop.
-            alert_wait_time: time interval between alerts sent on Slack.
-            datasets_alert_thr: number of datasets above which an alert is sent.
-            alert_counter: alert sending interval counter.
+            n_dat_alert_wait_time: time interval between alerts sent on Slack.
+            n_dat_alert_thr: number of datasets above which an alert is sent.
+            n_dat_alert_counter: alert sending interval counter.
             trigger_above_thr: trigger for an alert sequence (from threshold exceeded back to zero).
             previous_above_zero: switch depending on the number of datasets above zero at the last alert.
 
@@ -196,8 +197,8 @@ class UploadManager():
             previous_above_zero: updated previous_above_zero.
         """
 
-        if alert_counter % int(alert_wait_time / wait_time) == 0:
-            if self.n_datasets_to_upload > datasets_alert_thr:
+        if n_dat_alert_counter % int(n_dat_alert_wait_time / wait_time) == 0:
+            if self.n_datasets_to_upload > n_dat_alert_thr:
 
                 channel_tag = ' <!channel>' if not trigger_above_thr else ''
 
@@ -207,7 +208,7 @@ class UploadManager():
                 :red_circle: Datasets still to upload: {}
 
                 :hourglass_flowing_sand: Next report about this alert in {} minutes
-                """.format(channel_tag, self.n_datasets_to_upload, int(alert_wait_time / 60))))
+                """.format(channel_tag, self.n_datasets_to_upload, int(n_dat_alert_wait_time / 60))))
 
                 trigger_above_thr = True
                 previous_above_zero = True
@@ -220,7 +221,7 @@ class UploadManager():
                 :large_orange_circle: Datasets still to upload: {}
 
                 :hourglass_flowing_sand: Next report about this alert in {} minutes
-                """.format(self.n_datasets_to_upload, int(alert_wait_time / 60))))
+                """.format(self.n_datasets_to_upload, int(n_dat_alert_wait_time / 60))))
 
                 previous_above_zero = True
 
@@ -236,7 +237,7 @@ class UploadManager():
                     """.format(self.n_datasets_to_upload)))
 
                     if variable == 0:
-                        alert_counter = 0
+                        n_dat_alert_counter = 0
                     trigger_above_thr = False
                     previous_above_zero = False
 
@@ -366,6 +367,7 @@ class UploadManager():
 
         # Store the current list of threads
         self.threads = current_threads
+        self.n_threads = len(current_threads)
 
     def loop(self):
 
@@ -375,12 +377,16 @@ class UploadManager():
         #
         # /!\ SHOULD THESE BE ADDED AS CLASS MEMBERS OR IN CONFIG FILE
         # /!\ TO ACCESS WITH helper.get_hostconfig()['setting_name']?
-        alert_wait_time = 900  # 900 s (15 min)
-        datasets_alert_thr = 25
-        alert_counter = 0
+        next_heartbeat_time = datetime.datetime.now(pytz.timezone('CET')).replace(hour=9, minute=0, second=0, microsecond=0)
+
+        n_threads_alert_wait_time = 60  # 60 s
+        n_threads_alert_counter = 0
+
+        n_dat_alert_wait_time = 900  # 900 s (15 min)
+        n_dat_alert_thr = 25
+        n_dat_alert_counter = 0
         trigger_above_thr = False
         previous_above_zero = False
-        next_heartbeat_time = datetime.datetime.now(pytz.timezone('CET')).replace(hour=9, minute=0, second=0, microsecond=0)
 
         while True:
 
@@ -389,12 +395,18 @@ class UploadManager():
             # Slack bot heartbeat
             next_heartbeat_time = self.SendHeartbeat(next_heartbeat_time)
 
+            # # Slack bot alert machinery in case of crashing threads
+            # trigger_above_thr, previous_above_zero = self.SendNthreadsToBot(
+            #     wait_time, n_threads_alert_wait_time, n_dat_alert_thr,
+            #     n_threads_alert_counter, trigger_above_thr, previous_above_zero)
+            # n_threads_alert_counter += 1
+
             # Slack bot alert machinery in case of too high
             # a number of datasets still to upload
             trigger_above_thr, previous_above_zero = self.SendNdatasetsToBot(
-                wait_time, alert_wait_time, datasets_alert_thr,
-                alert_counter, trigger_above_thr, previous_above_zero)
-            alert_counter += 1
+                wait_time, n_dat_alert_wait_time, n_dat_alert_thr,
+                n_dat_alert_counter, trigger_above_thr, previous_above_zero)
+            n_dat_alert_counter += 1
 
             # Stop if running aDMIX once
             if helper.global_dictionary.get('once'):
