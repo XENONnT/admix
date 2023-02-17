@@ -34,11 +34,11 @@ class UploadManager():
         # Init the Slack bot and associated variables
         self.bot = AdmixBot('admix')
         self.heartbeat_interval = datetime.timedelta(hours=12)
-        self.n_threads_alert_wait_time = 60  # 60 s
+        self.n_threads_alert_wait_time = 300  # 300 s (5 min)
         self.n_dat_alert_wait_time = 900  # 900 s (15 min)
         self.n_dat_alert_thr = 25  # n_datasets_to_upload threshold
 
-        #Take all data types categories
+        # Take all data types categories
         self.RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['raw_records_tpc_types']
         self.RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['raw_records_mv_types']
         self.RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['raw_records_nv_types']
@@ -48,19 +48,23 @@ class UploadManager():
         self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
         self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
-        self.n_datasets_to_upload = 0
-        self.n_threads = 0
+        # Get loop config
+        self.wait_time = helper.get_hostconfig()['sleep_time']
         self.n_upload_threads_low = helper.get_hostconfig()['n_upload_threads_low']
         self.n_upload_threads_high = helper.get_hostconfig()['n_upload_threads_high']
 
-        #Choose which data type you want to treat
+        # Choose which data type you want to treat
         self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.RECORDS_TYPES
 
         self.HIGH_DTYPES = self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES
 
         self.LOW_DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.RECORDS_TYPES
 
+        self.n_datasets_to_upload = 0
+        self.n_threads = 0
         self.threads = []
+        self.crashed_threads = []
+        
 
     def GetDatasetsToUpload(self):
 
@@ -137,12 +141,12 @@ class UploadManager():
             json.dump(datum,f)
             f.close()
 
-    def SendAlarm(self,crashed_threads):
+    def SendAlarm(self):
         timestamp = int(time.time())
-        print("Alarm on ",time.ctime(timestamp))
+        print("Alarm on ", time.ctime(timestamp))
         print("List of threads that crashed:\n")
-        for thread in crashed_threads:
-            print("Task: "+thread['task']+", from screen session: "+thread['screen']+"\n")
+        for thread in self.crashed_threads:
+            print("Task: " + thread['task'] + ", from screen session: " + thread['screen'] + "\n")
 
     def CompareData(self,datum1,datum2):
         return(datum1['number']==datum2['number'] and datum1['type']==datum2['type'] and datum1['hash']==datum2['hash'] and datum1['eb']==datum2['eb'])
@@ -176,8 +180,46 @@ class UploadManager():
 
         return next_heartbeat_time
 
-    def SendNdatasetsToBot(self, wait_time, n_dat_alert_counter,
-                           trigger_above_thr, previous_above_zero):
+    def SendCrashedThreadsToBot(self, n_threads_alert_counter):
+        """
+        Triggers an alert sequence if the number of crashed threads is non-zero.
+
+        Every self.n_threads_alert_wait_time, a message is sent to the Slack channel
+        to tell people that len(self.crashed_threads) is non-zero. As fixing this problem
+        requires human intervention, no more messages are sent afterwards.
+
+        Args:
+            n_threads_alert_counter: alert sending interval counter.
+
+        Returns:
+            n_threads_alert_counter: updated n_threads_alert_counter.
+        """
+
+        if n_threads_alert_counter % int(self.n_threads_alert_wait_time / self.wait_time) == 0:
+            if len(self.crashed_threads) > 0:
+                thread_strings = []
+
+                for thread in self.crashed_threads:
+                    thread_strings.append("• {} (screen session {})".format(thread["task"], thread["screen"]))
+
+                message = textwrap.dedent("""
+                *Alert—Crashed threads* <!channel>
+
+                :red_circle: The following threads crashed:
+                {}
+
+                *Following <https://xe1t-wiki.lngs.infn.it/doku.php?id=xenon:xenonnt:analysis:analysis_tools_team:admix:admix_shifters|aDMIX instructions>, take action immediately!*
+
+                :hourglass_flowing_sand: Next report about this alert in {} minutes
+                """.format("\n".join(thread_strings), int(self.n_threads_alert_wait_time / 60)))
+
+                bot.send_message("\n".join([m.lstrip() for m in message.split("\n")]))
+            else:
+                n_threads_alert_counter = 0
+
+        return n_threads_alert_counter
+
+    def SendNdatasetsToBot(self, n_dat_alert_counter, trigger_above_thr, previous_above_zero):
         """
         Triggers an alert sequence if the number of datasets still to upload
         exceeds a given threshold.
@@ -188,17 +230,17 @@ class UploadManager():
         and ends when it reaches zero again.
 
         Args:
-            wait_time: sleep time between each UploadManager loop.
             n_dat_alert_counter: alert sending interval counter.
             trigger_above_thr: trigger for an alert sequence (from threshold exceeded back to zero).
             previous_above_zero: switch depending on the number of datasets above zero at the last alert.
 
         Returns:
+            n_dat_alert_counter: updated n_dat_alert_counter.
             trigger_above_thr: updated trigger_above_thr.
             previous_above_zero: updated previous_above_zero.
         """
 
-        if n_dat_alert_counter % int(self.n_dat_alert_wait_time / wait_time) == 0:
+        if n_dat_alert_counter % int(self.n_dat_alert_wait_time / self.wait_time) == 0:
             if self.n_datasets_to_upload > self.n_dat_alert_thr:
 
                 channel_tag = ' <!channel>' if not trigger_above_thr else ''
@@ -242,7 +284,7 @@ class UploadManager():
                     trigger_above_thr = False
                     previous_above_zero = False
 
-        return trigger_above_thr, previous_above_zero
+        return n_dat_alert_counter, trigger_above_thr, previous_above_zero
 
     def run(self):
 
@@ -281,9 +323,11 @@ class UploadManager():
                 if os.path.isfile(filename):
                     crashed_threads.append(thread)
 
+        self.crashed_threads = crashed_threads
+
         # If there is at least one crashed thread, send the alarm
-        if len(crashed_threads)>0:
-            self.SendAlarm(crashed_threads)
+        if len(self.crashed_threads) > 0:
+            self.SendAlarm()
 
         # Add to the threads the datasets that they are currently treating
         current_threads = self.UpdateThreads(current_threads)
@@ -371,12 +415,9 @@ class UploadManager():
         self.n_threads = len(current_threads)
 
     def loop(self):
-
-        wait_time = helper.get_hostconfig()['sleep_time']  # 10 s
-
-        # Slack bot alert settings (see bot functions for details)
+        # Initialise Slack bot settings (see __init__() and bot functions for more)
         next_heartbeat_time = datetime.datetime.now(pytz.timezone('CET')).replace(hour=9, minute=0, second=0, microsecond=0)
-        # n_threads_alert_counter = 0
+        n_threads_alert_counter = 0
         n_dat_alert_counter = 0
         trigger_above_thr = False
         previous_above_zero = False
@@ -388,16 +429,14 @@ class UploadManager():
             # Slack bot heartbeat
             next_heartbeat_time = self.SendHeartbeat(next_heartbeat_time)
 
-            # # Slack bot alert machinery in case of crashing threads
-            # trigger_above_thr, previous_above_zero = self.SendNthreadsToBot(
-            #     wait_time, n_threads_alert_wait_time, n_dat_alert_thr,
-            #     n_threads_alert_counter, trigger_above_thr, previous_above_zero)
-            # n_threads_alert_counter += 1
+            # Slack bot alert machinery in case of crashing threads
+            n_threads_alert_counter = self.SendCrashedThreadsToBot(n_threads_alert_counter)
+            n_threads_alert_counter += 1
 
             # Slack bot alert machinery in case of too high
             # a number of datasets still to upload
-            trigger_above_thr, previous_above_zero = self.SendNdatasetsToBot(
-                wait_time, n_dat_alert_counter, trigger_above_thr, previous_above_zero)
+            n_dat_alert_counter, trigger_above_thr, previous_above_zero = self.SendNdatasetsToBot(
+                n_dat_alert_counter, trigger_above_thr, previous_above_zero)
             n_dat_alert_counter += 1
 
             # Stop if running aDMIX once
@@ -405,10 +444,10 @@ class UploadManager():
                 break
 
             # Wait
-            print('Waiting for {0} seconds'.format(wait_time))
+            print('Waiting for {0} seconds'.format(self.wait_time))
             print("You can safely CTRL-C now if you need to stop me")
             try:
-                time.sleep(wait_time)
+                time.sleep(self.wait_time)
             except KeyboardInterrupt:
                 break
 
