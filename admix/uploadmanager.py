@@ -279,7 +279,7 @@ class UploadManager():
                     :hourglass: No more report expected
                     """.format(self.n_datasets_to_upload)))
 
-                    if variable == 0:
+                    if self.n_datasets_to_upload == 0:
                         n_dat_alert_counter = 0
                     trigger_above_thr = False
                     previous_above_zero = False
