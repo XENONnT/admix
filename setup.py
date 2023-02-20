@@ -47,7 +47,8 @@ setup(
             'admix-download=admix.download:main',
             'admix-showrun=admix.showrun:main',
             'admix-fix=admix.fix:main',
-            'admix-showcontexts=admix.showcontexts:main'
+            'admix-showcontexts=admix.showcontexts:main',
+            'check-admix=admix.checkadmix:main'
         ]
     },
     license="BSD license",
