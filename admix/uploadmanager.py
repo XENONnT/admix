@@ -320,11 +320,8 @@ class UploadManager():
                     crashed_threads.append(thread)
 
         # If there is at least one crashed thread, send the alarm
-        # if len(crashed_threads) > 0:
-        #     self.SendAlarm(crashed_threads)
-
-        # TEST
-        self.SendAlarm(current_threads)
+        if len(crashed_threads) > 0:
+            self.SendAlarm(crashed_threads)
 
         # Add to the threads the datasets that they are currently treating
         current_threads = self.UpdateThreads(current_threads)
