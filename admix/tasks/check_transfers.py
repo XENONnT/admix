@@ -38,13 +38,14 @@ class CheckTransfers():
         self.LIGHT_RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['light_raw_records_mv_types']
         self.LIGHT_RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['light_raw_records_nv_types']
         self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
+        self.HEAVY_HIGH_LEVEL_TYPES = helper.get_hostconfig()['heavy_high_level_types']
         self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
         # Choose which RSE you want upload to
         self.UPLOAD_TO = helper.get_hostconfig()['upload_to']
 
         #Choose which data type you want to treat
-        self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.RECORDS_TYPES
+        self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.HEAVY_HIGH_LEVEL_TYPES + self.RECORDS_TYPES
 
 
         #Define the waiting time (seconds)
@@ -66,7 +67,7 @@ class CheckTransfers():
     def check_transfers(self):
         cursor = self.db.db.find(
             {'status': 'transferring'},
-            #{'number': 23622},
+#            {'number': 20303},
             {'number': 1, 'data': 1, 'bootstrax': 1})
 
         cursor = list(cursor)
@@ -120,7 +121,7 @@ class CheckTransfers():
                             eb_still_to_be_uploaded.append(d['type'])
 
             # are there any other rucio rules transferring?
-            #print(run['number'],eb_still_to_be_uploaded,rucio_stati)
+#            print(run['number'],eb_still_to_be_uploaded,rucio_stati)
             if len(rucio_stati) > 0 and all([s in ['transferred','processing'] for s in rucio_stati]) and len(eb_still_to_be_uploaded)==0:
                 self.db.SetStatus(run['number'], 'transferred')
                 helper.global_dictionary['logger'].Info('Check transfers : Run {0} fully transferred'.format(run['number']))
