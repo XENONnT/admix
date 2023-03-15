@@ -36,6 +36,7 @@ class CleanEB():
         self.LIGHT_RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['light_raw_records_mv_types']
         self.LIGHT_RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['light_raw_records_nv_types']
         self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
+        self.HEAVY_HIGH_LEVEL_TYPES = helper.get_hostconfig()['heavy_high_level_types']
         self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
         #Get other parameters
@@ -95,7 +96,7 @@ class CleanEB():
         helper.global_dictionary['logger'].Info(f'Run task {self.__class__.__name__}')
 
 
-        data_types = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.RECORDS_TYPES
+        data_types = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.HEAVY_HIGH_LEVEL_TYPES + self.RECORDS_TYPES
 
         # Get all runs that are already transferred and that still have some data_types in eb 
         cursor = self.db.db.find({
@@ -103,8 +104,8 @@ class CleanEB():
 #            'number': {"$lt": 7600, "$gte": 7200},
 #            'number': {"$lt": 30000, "$gte": 7200},
 #            'number': {"$gte": 7200},
-#            'number': {"$gte": 8500},
-            'number': {"$gte": 30000},
+#            'number': {"$lte": 30000},
+            'number': {"$gte": 40000},
 #            'number': {"$gt": 12378},
 #            'number': 20255,
 #            'data' : { "$elemMatch": { "host" : {"$regex" : ".*eb.*"} , "type" : {"$in" : data_types}} },
