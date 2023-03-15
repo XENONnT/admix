@@ -210,7 +210,7 @@ class UploadManager():
             :hourglass_flowing_sand: Next report about this alert in {} minutes
             """.format("\n".join(thread_strings), int(self.n_threads_alert_wait_time / 60)))
 
-            bot.send_message("\n".join([m.lstrip() for m in message.split("\n")]))
+            self.bot.send_message("\n".join([m.lstrip() for m in message.split("\n")]))
 
 
 
@@ -319,8 +319,11 @@ class UploadManager():
                     crashed_threads.append(thread)
 
         # If there is at least one crashed thread, send the alarm
-        if len(crashed_threads) > 0:
-            self.SendAlarm()
+        # if len(crashed_threads) > 0:
+        #     self.SendAlarm(crashed_threads)
+
+        # TEST
+        self.SendAlarm(current_threads)
 
         # Add to the threads the datasets that they are currently treating
         current_threads = self.UpdateThreads(current_threads)

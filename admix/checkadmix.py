@@ -35,7 +35,7 @@ def CheckAdmix():
             bot.send_message(textwrap.dedent("""
             *Alert—Upload manager crashed* <!channel>
 
-            *Following <https://xe1t-wiki.lngs.infn.it/doku.php?id=xenon:xenonnt:analysis:analysis_tools_team:admix:admix_shifters|aDMIX instructions>, take action immediately!*
+            :red_circle: *Following <https://xe1t-wiki.lngs.infn.it/doku.php?id=xenon:xenonnt:analysis:analysis_tools_team:admix:admix_shifters|aDMIX instructions>, take action immediately!*
 
             """))
 
