@@ -46,6 +46,7 @@ class UploadManager():
         self.LIGHT_RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['light_raw_records_mv_types']
         self.LIGHT_RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['light_raw_records_nv_types']
         self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
+        self.HEAVY_HIGH_LEVEL_TYPES = helper.get_hostconfig()['heavy_high_level_types']
         self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
         # Get loop config
@@ -54,9 +55,9 @@ class UploadManager():
         self.n_upload_threads_high = helper.get_hostconfig()['n_upload_threads_high']
 
         # Choose which data type you want to treat
-        self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.RECORDS_TYPES
+        self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.HEAVY_HIGH_LEVEL_TYPES + self.RECORDS_TYPES
 
-        self.HIGH_DTYPES = self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES
+        self.HIGH_DTYPES = self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.HEAVY_HIGH_LEVEL_TYPES
 
         self.LOW_DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.RECORDS_TYPES
 
@@ -319,8 +320,9 @@ class UploadManager():
                     crashed_threads.append(thread)
 
         # If there is at least one crashed thread, send the alarm
-        if len(crashed_threads) > 0:
-            self.SendAlarm()
+#        if len(crashed_threads) > 0:
+#            self.SendAlarm(crashed_threads)
+#        self.SendAlarm(current_threads)
 
         # Add to the threads the datasets that they are currently treating
         current_threads = self.UpdateThreads(current_threads)
