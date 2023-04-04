@@ -19,7 +19,6 @@ from utilix.config import Config
 from admix.interfaces.database import ConnectMongoDB
 
 
-
 def version():
     print(__version__)
 
@@ -35,7 +34,7 @@ class UploadManager():
         self.bot = AdmixBot('admix')
         self.heartbeat_interval = datetime.timedelta(hours=12)
         self.n_threads_alert_wait_time = 300  # 300 s (5 min)
-        self.n_dat_alert_wait_time = 900  # 900 s (15 min)
+        self.n_dat_alert_wait_time = 1800  # 1800 s (30 min)
         self.n_dat_alert_thr = 75  # n_datasets_to_upload threshold
 
         # Take all data types categories
@@ -64,7 +63,7 @@ class UploadManager():
         self.n_datasets_to_upload = 0
         self.n_threads = 0
         self.threads = []
-        
+
 
     def GetDatasetsToUpload(self):
 

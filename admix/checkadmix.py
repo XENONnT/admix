@@ -27,7 +27,7 @@ def CheckAdmix():
                 if 'admix-upload-manager' in command:
                     process_is_running = True
                     already_sent_alarm = False
-        
+
         if not process_is_running and not already_sent_alarm:
             print("Alert sent")
             already_sent_alarm = True
@@ -45,10 +45,10 @@ def CheckAdmix():
 
 
 def main():
-    
+
     try:
         CheckAdmix()
-        
+
     except KeyboardInterrupt:
         exit(0)
 
