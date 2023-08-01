@@ -10,7 +10,8 @@ def get_default_scope():
 
 
 # TODO could we make this use multithreading or multiprocessing to speed things up?
-def upload(path, rse, did=None, lifetime=None, update_db=False):
+def upload(path, rse, 
+           register_after_upload=False, verbose=True, did=None, lifetime=None, update_db=False):
 
     # set scope initially to default one. will overwrite it below if did passed
     scope = get_default_scope()
@@ -40,7 +41,12 @@ def upload(path, rse, did=None, lifetime=None, update_db=False):
 
         to_upload = []
 
-        for missing_file in set(local_files) - set(existing_files):
+        missing_files = set(local_files) - set(existing_files)
+        if verbose:
+            print(f"Found {len(missing_files)} files to upload:")
+            print(missing_files)
+            print("------")
+        for missing_file in missing_files:
             _path = os.path.join(path, missing_file)
             to_upload.append(dict(path=_path,
                                   rse=rse,
@@ -48,7 +54,7 @@ def upload(path, rse, did=None, lifetime=None, update_db=False):
                                   did_name=missing_file,
                                   dataset_scope=scope,
                                   dataset_name=name,
-                                  register_after_upload=True,
+                                  register_after_upload=register_after_upload,
                                   lifetime=lifetime
                                   )
                              )
@@ -58,7 +64,7 @@ def upload(path, rse, did=None, lifetime=None, update_db=False):
                            did_scope=scope,
                            dataset_scope=scope,
                            dataset_name=name,
-                           register_after_upload=True,
+                           register_after_upload=register_after_upload,
                            lifetime=lifetime
                            )
         to_upload = [upload_dict]
@@ -77,7 +83,13 @@ def upload(path, rse, did=None, lifetime=None, update_db=False):
     if len(to_upload):
         if update_db:
             db.update_data(number, data_dict)
-        clients.upload_client.upload(to_upload)
+        try:
+            clients.upload_client.upload(to_upload)
+        except Exception as e:
+            if verbose:
+                print(f"Upload failed for {path}")
+                print(e)
+            return did
         # then update db again when complete
         if update_db:
             data_dict['status'] = 'transferred'
