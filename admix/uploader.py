@@ -1,6 +1,6 @@
 import os.path
 from rucio.common.exception import Duplicate, DataIdentifierNotFound
-from .rucio import add_scope, list_files
+from .rucio import add_scope, list_files, get_rule
 from .utils import parse_did, db
 from . import clients
 
@@ -85,6 +85,8 @@ def upload(path, rse,
             db.update_data(number, data_dict)
         try:
             clients.upload_client.upload(to_upload)
+            if not get_rule(did,rse):
+                clients.rule_client.add_replication_rule(dids=[{'scope':scope,'name':name}],copies=1,rse_expression=rse)
         except Exception as e:
             if verbose:
                 print(f"Upload failed for {path}")
