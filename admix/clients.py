@@ -4,6 +4,7 @@ from rucio.client.accountclient import AccountClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.downloadclient import DownloadClient
 from rucio.client.uploadclient import UploadClient
+from rucio.client.ruleclient import RuleClient
 
 from . import logger
 
@@ -14,6 +15,7 @@ account_client = None
 rse_client = None
 download_client = None
 upload_client = None
+rule_client = None
 
 
 def _init_clients():
@@ -23,6 +25,7 @@ def _init_clients():
     global rse_client
     global download_client
     global upload_client
+    global rule_client
 
     rucio_client = Client()
     replica_client = ReplicaClient()
@@ -30,6 +33,7 @@ def _init_clients():
     rse_client = RSEClient()
     download_client = DownloadClient(logger=logger)
     upload_client = UploadClient()
+    rule_client = RuleClient()
 
 
 def needs_client(func):
