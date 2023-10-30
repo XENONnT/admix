@@ -85,8 +85,6 @@ def upload(path, rse,
             db.update_data(number, data_dict)
         try:
             clients.upload_client.upload(to_upload)
-            if not get_rule(did,rse):
-                clients.rule_client.add_replication_rule(dids=[{'scope':scope,'name':name}],copies=1,rse_expression=rse)
         except Exception as e:
             if verbose:
                 print(f"Upload failed for {path}")
@@ -106,4 +104,15 @@ def upload(path, rse,
     else:
         print(f"Nothing to upload at {path}")
 
+    try:
+        if not get_rule(did,rse):
+            clients.rule_client.add_replication_rule(dids=[{'scope':scope,'name':name}],copies=1,rse_expression=rse)
+            print(f"Missing rule has been added")
+    except Exception as e:
+        if verbose:
+            print(f"Insertion of rule failed")
+            print(e)
+        return did
+
+        
     return did
