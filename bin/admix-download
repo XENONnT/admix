@@ -35,6 +35,7 @@ def main():
                          default='xenonnt_online')
     parser.add_argument('--straxen_version', help='straxen version', default=None)
     parser.add_argument('--experiment', help="xent or xe1t", choices=['xe1t', 'xent'], default='xent')
+    parser.add_argument('--transfer_speed_timeout', help='Minimum allowed transfer speed (in KBps)', default=100, type=int)
 
     args = parser.parse_args()
 
@@ -71,7 +72,8 @@ def main():
         did = make_did(args.number, args.dtype, hash)
 
         downloaded = download(did, chunks=chunks, location=args.dir, tries=args.tries,
-                              rse=args.rse, num_threads=args.threads)
+                              rse=args.rse, num_threads=args.threads, 
+                              transfer_speed_timeout=args.transfer_speed_timeout)
 
         print(f"Download of {len(downloaded)} files finished.")
 
