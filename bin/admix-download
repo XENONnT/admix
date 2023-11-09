@@ -35,7 +35,7 @@ def main():
                          default='xenonnt_online')
     parser.add_argument('--straxen_version', help='straxen version', default=None)
     parser.add_argument('--experiment', help="xent or xe1t", choices=['xe1t', 'xent'], default='xent')
-    parser.add_argument('--transfer_speed_timeout', help='Minimum allowed transfer speed (in KBps)', default=100, type=int)
+    parser.add_argument('--transfer_speed_timeout', help='Minimum allowed transfer speed (in KBps)', default=50, type=int)
 
     args = parser.parse_args()
 

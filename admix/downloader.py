@@ -66,7 +66,7 @@ def determine_rse(rse_list):
     return
 
 
-def download_dids(dids, num_threads=8, transfer_speed_timeout=100, **kwargs):
+def download_dids(dids, num_threads=8, transfer_speed_timeout=50, **kwargs):
     # build list of did info
     did_list = []
     for did in dids:
@@ -79,7 +79,7 @@ def download_dids(dids, num_threads=8, transfer_speed_timeout=100, **kwargs):
 
 
 def download(did, chunks=None, location='.',  tries=3, metadata=True,
-             num_threads=5, rse=None, transfer_speed_timeout=100):
+             num_threads=5, rse=None, transfer_speed_timeout=50):
     """Function download()
 
     """
