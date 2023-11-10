@@ -66,10 +66,7 @@ def determine_rse(rse_list):
     return
 
 
-def download_dids(dids, num_threads=8, 
-                  transfer_speed_timeout=None, 
-                  transfer_timeout=3600,
-                  **kwargs):
+def download_dids(dids, num_threads=8, **kwargs):
     # build list of did info
     did_list = []
     for did in dids:
@@ -77,13 +74,11 @@ def download_dids(dids, num_threads=8,
                         **kwargs
                         )
         did_list.append(did_dict)
-    return clients.download_client.download_dids(did_list, num_threads=num_threads,
-                                                 transfer_speed_timeout=transfer_speed_timeout,
-                                                 transfer_timeout=transfer_timeout)
+    return clients.download_client.download_dids(did_list, num_threads=num_threads)
 
 
 def download(did, chunks=None, location='.',  tries=3, metadata=True,
-             num_threads=5, rse=None, transfer_speed_timeout=None, transfer_timeout=3600):
+             num_threads=5, rse=None):
     """Function download()
 
     """
@@ -146,10 +141,7 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
         if _try == tries:
             rse = None
         try:
-            result = download_dids(dids, base_dir=location, no_subdir=True, rse=rse, 
-                                   num_threads=num_threads, 
-                                   transfer_speed_timeout=transfer_speed_timeout,
-                                   transfer_timeout=transfer_timeout)
+            result = download_dids(dids, base_dir=location, no_subdir=True, rse=rse, num_threads=num_threads)
             success = True
         except:
             logger.debug(f"Download try #{_try} failed. Sleeping for {3*_try} seconds.")
