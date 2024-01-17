@@ -78,7 +78,7 @@ def download_dids(dids, num_threads=8, **kwargs):
 
 
 def download(did, chunks=None, location='.',  tries=3, metadata=True,
-             num_threads=5, rse=None):
+             only_metadata=False, num_threads=5, rse=None):
     """Function download()
 
     """
@@ -89,17 +89,20 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
         assert chunks is None, f"You passed the chunks argument, but the DID {did} is a FILE"
 
 
-    if chunks:
-        dids = []
-        for c in chunks:
-            cdid = f"{did}-{c:06d}"
-            dids.append(cdid)
-        # also download metadata
-        if metadata:
-            dids.append(did + '-metadata.json')
+    if only_metadata:
+        dids = [did + '-metadata.json']
     else:
-        scope = did.split(':')[0]
-        dids = [f"{scope}:{f}" for f in admix.rucio.list_files(did)]
+        if chunks:
+            dids = []
+            for c in chunks:
+                cdid = f"{did}-{c:06d}"
+                dids.append(cdid)
+            # also download metadata
+            if metadata:
+                dids.append(did + '-metadata.json')
+        else:
+            scope = did.split(':')[0]
+            dids = [f"{scope}:{f}" for f in admix.rucio.list_files(did)]
 
     path = did.replace(':', '-')
     # drop the xnt at the beginning

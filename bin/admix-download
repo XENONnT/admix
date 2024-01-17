@@ -27,6 +27,7 @@ def main():
     parser.add_argument("number", type=int, help="Run number to download")
     parser.add_argument("dtype", help="Data type to download")
     parser.add_argument("--chunks", nargs="*", help="Space-separated list of chunks to download.")
+    parser.add_argument("--metadata", help="Whether only download metadata", action="store_true")
     parser.add_argument("--dir", help="Path to put the downloaded data.", default='.')
     parser.add_argument('--tries', type=int, help="Number of tries to download the data.", default=3)
     parser.add_argument('--rse', help='RSE to download from')
@@ -70,8 +71,10 @@ def main():
 
         did = make_did(args.number, args.dtype, hash)
 
-        downloaded = download(did, chunks=chunks, location=args.dir, tries=args.tries,
-                              rse=args.rse, num_threads=args.threads)
+        downloaded = download(
+            did, chunks=chunks, location=args.dir, tries=args.tries,
+            only_metadata=args.metadata, rse=args.rse, num_threads=args.threads,
+        )
 
         print(f"Download of {len(downloaded)} files finished.")
 
