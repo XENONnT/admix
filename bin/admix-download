@@ -36,33 +36,37 @@ def main():
                          default='xenonnt_online')
     parser.add_argument('--straxen_version', help='straxen version', default=None)
     parser.add_argument('--experiment', help="xent or xe1t", choices=['xe1t', 'xent'], default='xent')
+    parser.add_argument('--hash', help='force to use specific strax hash', default=None)
 
     args = parser.parse_args()
 
     if args.experiment == 'xent':
-        # if a particular straxen version is passed, use that
-        if args.straxen_version:
-            utilix_db = utilix.DB()
-            hash = utilix_db.get_hash(args.context, args.dtype, args.straxen_version)
-        # otherwise try to use system
-        else:
-            system_context = None
-            # if we have cutax, try to get context from there
-            err_msg = f"Could not find a useable context called {args.context} in cutax nor straxen"
-            if HAVE_CUTAX:
-                try:
-                    system_context = getattr(cutax, args.context)()
-                except:
+        if args.hash is None:
+            # if a particular straxen version is passed, use that
+            if args.straxen_version:
+                utilix_db = utilix.DB()
+                hash = utilix_db.get_hash(args.context, args.dtype, args.straxen_version)
+            # otherwise try to use system
+            else:
+                system_context = None
+                # if we have cutax, try to get context from there
+                err_msg = f"Could not find a useable context called {args.context} in cutax nor straxen"
+                if HAVE_CUTAX:
+                    try:
+                        system_context = getattr(cutax, args.context)()
+                    except:
+                        try:
+                            system_context = getattr(straxen, args.context)()
+                        except:
+                            raise RuntimeError(err_msg)
+                else:
                     try:
                         system_context = getattr(straxen, args.context)()
                     except:
                         raise RuntimeError(err_msg)
-            else:
-                try:
-                    system_context = getattr(straxen, args.context)()
-                except:
-                    raise RuntimeError(err_msg)
-            hash = system_context.provided_dtypes()[args.dtype]['hash']
+                hash = system_context.provided_dtypes()[args.dtype]['hash']
+        else:
+            hash = args.hash
 
         if args.chunks:
             chunks = [int(c) for c in args.chunks]
