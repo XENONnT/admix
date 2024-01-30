@@ -104,7 +104,7 @@ class Fix():
                 if not self.tarball(dsn,from_rse,to_rse):
                     break
 #                break
-            if dsn == "xnt_042134:raw_records_nv-rfzvpzj4mf":
+            if dsn == "xnt_049204:raw_records_nv-rfzvpzj4mf":
                 start = True
 
 #            if dsn == "xnt_025860:raw_records_nv-rfzvpzj4mf":
@@ -133,9 +133,9 @@ class Fix():
 #        print("Hash: {0}".format(hash))
 
         # tarball only specific data types
-        if dtype not in ["raw_records","raw_records_mv","raw_records_nv"]:
-            print("Error! This data type cannot be tarballed because usually it has very few files")
-            return True
+#        if dtype not in ["raw_records","raw_records_mv","raw_records_nv","raw_records_aqmon"]:
+#            print("Error! This data type cannot be tarballed because usually it has very few files")
+#            return True
 
         # check if the rule exists and it is present in the from_rse
         rule_is_ok = False
@@ -160,6 +160,10 @@ class Fix():
         print("Rule is OK, the number of files is {0}, its ID is {1}".format(nfiles,rule_id))
 
 #        return
+
+        # prestage rule
+        self.bring_online(did,from_rse)
+
         # download rule
         download(number,dtype,hash,rse=from_rse,location=self.working_path)
 
@@ -231,6 +235,62 @@ class Fix():
         shutil.rmtree(path_to_upload)
 
         return True
+
+
+
+    def bring_online(self,did,rse):
+        print("Bringing online {0} from {1}".format(did,rse))
+        
+        scope = did.split(':')[0]
+        dataset = did.split(':')[1]
+
+        file_replicas = Client().list_replicas([{'scope':scope,'name': dataset}],rse_expression=rse)
+        files = [list(replica['pfns'].keys())[0] for replica in file_replicas]
+
+        print("Bringing online {0} files".format(len(files)))
+
+        ctx = gfal2.creat_context()
+
+        try:
+            # bring_online(surls, pintime, timeout, async)
+            # Parameters:
+            #   surls is the given [srmlist] argument
+            #   pintime in seconds (how long should the file stay PINNED), e.g. value 1209600 will pin files for two weeks
+            #   timeout of request in seconds, e.g. value 604800 will timeout the requests after a week
+            #   async is asynchronous request (does not block if != 0)
+            pintime = 3600*12
+            timeout = 3600
+#            (status, token) = ctx.bring_online(files, pintime, timeout, True)
+            token = "431e0fe1-95f3-4639-9581-ab486ba79255"
+            if token:
+                print(("Got token %s" % token))
+            else:
+                print("No token was returned. Are all files online?")
+        except gfal2.GError as e:
+            print("Could not bring the files online:")
+            print(("\t", e.message))
+            print(("\t Code", e.code))
+
+        print("Waiting until they are all online")
+
+        while True:
+            errors = ctx.bring_online_poll(files, token)
+            ncompleted = 0
+            for surl, error in zip(files, errors):
+                if not error:
+                    ncompleted += 1
+            print("So far {0} files have been staged".format(ncompleted))
+            if ncompleted == len(files):
+                print("Staging of {0} files successfully completed".format(ncompleted))
+                break
+
+            time.sleep(60)
+
+
+
+
+
+
 
 
     def clean_empty_directories_rse(self,rse):
@@ -645,6 +705,7 @@ class Fix():
 
         #Delete the rule
         if rucio_rule['exists']:
+            self.rucio_client.update_replication_rule(rucio_rule['id'], {'locked' : False})
             self.rc.DeleteRule(rucio_rule['id'])
             print("Rucio rule deleted.")
         else:
@@ -963,7 +1024,7 @@ class Fix():
         rucio_client = Client()
 
         runs = self.db.db.find({
-            'number': {"$gte": 40000, "$lt": 48471},
+            'number': {"$gte": 40000, "$lt": 40001},
 #            'number': {"$lt": 48475},
             'status': 'transferred'
         },
@@ -1179,6 +1240,7 @@ def main():
 
     parser.add_argument("--tarball_all", nargs=2, help="Tarballs all data from a given FROM_RSE and upload them to TO_RSE", metavar=('FROM_RSE','TO_RSE'))
     parser.add_argument("--tarball", nargs=3, help="Extracts data with a given DID from a given FROM_RSE, tarballs it, then uploads it in TO_RSE", metavar=('DID','FROM_RSE','TO_RSE'))
+    parser.add_argument("--bring_online", nargs=2, help="Pre-stages all files belonging to a DID for a given RSE", metavar=('DID','RSE'))
     parser.add_argument("--clean_empty_directories", nargs=1, help="Removes all empty sub-directories of a given directory DIR", metavar=('DIR'))
     parser.add_argument("--clean_empty_directories_rse", nargs=1, help="Removes all empty sub-directories of a given RSE", metavar=('RSE'))
 
@@ -1219,6 +1281,8 @@ def main():
             fix.tarball_all(args.tarball_all[0],args.tarball_all[1])
         if args.tarball:
             fix.tarball(args.tarball[0],args.tarball[1],args.tarball[2])
+        if args.bring_online:
+            fix.bring_online(args.bring_online[0],args.bring_online[1])
         if args.clean_empty_directories:
             fix.clean_empty_directories(args.clean_empty_directories[0])
         if args.clean_empty_directories_rse:

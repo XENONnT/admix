@@ -109,6 +109,7 @@ class RucioAPI():
 #            self._rucio_client_upload = UploadClient(tracing=False)
 #            print("Tracing set to False")
             self._rucio_client_download = DownloadClient()
+            self._rucio_client_download.is_tape_excluded = False
             self._rucio_ping = self._rucio_client.ping
 
         except:
@@ -543,7 +544,8 @@ class RucioAPI():
             result = self._rucio_client_download.download_dids(items=items,
                                                        num_threads=num_threads,
                                                        trace_custom_fields=trace_custom_fields)
-        except:
+        except Exception as error:
+            print(error)
             result = 1
 
         return result
