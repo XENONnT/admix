@@ -5,9 +5,31 @@ from .utils import parse_did, db
 from . import clients
 
 
+
 def get_default_scope():
     return 'user.' + clients.upload_client.client.account
 
+def preupload(path, rse, did):
+
+    if not os.path.isdir(path):
+        return
+
+    local_files = os.listdir(path)
+    nfiles = len(local_files)
+    scope, name = did.split(':')
+    try:
+        clients.did_client.add_dataset(scope,name)
+    except:
+        print("DID {0} already exists".format(did))
+    for local_file in local_files:
+        try:
+            clients.did_client.attach_dids(scope,name,[{'scope':scope,'name':local_file}])
+        except:
+            print("File {0} could not be attached".format(local_file))
+    try:
+        clients.rule_client.add_replication_rule([{'scope':scope,'name':name}],1,rse)
+    except:
+        print("The rule for DID {0} already exists".format(did))
 
 # TODO could we make this use multithreading or multiprocessing to speed things up?
 def upload(path, rse, 
