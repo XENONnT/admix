@@ -10,7 +10,17 @@ def get_default_scope():
     return 'user.' + clients.upload_client.client.account
 
 def preupload(path, rse, did):
-
+    """
+    A function supposed to be run before upload to avoid orphan files failing the upload. 
+    It does the following
+        - It adds the dataset associated to the did we wanted to upload
+        - It loops over all local files to be uploaded, so to know their number and their names. 
+          For each file, it searches in Rucio catalogue if such a filename is already present. 
+          If so, it attaches it to the dataset
+        - Finally, it creates a replication rule on the RSE (the RSE is an input parameter of the 
+          preupload function, however, it's important that the RSE must be the same chosen by the 
+          previous upload attempt). After this latest operation, the did will show up in Rucio.
+    """
     if not os.path.isdir(path):
         return
 
