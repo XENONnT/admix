@@ -5,9 +5,41 @@ from .utils import parse_did, db
 from . import clients
 
 
+
 def get_default_scope():
     return 'user.' + clients.upload_client.client.account
 
+def preupload(path, rse, did):
+    """
+    A function supposed to be run before upload to avoid orphan files failing the upload. 
+    It does the following
+        - It adds the dataset associated to the did we wanted to upload
+        - It loops over all local files to be uploaded, so to know their number and their names. 
+          For each file, it searches in Rucio catalogue if such a filename is already present. 
+          If so, it attaches it to the dataset
+        - Finally, it creates a replication rule on the RSE (the RSE is an input parameter of the 
+          preupload function, however, it's important that the RSE must be the same chosen by the 
+          previous upload attempt). After this latest operation, the did will show up in Rucio.
+    """
+    if not os.path.isdir(path):
+        return
+
+    local_files = os.listdir(path)
+    nfiles = len(local_files)
+    scope, name = did.split(':')
+    try:
+        clients.did_client.add_dataset(scope,name)
+    except:
+        print("DID {0} already exists".format(did))
+    for local_file in local_files:
+        try:
+            clients.did_client.attach_dids(scope,name,[{'scope':scope,'name':local_file}])
+        except:
+            print("File {0} could not be attached".format(local_file))
+    try:
+        clients.rule_client.add_replication_rule([{'scope':scope,'name':name}],1,rse)
+    except:
+        print("The rule for DID {0} already exists".format(did))
 
 # TODO could we make this use multithreading or multiprocessing to speed things up?
 def upload(path, rse, 
