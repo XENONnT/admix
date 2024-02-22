@@ -150,11 +150,19 @@ class Fix():
                     nfiles = rule['locks_ok_cnt']
                     rule_id = rule['id']
         if not rule_is_ok:
-            print("Error! Rule is not OK. Tarballing is stop")
+            print("Error! Rule is not OK. Tarballing cannot be done")
             return True
 
-        if nfiles<=1:
-            print("Error! Rule is OK but there is only the metadata. Tarballing is stop")
+        if nfiles==0:
+            print("Error! Rule has no files. Tarballing cannot be done")
+            return True
+
+        if nfiles==1:
+            print("Warning! Rule is OK but there is only the metadata. Tarballing cannot be done")
+            return True
+
+        if nfiles==2:
+            print("Warning! Rule is OK but there is only one chunk. Tarballing will not be done")
             return True
  
         print("Rule is OK, the number of files is {0}, its ID is {1}".format(nfiles,rule_id))
@@ -165,7 +173,7 @@ class Fix():
         self.bring_online(did,from_rse)
 
         # download rule
-        download(number,dtype,hash,rse=from_rse,location=self.working_path)
+        download(number,dtype,hash,rse=from_rse,location=self.working_path,tries=10)
 
         # create the directory that will contain the new dataset
         filename = did.replace(':', '-')
@@ -260,8 +268,7 @@ class Fix():
             #   async is asynchronous request (does not block if != 0)
             pintime = 3600*12
             timeout = 3600
-#            (status, token) = ctx.bring_online(files, pintime, timeout, True)
-            token = "431e0fe1-95f3-4639-9581-ab486ba79255"
+            (status, token) = ctx.bring_online(files, pintime, timeout, True)
             if token:
                 print(("Got token %s" % token))
             else:
@@ -271,8 +278,7 @@ class Fix():
             print(("\t", e.message))
             print(("\t Code", e.code))
 
-        print("Waiting until they are all online")
-
+        print("Waiting until they are all online... (this might take time)")
         while True:
             errors = ctx.bring_online_poll(files, token)
             ncompleted = 0
@@ -283,7 +289,6 @@ class Fix():
             if ncompleted == len(files):
                 print("Staging of {0} files successfully completed".format(ncompleted))
                 break
-
             time.sleep(60)
 
 
