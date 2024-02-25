@@ -93,7 +93,7 @@ class Fix():
         dsns.sort()
         print("SCOPE:NAME")
         print('----------')
-        start = False
+        start = True
         for dsn in tqdm(dsns):
             if 'xnt' not in dsn:
                 continue
@@ -137,7 +137,15 @@ class Fix():
 #            print("Error! This data type cannot be tarballed because usually it has very few files")
 #            return True
 
-        # check if the rule exists and it is present in the from_rse
+        # check if the tarball rule already exists in any rse
+        tarballrule_exists_already = False
+        rules = list(self.rucio_client.list_did_rules(scope, dataset_tar))
+        if len(rules)>0:
+            print("Error! The tarball version of this did exists already. I cannot start another tarballing")
+            return True
+            
+
+        # check if the rule exists and it is present in from_rse
         rule_is_ok = False
         nfiles = 0
         rules = list(self.rucio_client.list_did_rules(scope, dataset))
@@ -613,7 +621,7 @@ class Fix():
         number = int(did.split(':')[0].split('_')[-1])
         didtar = did+'.tarball'
 
-        print("Adding a new tar rule {0} in {1} using infos from {2}".format(did,to_rse,from_rse))
+        print("Adding a new DB datum associated to the did {0} in {1} using infos from {2}".format(didtar,to_rse,from_rse))
         print("Run number: {0}".format(number))
         print("Data type: {0}".format(dtype))
         print("Hash: {0}".format(hash))
@@ -1252,7 +1260,7 @@ def main():
     parser.add_argument("--reset_upload", nargs=1, help="Deletes everything related a given DID, except data in EB. The deletion includes the entries in the Rucio catalogue and the related data in the DB rundoc. This is ideal if you want to retry an upload that failed", metavar=('DID'))
     parser.add_argument("--fix_upload", nargs=1, help="Deletes everything related a given DID, then it retries the upload", metavar=('DID'))
     parser.add_argument("--add_rule", nargs=3, help="Add a new replication rule of a given DID from one RSE to another one. The rundoc in DB is updated with a new datum as well", metavar=('DID','FROM_RSE','TO_RSE'))
-    parser.add_argument("--add_db_rule_tar", nargs=3, help="Add a new data entry in a rundoc for the tar version of a given DID and destination TO_RSE, using FROM_RSE as base", metavar=('DID','FROM_RSE','TO_RSE'))
+    parser.add_argument("--add_db_rule_tar", nargs=3, help="Add a new data entry in a rundoc with the tar version of a given DID and destination TO_RSE, using FROM_RSE as base", metavar=('DID','FROM_RSE','TO_RSE'))
     parser.add_argument("--delete_rule", nargs=2, help="Delete a replication rule of a given DID from one RSE. The rundoc in DB is deleted as well", metavar=('DID','RSE'))
     parser.add_argument("--delete_db_datum", nargs=2, help="Deletes the db datum corresponding to a given DID. The SITE can be either a specific EB machine (ex: eb1) or a specific RSE", metavar=('DID','SITE'))
 
@@ -1292,8 +1300,6 @@ def main():
             fix.clean_empty_directories(args.clean_empty_directories[0])
         if args.clean_empty_directories_rse:
             fix.clean_empty_directories_rse(args.clean_empty_directories_rse[0])
-        if args.add_db_rule_tar:
-            fix.add_db_rule_tar(args.add_db_rule_tar[0],args.add_db_rule_tar[1],args.add_db_rule_tar[2])
         if args.reset_upload:
             fix.reset_upload(args.reset_upload[0])
         if args.fix_upload:
