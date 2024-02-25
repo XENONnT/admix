@@ -610,14 +610,12 @@ class Fix():
 
         hash = did.split('-')[-1]
         dtype = did.split('-')[0].split(':')[-1]
-        dtypetar = dtype+".tar"
         number = int(did.split(':')[0].split('_')[-1])
-        didtar = make_did(number, dtypetar, hash)
+        didtar = did+'.tarball'
 
         print("Adding a new tar rule {0} in {1} using infos from {2}".format(did,to_rse,from_rse))
         print("Run number: {0}".format(number))
         print("Data type: {0}".format(dtype))
-        print("Data type tar: {0}".format(dtypetar))
         print("Hash: {0}".format(hash))
         print("Did tar: {0}".format(didtar))
 
@@ -642,9 +640,11 @@ class Fix():
         #Checks if the datum of the destination does not exist yet in the DB
         datumtar = None
         for d in run['data']:
-            if d['type'] == dtypetar and d['host'] == 'rucio-catalogue' and d['location'] == to_rse:
-                datumtar = d
-                break
+            if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == to_rse:
+                if 'did' in d:
+                    if d['did']==didtar:
+                        datumtar = d
+                        break
         if datumtar is not None:
             print('The datum concerning data type {0} and site {1} exists already in the DB. Forced to stop'.format(dtype,to_rse))
             return(0)
@@ -663,15 +663,15 @@ class Fix():
         # Add a new data field copying from from_rse but with: to_rse as RSE, dtypetar as dtype and with status "trasferred"
         data_dict = datum.copy()
         data_dict.update({'host': "rucio-catalogue",
-                          'type': dtypetar,
+                          'type': dtype,
                           'location': to_rse,
                           'lifetime': rucio_rule['expires'],
                           'status': 'transferred',
                           'did': didtar,
                           'protocol': 'rucio'
                       })
-        print(data_dict)
-#        self.db.AddDatafield(run['_id'], data_dict)
+#        print(data_dict)
+        self.db.AddDatafield(run['_id'], data_dict)
 
         print("Done.")
 
