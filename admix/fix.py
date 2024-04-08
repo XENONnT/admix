@@ -23,6 +23,7 @@ import glob
 import tarfile
 import gfal2
 from tqdm import tqdm
+from admix.utils import make_did
 
 from pymongo import ReturnDocument
 
@@ -899,6 +900,22 @@ class Fix():
 
 
 
+    def upload(self,path,rse):
+
+        directory = path.split('/')[-1]
+        number = int(directory.split('-')[0])
+        dtype = directory.split('-')[1]
+        hash = directory.split('-')[2]
+        did = make_did(number, dtype, hash)
+
+        print("Uploading did {0} in {1} from path {2}".format(did,rse,path))
+
+        self.rc.UploadToDid(did, path, rse)
+
+        return(0)
+
+
+
     def delete_db_datum(self,did,site):
 
         hash = did.split('-')[-1]
@@ -1037,11 +1054,12 @@ class Fix():
         rucio_client = Client()
 
         runs = self.db.db.find({
-            'number': {"$gte": 40000, "$lt": 40001},
+#            'number': {"$gte": 40000, "$lt": 40005},
+            'number': {"$gte": 10000},
 #            'number': {"$lt": 48475},
             'status': 'transferred'
         },
-        {'_id': 1, 'number': 1})
+                               {'_id': 1, 'number': 1}).sort("number", pymongo.ASCENDING)
 
         for r in runs:
 
@@ -1050,21 +1068,30 @@ class Fix():
             number = run['number']
             mode = run['mode']
 
-            for dtype in self.DTYPES:
+            dids = set()
+            for d in run['data']:
+                if d['host'] == 'rucio-catalogue':
+                    did = d['did'].split('.')[0]
+                    dids.add(did)
 
-                found = False
-                for d in run['data']:
-                    if d['type']==dtype and d['host'] == 'rucio-catalogue':
-                        found = True
-                        scope = d['did'].split(':')[0]
-                        dataset = d['did'].split(':')[1]
-                        files = list(rucio_client.list_files(scope,dataset))
-                        size = 0
-                        for ifile in files:
-                            size = size + ifile['bytes']
-                        print(number,mode,d['type'],len(files),size)
-                        break
-#                print(number,found)
+            for did in dids:
+
+                if "raw_records" not in did:
+                    continue
+
+                scope = did.split(':')[0]
+                dataset = did.split(':')[1]
+                files = list(rucio_client.list_files(scope,dataset))
+                size = 0
+                for ifile in files:
+                    size = size + ifile['bytes']
+                rules = rucio_client.list_did_rules(scope,dataset)
+                for rule in rules:
+                    print(number,mode,d['type'],len(files),size,0,rule['rse_expression'])
+                rules = rucio_client.list_did_rules(scope,dataset+".tarball")
+                for rule in rules:
+                    print(number,mode,d['type'],len(files),size,1,rule['rse_expression'])
+
 
     def test(self):
 
@@ -1259,6 +1286,7 @@ def main():
 
     parser.add_argument("--reset_upload", nargs=1, help="Deletes everything related a given DID, except data in EB. The deletion includes the entries in the Rucio catalogue and the related data in the DB rundoc. This is ideal if you want to retry an upload that failed", metavar=('DID'))
     parser.add_argument("--fix_upload", nargs=1, help="Deletes everything related a given DID, then it retries the upload", metavar=('DID'))
+    parser.add_argument("--upload", nargs=2, help="Uploads a dataset on a given RSE", metavar=('PATH','RSE'))
     parser.add_argument("--add_rule", nargs=3, help="Add a new replication rule of a given DID from one RSE to another one. The rundoc in DB is updated with a new datum as well", metavar=('DID','FROM_RSE','TO_RSE'))
     parser.add_argument("--add_db_rule_tar", nargs=3, help="Add a new data entry in a rundoc with the tar version of a given DID and destination TO_RSE, using FROM_RSE as base", metavar=('DID','FROM_RSE','TO_RSE'))
     parser.add_argument("--delete_rule", nargs=2, help="Delete a replication rule of a given DID from one RSE. The rundoc in DB is deleted as well", metavar=('DID','RSE'))
@@ -1304,6 +1332,8 @@ def main():
             fix.reset_upload(args.reset_upload[0])
         if args.fix_upload:
             fix.fix_upload(args.fix_upload[0])
+        if args.upload:
+            fix.upload(args.upload[0],args.upload[1])
         if args.add_rule:
             fix.add_rule(args.add_rule[0],args.add_rule[1],args.add_rule[2])
         if args.add_rules_from_file:
