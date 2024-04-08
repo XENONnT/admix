@@ -93,19 +93,21 @@ class Fix():
         dsns.sort()
         print("SCOPE:NAME")
         print('----------')
-        start = True
+        start = False
         for dsn in tqdm(dsns):
             if 'xnt' not in dsn:
                 continue
             if 'tarball' in dsn:
                 continue
+
+            if dsn == "xnt_010490:raw_records_aqmon-rfzvpzj4mf":
+                start = True
+
             if start:
                 print("Start tarballing of {0}".format(dsn))
                 if not self.tarball(dsn,from_rse,to_rse):
                     break
 #                break
-            if dsn == "xnt_049204:raw_records_nv-rfzvpzj4mf":
-                start = True
 
 #            if dsn == "xnt_025860:raw_records_nv-rfzvpzj4mf":
 #                break
@@ -265,6 +267,13 @@ class Fix():
 
         print("Bringing online {0} files".format(len(files)))
 
+        if rse=="SURFSARA_USERDISK":
+            for i, file in enumerate(files):
+                files[i] = files[i].replace("gsiftp","srm")
+                files[i] = files[i].replace("gridftp","srm")
+                files[i] = files[i].replace("2811","8443")
+        #print(files)
+
         ctx = gfal2.creat_context()
 
         try:
@@ -274,7 +283,7 @@ class Fix():
             #   pintime in seconds (how long should the file stay PINNED), e.g. value 1209600 will pin files for two weeks
             #   timeout of request in seconds, e.g. value 604800 will timeout the requests after a week
             #   async is asynchronous request (does not block if != 0)
-            pintime = 3600*12
+            pintime = 3600*48
             timeout = 3600
             (status, token) = ctx.bring_online(files, pintime, timeout, True)
             if token:
