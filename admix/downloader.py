@@ -79,7 +79,7 @@ def download_dids(dids, num_threads=8, **kwargs):
 
 
 def download(did, chunks=None, location='.',  tries=3, metadata=True,
-             only_metadata=False, num_threads=8, rse=None, stage=None):
+             only_metadata=False, num_threads=5, rse=None, stage=None):
     """Function download()
 
     """
