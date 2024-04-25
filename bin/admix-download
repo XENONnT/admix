@@ -37,6 +37,7 @@ def main():
     parser.add_argument('--straxen_version', help='straxen version', default=None)
     parser.add_argument('--experiment', help="xent or xe1t", choices=['xe1t', 'xent'], default='xent')
     parser.add_argument('--hash', help='force to use specific strax hash', default=None)
+    parser.add_argument("--stage", help="Stage data before downloading (useful for tape-based RSEs)", action="store_true")
 
     args = parser.parse_args()
 
@@ -78,6 +79,7 @@ def main():
         downloaded = download(
             did, chunks=chunks, location=args.dir, tries=args.tries,
             only_metadata=args.metadata, rse=args.rse, num_threads=args.threads,
+            stage = args.stage,
         )
 
         print(f"Download of {len(downloaded)} files finished.")
