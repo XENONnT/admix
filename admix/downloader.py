@@ -6,6 +6,7 @@ import socket
 import admix.rucio
 from .utils import xe1t_runs_collection
 from .rucio import list_rules, get_did_type, get_rses
+from .manager import bring_online
 from . import logger
 from . import clients
 try:
@@ -78,7 +79,7 @@ def download_dids(dids, num_threads=8, **kwargs):
 
 
 def download(did, chunks=None, location='.',  tries=3, metadata=True,
-             only_metadata=False, num_threads=5, rse=None):
+             only_metadata=False, num_threads=5, rse=None, stage=None):
     """Function download()
 
     """
@@ -132,6 +133,12 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
         rses = get_rses(did, state='OK')
         # find closest rse
         rse = determine_rse(rses)
+
+
+    if stage:
+        logger.info(f"Staging {len(dids)} file{'s'*(len(dids)>1)} of {did} from {rse}")        
+        bring_online(did,rse)
+
 
     if chunks:
         logger.info(f"Downloading {len(dids)} file{'s'*(len(dids)>1)} of {did} from {rse}")

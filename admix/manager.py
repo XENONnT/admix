@@ -10,10 +10,16 @@ from tqdm import tqdm
 from rucio.common.exception import DataIdentifierNotFound
 
 import admix.rucio
+from . import clients
 from . import rucio, logger
 from . import utils
 from .utils import db
 
+import gfal2
+import time
+from datetime import timezone, datetime, timedelta
+
+TAPE_RSES = ['SURFSARA_USERDISK','CNAF_TAPE3_USERDISK','CNAF_TAPE2_USERDISK','CNAF_TAPE_USERDISK','CCIN2P3_USERDISK']
 
 def has_metadata(did):
     scope, dset = did.split(':')
@@ -397,3 +403,83 @@ def clean_local_dir(path, before_straxen_version, ensure_rucio=False, dry_run=Tr
         print(f"Files that we can delete written to {tmpfile}")
 
 
+def bring_online(did,rse,timeout=3600):
+
+    """Stages data belonging to a given did from a given rse. 
+
+    :param did: DID to stage
+    :param rse: from which RSE data have to be stages
+    :param timeout: optionally you can change the maximum time after which the function gives up waiting for full data staging
+    :return: True if successfull or if staging is not needed, False in case of error or timeout
+    """
+
+    print("Bringing online {0} from {1}".format(did,rse))
+    if timeout>600:
+        print("** Warning! ** This function could take some time (within a timeout equal to {0} seconds). Consider running your program in a screen session".format(timeout))
+
+    if rse not in TAPE_RSES:
+        print("{0} is not a tape-based RSE. Staging is not required".format(rse))
+        return(True)
+
+    scope = did.split(':')[0]
+    dataset = did.split(':')[1]
+
+    file_replicas = clients.replica_client.list_replicas([{'scope':scope,'name': dataset}],rse_expression=rse)
+#    file_replicas = rucio.list_file_replicas(did,rse=rse)
+    files = [list(replica['pfns'].keys())[0] for replica in file_replicas]
+#    files = rucio.list_file_replicas(did,rse=rse)
+
+    print("Bringing online {0} files".format(len(files)))
+
+    if rse=="SURFSARA_USERDISK":
+        for i, file in enumerate(files):
+            files[i] = files[i].replace("gsiftp","srm")
+            files[i] = files[i].replace("gridftp","srm")
+            files[i] = files[i].replace("2811","8443")
+    if rse=="CCIN2P3_USERDISK":
+        for i, file in enumerate(files):
+            files[i] = files[i].replace("gsiftp","srm")
+            files[i] = files[i].replace("ccdcacli392.in2p3.fr","ccsrm02.in2p3.fr")
+            files[i] = files[i].replace("2811","8443")
+
+    #print(files)                                                                                                                                                                                                                       
+    ctx = gfal2.creat_context()
+
+    try:
+        # bring_online(surls, pintime, timeout, async)                                                                                                                                                                                  
+        # Parameters:                                                                                                                                                                                                                   
+        #   surls is the given [srmlist] argument                                                                                                                                                                                       
+        #   pintime in seconds (how long should the file stay PINNED), e.g. value 1209600 will pin files for two weeks                                                                                                                  
+        #   timeout of request in seconds, e.g. value 604800 will timeout the requests after a week                                                                                                                                     
+        #   async is asynchronous request (does not block if != 0)                                                                                                                                                                      
+        pintime = 3600*48
+        timeout_request = 3600
+        (status, token) = ctx.bring_online(files, pintime, timeout_request, True)
+        if token:
+            print(("Got token %s" % token))
+        else:
+            print("No token was returned. Are all files online?")
+    except gfal2.GError as e:
+        print("Could not bring the files online:")
+        print(("\t", e.message))
+        print(("\t Code", e.code))
+
+    print("Waiting until they are all online... (this might take time)")
+    start_time = datetime.now().replace(tzinfo=timezone.utc)
+    while True:
+        errors = ctx.bring_online_poll(files, token)
+        ncompleted = 0
+        for surl, error in zip(files, errors):
+            if not error:
+                ncompleted += 1
+        print("So far {0} files have been staged".format(ncompleted))
+        if ncompleted == len(files):
+            print("Staging of {0} files successfully completed".format(ncompleted))
+            return(True)
+        now_time = datetime.now().replace(tzinfo=timezone.utc)
+        delta_time = now_time - start_time
+        if delta_time > timedelta(seconds = timeout):
+            print("Timeout reached. Stopping waiting for full data staging")
+            print("** Warning ** Staging is not yet completed. If you plan to access data now, performances might be degraded")
+            return(False)
+        time.sleep(60)
