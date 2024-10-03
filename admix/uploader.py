@@ -42,9 +42,16 @@ def preupload(path, rse, did):
         print("The rule for DID {0} already exists".format(did))
 
 # TODO could we make this use multithreading or multiprocessing to speed things up?
-def upload(path, rse, 
-           register_after_upload=False, verbose=True, did=None, lifetime=None, update_db=False):
-
+def upload(
+    path,
+    rse,
+    register_after_upload=False,
+    verbose=True,
+    did=None,
+    lifetime=None,
+    update_db=False,
+    miscellaneous=None,
+):
     # set scope initially to default one. will overwrite it below if did passed
     scope = get_default_scope()
 
@@ -132,6 +139,14 @@ def upload(path, rse,
                                      size_mb=size,
                                      file_count=len(files)
                                      )
+            if miscellaneous:
+                for key in miscellaneous:
+                    if key not in data_dict:
+                        data_dict[key] = miscellaneous[key]
+                    else:
+                        raise ValueError(
+                            f"Key {key} provided in miscellaneous is already in data_dict!"
+                        )
             db.update_data(number, data_dict)
     else:
         print(f"Nothing to upload at {path}")
