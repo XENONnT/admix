@@ -132,6 +132,13 @@ def upload(path, rse,
                                      size_mb=size,
                                      file_count=len(files)
                                      )
+            for key in miscellaneous:
+                if key not in data_dict:
+                    data_dict[key] = miscellaneous[key]
+                else:
+                    raise ValueError(
+                        f"Key {key} provided in miscellaneous is already in data_dict!"
+                    )
             db.update_data(number, data_dict)
     else:
         print(f"Nothing to upload at {path}")
