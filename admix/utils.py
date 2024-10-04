@@ -23,7 +23,7 @@ class LazyInit:
 
     def _init_instance(self):
         if self._instance is None:
-            self._instance = function(*self.args, **self.kwargs)
+            self._instance = self.function(*self.args, **self.kwargs)
 
     def __getattr__(self, name):
         self._init_instance()  # Initialize only when an attribute is accessed
