@@ -13,7 +13,7 @@ try:
     from straxen import __version__
     straxen_version = __version__
 except ImportError:
-    print("Straxen not installed in current env, so must pass straxen_version manually")
+    print("straxen not installed in current env, so must pass straxen_version manually")
 import time
 import utilix
 
@@ -154,8 +154,9 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
             result = download_dids(dids, base_dir=location, no_subdir=True, rse=rse, num_threads=num_threads)
             success = True
         except:
-            logger.debug(f"Download try #{_try} failed. Sleeping for {3*_try} seconds.")
-            time.sleep(3 ** _try)
+            if _try < tries:
+                logger.debug(f"Download try #{_try} failed. Sleeping for {3 ** _try} seconds.")
+                time.sleep(3 ** _try)
             _try += 1
 
     if success:
