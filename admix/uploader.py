@@ -128,7 +128,7 @@ def upload(
             if verbose:
                 print(f"Upload failed for {path}")
                 print(e)
-            raise
+            return did
         # then update db again when complete
         if update_db:
             data_dict['status'] = 'transferred'
