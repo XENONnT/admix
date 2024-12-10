@@ -120,17 +120,19 @@ def upload(
                     )
 
     if len(to_upload):
+        upload_success = False
         if update_db:
             db.update_data(number, data_dict)
         try:
             clients.upload_client.upload(to_upload)
+            upload_success = True
         except Exception as e:
             if verbose:
                 print(f"Upload failed for {path}")
                 print(e)
             raise
         # then update db again when complete
-        if update_db:
+        if update_db and upload_success:
             data_dict['status'] = 'transferred'
             # get files, size etc
             files = list_files(did, verbose=True)
