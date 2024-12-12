@@ -30,13 +30,13 @@ def determine_rse(rse_list):
 
     preferred_host_rses = {'rcc': ['UC_DALI_USERDISK', 'UC_OSG_USERDISK', 'SDSC_USERDISK', 'SDSC_NSDF_USERDISK', 'SURFSARA2_USERDISK', 'NIKHEF2_USERDISK', 'CNAF_USERDISK', 'CCIN2P32_USERDISK'],
                            'sdsc': ['SDSC_USERDISK', 'UC_OSG_USERDISK', 'UC_DALI_USERDISK', 'SDSC_NSDF_USERDISK'],
-                           'in2p3': ['CCIN2P3_USERDISK', 'NIKHEF2_USERDISK', 'CNAF_USERDISK'],
-                           'nikhef': ['NIKHEF2_USERDISK', 'SURFSARA_USERDISK', 'CNAF_USERDISK'],
-                           'surf': ['SURFSARA2_USERDISK', 'SURFSARA_USERDISK', 'NIKHEF2_USERDISK', 'CNAF_USERDISK'],
+                           'in2p3': ['CCIN2P3_USERDISK', 'NIKHEF2_USERDISK', 'CNAF_USERDISK', 'CCIN2P32_USERDISK'],
+                           'nikhef': ['NIKHEF2_USERDISK', 'SURFSARA_USERDISK', 'CNAF_USERDISK', 'CCIN2P32_USERDISK'],
+                           'surf': ['SURFSARA2_USERDISK', 'SURFSARA_USERDISK', 'NIKHEF2_USERDISK', 'CNAF_USERDISK', 'CCIN2P32_USERDISK'],
                           }
 
     preferred_glidein_rses = {'US,CA':  ['UC_OSG_USERDISK', 'SDSC_USERDISK', 'UC_DALI_USERDISK', 'SDSC_NSDF_USERDISK'],
-                              'EUROPE,NL,IT,FR,IL': ['NIKHEF2_USERDISK', 'CNAF_USERDISK', 'SURFSARA_USERDISK']
+                              'EUROPE,NL,IT,FR,IL': ['NIKHEF2_USERDISK', 'CNAF_USERDISK', 'SURFSARA_USERDISK', 'CCIN2P32_USERDISK']
                               }
 
     hostname = socket.getfqdn()
