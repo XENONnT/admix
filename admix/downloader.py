@@ -59,7 +59,14 @@ def determine_rse(rse_list):
                         return rse
 
     # as last ditch effort, default to UC_OSG or SDSC
-    for pref_rse in ['UC_OSG_USERDISK', 'SDSC_USERDISK', 'SDSC_NSDF_USERDISK']:
+    for pref_rse in [
+        'UC_OSG_USERDISK',
+        'SDSC_USERDISK',
+        'SDSC_NSDF_USERDISK',
+        'SURFSARA_USERDISK',
+        'SURFSARA2_USERDISK',
+        'CCIN2P3_USERDISK',
+    ]:
         if pref_rse in rse_list:
             return pref_rse
 
