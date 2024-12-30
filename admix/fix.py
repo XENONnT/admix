@@ -23,6 +23,7 @@ import glob
 import tarfile
 import gfal2
 from tqdm import tqdm
+from admix.utils import make_did
 
 from pymongo import ReturnDocument
 
@@ -101,13 +102,15 @@ class Fix():
                 continue
             if 'tarball' in dsn:
                 continue
+
+            if dsn == "xnt_010490:raw_records_aqmon-rfzvpzj4mf":
+                start = True
+
             if start:
                 print("Start tarballing of {0}".format(dsn))
                 if not self.tarball(dsn,from_rse,to_rse):
                     break
 #                break
-            if dsn == "xnt_042134:raw_records_nv-rfzvpzj4mf":
-                start = True
 
 #            if dsn == "xnt_025860:raw_records_nv-rfzvpzj4mf":
 #                break
@@ -135,11 +138,19 @@ class Fix():
 #        print("Hash: {0}".format(hash))
 
         # tarball only specific data types
-        if dtype not in ["raw_records","raw_records_mv","raw_records_nv"]:
-            print("Error! This data type cannot be tarballed because usually it has very few files")
-            return True
+#        if dtype not in ["raw_records","raw_records_mv","raw_records_nv","raw_records_aqmon"]:
+#            print("Error! This data type cannot be tarballed because usually it has very few files")
+#            return True
 
-        # check if the rule exists and it is present in the from_rse
+        # check if the tarball rule already exists in any rse
+        tarballrule_exists_already = False
+        rules = list(self.rucio_client.list_did_rules(scope, dataset_tar))
+        if len(rules)>0:
+            print("Error! The tarball version of this did exists already. I cannot start another tarballing")
+            return True
+            
+
+        # check if the rule exists and it is present in from_rse
         rule_is_ok = False
         nfiles = 0
         rules = list(self.rucio_client.list_did_rules(scope, dataset))
@@ -152,18 +163,30 @@ class Fix():
                     nfiles = rule['locks_ok_cnt']
                     rule_id = rule['id']
         if not rule_is_ok:
-            print("Error! Rule is not OK. Tarballing is stop")
+            print("Error! Rule is not OK. Tarballing cannot be done")
             return True
 
-        if nfiles<=1:
-            print("Error! Rule is OK but there is only the metadata. Tarballing is stop")
+        if nfiles==0:
+            print("Error! Rule has no files. Tarballing cannot be done")
+            return True
+
+        if nfiles==1:
+            print("Warning! Rule is OK but there is only the metadata. Tarballing cannot be done")
+            return True
+
+        if nfiles==2:
+            print("Warning! Rule is OK but there is only one chunk. Tarballing will not be done")
             return True
  
         print("Rule is OK, the number of files is {0}, its ID is {1}".format(nfiles,rule_id))
 
 #        return
+
+        # prestage rule
+        self.bring_online(did,from_rse)
+
         # download rule
-        download(number,dtype,hash,rse=from_rse,location=self.working_path)
+        download(number,dtype,hash,rse=from_rse,location=self.working_path,tries=10)
 
         # create the directory that will contain the new dataset
         filename = did.replace(':', '-')
@@ -233,6 +256,66 @@ class Fix():
         shutil.rmtree(path_to_upload)
 
         return True
+
+
+
+    def bring_online(self,did,rse):
+        print("Bringing online {0} from {1}".format(did,rse))
+        
+        scope = did.split(':')[0]
+        dataset = did.split(':')[1]
+
+        file_replicas = Client().list_replicas([{'scope':scope,'name': dataset}],rse_expression=rse)
+        files = [list(replica['pfns'].keys())[0] for replica in file_replicas]
+
+        print("Bringing online {0} files".format(len(files)))
+
+        if rse=="SURFSARA_USERDISK":
+            for i, file in enumerate(files):
+                files[i] = files[i].replace("gsiftp","srm")
+                files[i] = files[i].replace("gridftp","srm")
+                files[i] = files[i].replace("2811","8443")
+        #print(files)
+
+        ctx = gfal2.creat_context()
+
+        try:
+            # bring_online(surls, pintime, timeout, async)
+            # Parameters:
+            #   surls is the given [srmlist] argument
+            #   pintime in seconds (how long should the file stay PINNED), e.g. value 1209600 will pin files for two weeks
+            #   timeout of request in seconds, e.g. value 604800 will timeout the requests after a week
+            #   async is asynchronous request (does not block if != 0)
+            pintime = 3600*48
+            timeout = 3600
+            (status, token) = ctx.bring_online(files, pintime, timeout, True)
+            if token:
+                print(("Got token %s" % token))
+            else:
+                print("No token was returned. Are all files online?")
+        except gfal2.GError as e:
+            print("Could not bring the files online:")
+            print(("\t", e.message))
+            print(("\t Code", e.code))
+
+        print("Waiting until they are all online... (this might take time)")
+        while True:
+            errors = ctx.bring_online_poll(files, token)
+            ncompleted = 0
+            for surl, error in zip(files, errors):
+                if not error:
+                    ncompleted += 1
+            print("So far {0} files have been staged".format(ncompleted))
+            if ncompleted == len(files):
+                print("Staging of {0} files successfully completed".format(ncompleted))
+                break
+            time.sleep(60)
+
+
+
+
+
+
 
 
     def clean_empty_directories_rse(self,rse):
@@ -550,14 +633,12 @@ class Fix():
 
         hash = did.split('-')[-1]
         dtype = did.split('-')[0].split(':')[-1]
-        dtypetar = dtype+".tar"
         number = int(did.split(':')[0].split('_')[-1])
-        didtar = make_did(number, dtypetar, hash)
+        didtar = did+'.tarball'
 
-        print("Adding a new tar rule {0} in {1} using infos from {2}".format(did,to_rse,from_rse))
+        print("Adding a new DB datum associated to the did {0} in {1} using infos from {2}".format(didtar,to_rse,from_rse))
         print("Run number: {0}".format(number))
         print("Data type: {0}".format(dtype))
-        print("Data type tar: {0}".format(dtypetar))
         print("Hash: {0}".format(hash))
         print("Did tar: {0}".format(didtar))
 
@@ -582,9 +663,11 @@ class Fix():
         #Checks if the datum of the destination does not exist yet in the DB
         datumtar = None
         for d in run['data']:
-            if d['type'] == dtypetar and d['host'] == 'rucio-catalogue' and d['location'] == to_rse:
-                datumtar = d
-                break
+            if d['type'] == dtype and d['host'] == 'rucio-catalogue' and d['location'] == to_rse:
+                if 'did' in d:
+                    if d['did']==didtar:
+                        datumtar = d
+                        break
         if datumtar is not None:
             print('The datum concerning data type {0} and site {1} exists already in the DB. Forced to stop'.format(dtype,to_rse))
             return(0)
@@ -603,15 +686,15 @@ class Fix():
         # Add a new data field copying from from_rse but with: to_rse as RSE, dtypetar as dtype and with status "trasferred"
         data_dict = datum.copy()
         data_dict.update({'host': "rucio-catalogue",
-                          'type': dtypetar,
+                          'type': dtype,
                           'location': to_rse,
                           'lifetime': rucio_rule['expires'],
                           'status': 'transferred',
                           'did': didtar,
                           'protocol': 'rucio'
                       })
-        print(data_dict)
-#        self.db.AddDatafield(run['_id'], data_dict)
+#        print(data_dict)
+        self.db.AddDatafield(run['_id'], data_dict)
 
         print("Done.")
 
@@ -650,6 +733,7 @@ class Fix():
 
         #Delete the rule
         if rucio_rule['exists']:
+            self.rucio_client.update_replication_rule(rucio_rule['id'], {'locked' : False})
             self.rc.DeleteRule(rucio_rule['id'])
             print("Rucio rule deleted.")
         else:
@@ -833,6 +917,22 @@ class Fix():
 
 
 
+    def upload(self,path,rse):
+
+        directory = path.split('/')[-1]
+        number = int(directory.split('-')[0])
+        dtype = directory.split('-')[1]
+        hash = directory.split('-')[2]
+        did = make_did(number, dtype, hash)
+
+        print("Uploading did {0} in {1} from path {2}".format(did,rse,path))
+
+        self.rc.UploadToDid(did, path, rse)
+
+        return(0)
+
+
+
     def delete_db_datum(self,did,site):
 
         hash = did.split('-')[-1]
@@ -971,11 +1071,12 @@ class Fix():
         rucio_client = Client()
 
         runs = self.db.db.find({
-            'number': {"$gte": 40000, "$lt": 48471},
+#            'number': {"$gte": 40000, "$lt": 40005},
+            'number': {"$gte": 10000},
 #            'number': {"$lt": 48475},
             'status': 'transferred'
         },
-        {'_id': 1, 'number': 1})
+                               {'_id': 1, 'number': 1}).sort("number", pymongo.ASCENDING)
 
         for r in runs:
 
@@ -984,21 +1085,30 @@ class Fix():
             number = run['number']
             mode = run['mode']
 
-            for dtype in self.DTYPES:
+            dids = set()
+            for d in run['data']:
+                if d['host'] == 'rucio-catalogue':
+                    did = d['did'].split('.')[0]
+                    dids.add(did)
 
-                found = False
-                for d in run['data']:
-                    if d['type']==dtype and d['host'] == 'rucio-catalogue':
-                        found = True
-                        scope = d['did'].split(':')[0]
-                        dataset = d['did'].split(':')[1]
-                        files = list(rucio_client.list_files(scope,dataset))
-                        size = 0
-                        for ifile in files:
-                            size = size + ifile['bytes']
-                        print(number,mode,d['type'],len(files),size)
-                        break
-#                print(number,found)
+            for did in dids:
+
+                if "raw_records" not in did:
+                    continue
+
+                scope = did.split(':')[0]
+                dataset = did.split(':')[1]
+                files = list(rucio_client.list_files(scope,dataset))
+                size = 0
+                for ifile in files:
+                    size = size + ifile['bytes']
+                rules = rucio_client.list_did_rules(scope,dataset)
+                for rule in rules:
+                    print(number,mode,d['type'],len(files),size,0,rule['rse_expression'])
+                rules = rucio_client.list_did_rules(scope,dataset+".tarball")
+                for rule in rules:
+                    print(number,mode,d['type'],len(files),size,1,rule['rse_expression'])
+
 
     def test(self):
 
@@ -1193,13 +1303,15 @@ def main():
 
     parser.add_argument("--tarball_all", nargs=2, help="Tarballs all data from a given FROM_RSE and upload them to TO_RSE", metavar=('FROM_RSE','TO_RSE'))
     parser.add_argument("--tarball", nargs=3, help="Extracts data with a given DID from a given FROM_RSE, tarballs it, then uploads it in TO_RSE", metavar=('DID','FROM_RSE','TO_RSE'))
+    parser.add_argument("--bring_online", nargs=2, help="Pre-stages all files belonging to a DID for a given RSE", metavar=('DID','RSE'))
     parser.add_argument("--clean_empty_directories", nargs=1, help="Removes all empty sub-directories of a given directory DIR", metavar=('DIR'))
     parser.add_argument("--clean_empty_directories_rse", nargs=1, help="Removes all empty sub-directories of a given RSE", metavar=('RSE'))
 
     parser.add_argument("--reset_upload", nargs=1, help="Deletes everything related a given DID, except data in EB. The deletion includes the entries in the Rucio catalogue and the related data in the DB rundoc. This is ideal if you want to retry an upload that failed", metavar=('DID'))
     parser.add_argument("--fix_upload", nargs=1, help="Deletes everything related a given DID, then it retries the upload", metavar=('DID'))
+    parser.add_argument("--upload", nargs=2, help="Uploads a dataset on a given RSE", metavar=('PATH','RSE'))
     parser.add_argument("--add_rule", nargs=3, help="Add a new replication rule of a given DID from one RSE to another one. The rundoc in DB is updated with a new datum as well", metavar=('DID','FROM_RSE','TO_RSE'))
-    parser.add_argument("--add_db_rule_tar", nargs=3, help="Add a new data entry in a rundoc for the tar version of a given DID and destination TO_RSE, using FROM_RSE as base", metavar=('DID','FROM_RSE','TO_RSE'))
+    parser.add_argument("--add_db_rule_tar", nargs=3, help="Add a new data entry in a rundoc with the tar version of a given DID and destination TO_RSE, using FROM_RSE as base", metavar=('DID','FROM_RSE','TO_RSE'))
     parser.add_argument("--delete_rule", nargs=2, help="Delete a replication rule of a given DID from one RSE. The rundoc in DB is deleted as well", metavar=('DID','RSE'))
     parser.add_argument("--delete_db_datum", nargs=2, help="Deletes the db datum corresponding to a given DID. The SITE can be either a specific EB machine (ex: eb1) or a specific RSE", metavar=('DID','SITE'))
 
@@ -1233,16 +1345,18 @@ def main():
             fix.tarball_all(args.tarball_all[0],args.tarball_all[1])
         if args.tarball:
             fix.tarball(args.tarball[0],args.tarball[1],args.tarball[2])
+        if args.bring_online:
+            fix.bring_online(args.bring_online[0],args.bring_online[1])
         if args.clean_empty_directories:
             fix.clean_empty_directories(args.clean_empty_directories[0])
         if args.clean_empty_directories_rse:
             fix.clean_empty_directories_rse(args.clean_empty_directories_rse[0])
-        if args.add_db_rule_tar:
-            fix.add_db_rule_tar(args.add_db_rule_tar[0],args.add_db_rule_tar[1],args.add_db_rule_tar[2])
         if args.reset_upload:
             fix.reset_upload(args.reset_upload[0])
         if args.fix_upload:
             fix.fix_upload(args.fix_upload[0])
+        if args.upload:
+            fix.upload(args.upload[0],args.upload[1])
         if args.add_rule:
             fix.add_rule(args.add_rule[0],args.add_rule[1],args.add_rule[2])
         if args.add_rules_from_file:
