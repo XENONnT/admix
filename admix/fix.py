@@ -273,6 +273,11 @@ class Fix():
                 files[i] = files[i].replace("gsiftp","srm")
                 files[i] = files[i].replace("gridftp","srm")
                 files[i] = files[i].replace("2811","8443")
+        if rse=="CCIN2P3_USERDISK":
+            for i, file in enumerate(files):
+                files[i] = files[i].replace("gsiftp","srm")
+                files[i] = files[i].replace("ccdcacli392.in2p3.fr","ccsrm02.in2p3.fr")
+                files[i] = files[i].replace("2811","8443")
         #print(files)
 
         ctx = gfal2.creat_context()
@@ -295,6 +300,9 @@ class Fix():
             print("Could not bring the files online:")
             print(("\t", e.message))
             print(("\t Code", e.code))
+
+        if self.no_wait:
+            return
 
         print("Waiting until they are all online... (this might take time)")
         while True:
@@ -531,8 +539,10 @@ class Fix():
                 datum = d
                 break
         if datum is None:
-            print('The datum concerning data type {0} and site {1} is missing in the DB. Forced to stop'.format(dtype,from_rse))
-            return(0)
+            print('The datum concerning data type {0} and site {1} is missing in the DB'.format(dtype,from_rse))
+            if not self.ignore_db_errors:
+                print('Forced to stop')
+                return(0)
 
 
         # Checks the rule status of the sender RSE
@@ -549,21 +559,22 @@ class Fix():
             print("Rucio rule is not added")
         rucio_rule = self.rc.GetRule(did, rse=to_rse)
 
-        # Update run status
-        self.db.db.find_one_and_update({'number': number},{'$set': {'status': 'transferring'}})
+        if datum is not None:
+            # Update run status
+            self.db.db.find_one_and_update({'number': number},{'$set': {'status': 'transferring'}})
 
-        # Add a new datum in the run document
-        updated_fields = {'host': "rucio-catalogue",
-                          'type': dtype,
-                          'location': to_rse,
-                          'lifetime': rucio_rule['expires'],
-                          'status': 'transferring',
-                          'did': did,
-                          'protocol': 'rucio'
-                }
-        data_dict = datum.copy()
-        data_dict.update(updated_fields)
-        self.db.AddDatafield(run['_id'], data_dict)
+            # Add a new datum in the run document
+            updated_fields = {'host': "rucio-catalogue",
+                              'type': dtype,
+                              'location': to_rse,
+                              'lifetime': rucio_rule['expires'],
+                              'status': 'transferring',
+                              'did': did,
+                              'protocol': 'rucio'
+                          }
+            data_dict = datum.copy()
+            data_dict.update(updated_fields)
+            self.db.AddDatafield(run['_id'], data_dict)
 
         print("Done.")
 
@@ -1306,6 +1317,9 @@ def main():
 
     parser.add_argument("--priority", type=int, help="Priority to assign to Rucio rules (default: %(default)s)", default=3)
     parser.add_argument("--skip_rucio", help="Add this flag in context of add_rule in case you just want to update DB since Rucio rule exists already", action='store_true')
+    parser.add_argument("--ignore_db_errors", help="Add this flag in context of add_rule in case you just want to proceed on creating a rule even if the DB does not contain the source data", action='store_true')
+
+    parser.add_argument("--no_wait", help="Add this flag in context of bring_online in case you don't want to wait for the staging of the files", action='store_true')
     parser.add_argument("--list_non_transferred_runs", help="Lists all runs whose status is still not transferred", action='store_true')
 
     parser.add_argument("--test_db_modification", nargs=2, help="Test how quickly a modification in DB is registered", metavar=('DID','STATUS'))
@@ -1324,6 +1338,8 @@ def main():
     fix = Fix()
 
     fix.skip_rucio = args.skip_rucio
+    fix.ignore_db_errors = args.ignore_db_errors
+    fix.no_wait = args.no_wait
     fix.priority = args.priority
 
     try:
