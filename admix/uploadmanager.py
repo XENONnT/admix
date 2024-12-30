@@ -9,6 +9,7 @@ import pymongo
 import pprint
 import json
 import textwrap
+import requests
 
 from admix.helper.logger import Logger
 import admix.helper.helper as helper
@@ -35,7 +36,8 @@ class UploadManager():
         self.heartbeat_interval = datetime.timedelta(hours=12)
         self.n_threads_alert_wait_time = 300  # 300 s (5 min)
         self.n_dat_alert_wait_time = 1800  # 1800 s (30 min)
-        self.n_dat_alert_thr = 75  # n_datasets_to_upload threshold
+        self.n_dat_alert_thr = 100  # n_datasets_to_upload threshold
+        self.MaxCurrentTransferringRequests = 4000
 
         # Take all data types categories
         self.RAW_RECORDS_TPC_TYPES = helper.get_hostconfig()['raw_records_tpc_types']
@@ -52,6 +54,9 @@ class UploadManager():
         self.wait_time = helper.get_hostconfig()['sleep_time']
         self.n_upload_threads_low = helper.get_hostconfig()['n_upload_threads_low']
         self.n_upload_threads_high = helper.get_hostconfig()['n_upload_threads_high']
+
+        #Take the RSE that is used to perform the upload
+        self.UPLOAD_TO = helper.get_hostconfig()['upload_to']
 
         # Choose which data type you want to treat
         self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.HEAVY_HIGH_LEVEL_TYPES + self.RECORDS_TYPES
@@ -83,6 +88,10 @@ class UploadManager():
 
         # looping on runs by sorting by priority
         for run in sorted(runs, key=lambda k: k['priority']):
+
+            if helper.global_dictionary.get('priority'):
+                if run['priority']!=1:
+                    continue
 
             # Extracts the correct Event Builder machine who processed this run
             bootstrax = run['bootstrax']
@@ -174,8 +183,10 @@ class UploadManager():
 
             :large_green_circle: Upload Manager up and running
 
+            {} active threads
+
             :hourglass_flowing_sand: Next heartbeat in {} hours
-            """.format(self.heartbeat_interval // datetime.timedelta(hours=1))))
+            """.format(self.n_threads, self.heartbeat_interval // datetime.timedelta(hours=1))))
             next_heartbeat_time += self.heartbeat_interval
 
         return next_heartbeat_time
@@ -211,6 +222,16 @@ class UploadManager():
             """.format("\n".join(thread_strings), int(self.n_threads_alert_wait_time / 60)))
 
             self.bot.send_message("\n".join([m.lstrip() for m in message.split("\n")]))
+
+
+
+    def GetCurrentTransferringRequests(self):
+        try:
+            response = requests.get('http://graphite.grid.uchicago.edu/render?target=rucio.xenon.requests.S.by-source.'+self.UPLOAD_TO+'&format=json&from=today')
+            data = json.loads(response.content)
+            return(int(data[0]['datapoints'][-1][0]))
+        except:
+            return None
 
 
 
@@ -337,9 +358,22 @@ class UploadManager():
                     if dtype in self.LOW_DTYPES:
                         n_low = n_low + 1
 
+        # eventually change the maximum number of low level datasets to transfer by looking at the current number of transferring requests from self.UPLOAD_TO
+        # very basic algorithm: it simply sets the number of low level datasets to transfer to zero, until the current number of transferring requests from self.UPLOAD_TO exceeds to 4k
+        # needs to be fine tuned like for a PID
+        if helper.global_dictionary.get('optimize_jobs'):
+            nCurrentTransferringRequests = self.GetCurrentTransferringRequests()
+            if nCurrentTransferringRequests is not None:
+                print("Optimizing jobs : checking if the current umber of transferring requests {0} is bigger than {1}".format(nCurrentTransferringRequests,self.MaxCurrentTransferringRequests))
+                if nCurrentTransferringRequests > self.MaxCurrentTransferringRequests:
+                    self.n_upload_threads_low = 0
+                else:
+                    self.n_upload_threads_low = helper.get_hostconfig()['n_upload_threads_low']
+
         # Print threads status
         print("---------------------------------------------------------------------")
-        print("There are currently {0} active threads, {1}/{2} high level and {3}/{4} low level:".format(len(current_threads),n_high,self.n_upload_threads_high,n_low,self.n_upload_threads_low))
+        print("There are currently {0} active threads. Assigning max {1} high level and {2} low level jobs:".format(len(current_threads),self.n_upload_threads_high,self.n_upload_threads_low))
+        print("Currently running {0}/{1} high level and {2}/{3} low level:".format(n_high,self.n_upload_threads_high,n_low,self.n_upload_threads_low))
         for thread in sorted(current_threads, key=lambda k: k['screen']):
             print("Task: {0}, Screen: {1:8s}, ".format(thread['task'],thread['screen']),end='')
             if thread['task'] in ['CheckTransfers','CleanEB']:
@@ -373,6 +407,8 @@ class UploadManager():
                         if self.CompareData(thread['datum'],dataset):
                             assigned = True
 
+#            print("before ",dataset['number'], dataset['type'], n_low, self.n_upload_threads_low)
+
             # Then, check if there are not already too many uploads for its category (low or high)
             if dataset['type'] in self.HIGH_DTYPES:
                 if n_high >= self.n_upload_threads_high:
@@ -380,6 +416,8 @@ class UploadManager():
             if dataset['type'] in self.LOW_DTYPES:
                 if n_low >= self.n_upload_threads_low:
                     continue
+
+#            print("after  ",dataset['number'], dataset['type'], n_low, self.n_upload_threads_low)
 
             # If not, then assign it to the first thread available
             if not assigned:
@@ -433,6 +471,7 @@ class UploadManager():
 
             # Wait
             print('Waiting for {0} seconds'.format(self.wait_time))
+            print("Time:",datetime.datetime.now(pytz.timezone('CET')))
             print("You can safely CTRL-C now if you need to stop me")
             try:
                 time.sleep(self.wait_time)
@@ -464,6 +503,10 @@ def main():
                         help="Treat only high level data types")
     parser.add_argument('--low', dest='low', action='store_true',
                         help="Treat only low level data types")
+    parser.add_argument('--priority', dest='priority', action='store_true',
+                        help="Treat only datasets with the highest priority")
+    parser.add_argument('--optimize_jobs', dest='optimize_jobs', action='store_true',
+                        help="Optimizes the number of jobs in order to control the number of outgoing transferring requests")
     args = parser.parse_args()
 
     #We make the individual arguments global available right after aDMIX starts:
@@ -471,6 +514,8 @@ def main():
     helper.make_global("high", args.high)
     helper.make_global("low", args.low)
     helper.make_global("once", args.once)
+    helper.make_global("priority", args.priority)
+    helper.make_global("optimize_jobs", args.optimize_jobs)
 
     #Pre tests:
     # admix host configuration must match the hostname:

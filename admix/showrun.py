@@ -372,20 +372,20 @@ class ShowRun():
 #                    os.system('~/.local/bin/admix-fix --create_upload_rules {0}'.format(did))
 
                 # Case 4 : data still to be uploaded but the value if the EB status is not empty so admix cannot upload it
-                if rse['RucioNFiles']==0 and not rse['RucioExists'] and rse['DBStatus']=="" and rse['DBentries']==0 and len(rses_with_data)==0 and ebstatus not in ["","transferred"]:
+                if rse['RucioNFiles']==0 and not rse['RucioExists'] and rse['DBStatus']=="" and rse['DBentries']==0 and len(rses_with_data)==0 and ebstatus not in ["","transferred","eb_ready_to_upload"]:
                     print('\t\t Warning: the upload never started but the EB status is not empty, hence admix cannot upload it')
                     print('\t\t Hint: fix it manually with the following command to allow admix upload manager to take care of it:')
                     print('\t\t\t admix-fix --set_eb_status {0} eb_ready_to_upload'.format(did))
 #                    os.system('~/.local/bin/admix-fix --set_eb_status {0} eb_ready_to_upload'.format(did))
 
-                # Case 4 : data still to be uploaded but the value if the EB status is not empty so admix cannot upload it
+                # Case 5 : data already uploaded but the status has not been set as transferred
                 if rse['RucioNFiles']==Nfiles and rse['RucioExists'] and rse['DBStatus']=="transferred" and rse['DBentries']==1 and len(rses_with_data)>0 and ebstatus not in ["","transferred"]:
                     print('\t\t Warning: the upload is completed and there are also copies abroad')
                     print('\t\t Hint: fix it manually with the command below to flag the EB datum as transferred:')
                     print('\t\t\t admix-fix --set_eb_status {0} transferred'.format(did))
 #                    os.system('~/.local/bin/admix-fix --set_eb_status {0} transferred'.format(did))
 
-                # Case 5 : data still to be uploaded but the value if the EB status is not empty so admix cannot upload it
+                # Case 6 : data still to be uploaded but the value if the EB status is not empty so admix cannot upload it
                 if rse['RucioNFiles']!=Nfiles and rse['RucioExists'] and rse['DBStatus']=="" and rse['DBentries']==0 and len(rses_with_data)==1 and ebstatus=="transferring":
                     print('\t\t Warning: the upload has been interrupted during the copy')
                     print('\t\t Hint: fix it manually with the command below to resume the upload:')
