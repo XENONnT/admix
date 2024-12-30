@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import time
+from datetime import datetime
 import psutil
 from admix.helper.admix_bot import AdmixBot
 import textwrap
@@ -29,7 +30,7 @@ def CheckAdmix():
                     already_sent_alarm = False
 
         if not process_is_running and not already_sent_alarm:
-            print("Alert sent")
+            print("{0} - Alert sent".format(datetime.now()))
             already_sent_alarm = True
 
             bot.send_message(textwrap.dedent("""

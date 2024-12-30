@@ -39,10 +39,11 @@ class Fix():
         self.LIGHT_RAW_RECORDS_MV_TYPES = helper.get_hostconfig()['light_raw_records_mv_types']
         self.LIGHT_RAW_RECORDS_NV_TYPES = helper.get_hostconfig()['light_raw_records_nv_types']
         self.HIGH_LEVEL_TYPES = helper.get_hostconfig()['high_level_types']
+        self.HEAVY_HIGH_LEVEL_TYPES = helper.get_hostconfig()['heavy_high_level_types']
         self.RECORDS_TYPES = helper.get_hostconfig()['records_types']
 
         #Choose which data type you want to treat
-        self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.RECORDS_TYPES
+        self.DTYPES = self.RAW_RECORDS_TPC_TYPES + self.RAW_RECORDS_MV_TYPES + self.RAW_RECORDS_NV_TYPES + self.LIGHT_RAW_RECORDS_TPC_TYPES + self.LIGHT_RAW_RECORDS_MV_TYPES + self.LIGHT_RAW_RECORDS_NV_TYPES + self.HIGH_LEVEL_TYPES + self.HEAVY_HIGH_LEVEL_TYPES + self.RECORDS_TYPES
         
         #Take the list of all XENON RSEs
         self.RSES = helper.get_hostconfig()['rses']
@@ -61,6 +62,7 @@ class Fix():
         self.LIGHT_RAW_RECORDS_MV_RSES = helper.get_hostconfig()["light_raw_records_mv_rses"]
         self.LIGHT_RAW_RECORDS_NV_RSES = helper.get_hostconfig()["light_raw_records_nv_rses"]
         self.HIGH_LEVEL_RSES = helper.get_hostconfig()["high_level_rses"]
+        self.HEAVY_HIGH_LEVEL_RSES = helper.get_hostconfig()["heavy_high_level_rses"]
         self.RECORDS_RSES = helper.get_hostconfig()["records_rses"]
 
         #Init the runDB
@@ -337,44 +339,47 @@ class Fix():
 #            if scope!='xnt_007177':
 #                continue
             print(scope)
-            directory = os.path.join('srm://storm-fe-archive.cr.cnaf.infn.it:8444/srm/managerv2?SFN=/xenon/rucio/',scope)
+#            directory = os.path.join('srm://storm-fe-archive.cr.cnaf.infn.it:8444/srm/managerv2?SFN=/xenon/rucio/',scope)
+            directory = os.path.join('gsiftp://xent-datamanager.lngs.infn.it:2811/archive/data/rucio/',scope)
             print(directory)
             number = int(scope.split('_')[-1])
             print(number)
             if number>49000:
                 continue
+            if number<7000:
+                continue
             self.clean_empty_directories(directory)
 
 
-    def clean_empty_directories(self,directory):
-        print(directory)
-        ctx = gfal2.creat_context()
-        list_subdir_lev1 = ctx.listdir(directory)
-        for subdir_lev1 in list_subdir_lev1:
-            if subdir_lev1 == '.' or subdir_lev1 == '..':
-                continue
-            directory_lev1 = os.path.join(directory,subdir_lev1)
-#            print(directory_lev1)
-            list_subdir_lev2 = ctx.listdir(directory_lev1)
-            for subdir_lev2 in list_subdir_lev2:
-                if subdir_lev2 == '.' or subdir_lev2 == '..':
-                    continue
-                directory_lev2 = os.path.join(directory_lev1,subdir_lev2)
-#                print(directory_lev2)
-                list_subdir_lev3 = ctx.listdir(directory_lev2)
-                if len(list_subdir_lev3)==0:
-                    print("No files. Proceeding with deleting directory {0}".format(directory_lev2))
-                    ctx.rmdir(directory_lev2)
-                for subdir_lev3 in list_subdir_lev3:
-                    if subdir_lev3 == '.' or subdir_lev3 == '..':
-                        continue
-                    files_lev3 = os.path.join(directory_lev2,subdir_lev3)
-#                    print(files_lev3)
-            list_subdir_lev2 = ctx.listdir(directory_lev1)
-            if len(list_subdir_lev2)==0:
-                print("No files. Proceeding with deleting directory {0}".format(directory_lev1))
-                ctx.rmdir(directory_lev1)
 
+    def clean_empty_directories(self,directory):
+        ctx = gfal2.creat_context()
+        try:
+            list_lev1 = ctx.listdir(directory)
+        except:
+            print("Error! Directory {0} does not exist".format(directory))
+            return
+        list_lev1 = [ i for i in list_lev1 if i not in ['.','..'] ]
+        for subdir_lev1 in list(list_lev1):
+            directory_lev1 = os.path.join(directory,subdir_lev1)
+            list_lev2 = ctx.listdir(directory_lev1)
+            list_lev2 = [ i for i in list_lev2 if i not in ['.','..'] ]
+            for subdir_lev2 in list(list_lev2):
+                directory_lev2 = os.path.join(directory_lev1,subdir_lev2)
+                list_lev3 = ctx.listdir(directory_lev2)
+                list_lev3 = [ i for i in list_lev3 if i not in ['.','..'] ]
+                if len(list_lev3)==0:
+                    print("Deleting directory {0}".format(directory_lev2))
+                    ctx.rmdir(directory_lev2)
+                    list_lev2.remove(subdir_lev2)
+                    time.sleep(0.2)
+            if len(list_lev2)==0:
+                print("Deleting directory {0}".format(directory_lev1))
+                ctx.rmdir(directory_lev1)
+                list_lev1.remove(subdir_lev1)
+        if len(list_lev1)==0:
+            print("Deleting directory {0}".format(directory))
+            ctx.rmdir(directory)
 
 
     def reset_upload(self,did):
@@ -788,6 +793,9 @@ class Fix():
             if dtype in self.HIGH_LEVEL_TYPES:
                 rses = rses + self.HIGH_LEVEL_RSES
 
+            if dtype in self.HEAVY_HIGH_LEVEL_TYPES:
+                rses = rses + self.HEAVY_HIGH_LEVEL_RSES
+
             if dtype in self.RECORDS_TYPES:
                 rses = rses + self.RECORDS_RSES
 
@@ -1116,7 +1124,13 @@ class Fix():
     def test(self):
 
 #        runs = self.db.db.find({'status' : "transferring"},{'number' : 1, 'data' : 1})
-        self.get_datasets_size()
+#        self.get_datasets_size()
+#        runs = [50720, 50715, 50713, 50712, 50709, 50708, 50705, 50704, 50703, 50700, 50699, 50696, 50695, 50694, 50693, 50692, 50691, 50688, 50687, 50686, 50685, 50684, 50683, 50680, 50679, 50678, 50677, 50676, 50675, 50672, 50671, 50670, 50669, 50668, 50667, 50664, 50663, 50662, 50661, 50660, 50659, 50658, 50657, 50656, 50654, 50653, 50650, 50649, 50648, 50645, 50644, 50643, 50642, 50641, 50640, 50639, 50615, 50614, 50613, 50612, 50611, 50610, 50609, 50608, 50607, 50606, 50605, 50604, 50603, 50602, 50601, 50600, 50599, 50598, 50597, 50596, 50595, 50594, 50593, 50592, 50591, 50590, 50589, 50588, 50587, 50586, 50585, 50584, 50583, 50582, 50581, 50580, 50579, 50578, 50577, 50576, 50575, 50574, 50573, 50572, 50571, 50570, 50569, 50568, 50567, 50566, 50565, 50564, 50563, 50562, 50561, 50560, 50559, 50558, 50557, 50556, 50555, 50554, 50553, 50552, 50551, 50550, 50549, 50548, 50547, 50546, 50545, 50544, 50543, 50542, 50541, 50540, 50518, 50517, 50516, 50515, 50514, 50513, 50512, 50511, 50510, 50509, 50508, 50506, 50505, 50504, 50503, 50502, 50501, 50500, 50499, 50498, 50497, 50496, 50495, 50494, 50493, 50492, 50491, 50490, 50489, 50488, 50487, 50486, 50485, 50484, 50483, 50482, 50481, 50480, 50479, 50478, 50477, 50476, 50475, 50474, 50473, 50472, 50471, 50470, 50469, 50468, 50467, 50466, 50465, 50464, 50463, 50462, 50461, 50460, 50459, 50458, 50457, 50456, 50455, 50454, 50453, 50452, 50451, 50450, 50449, 50448, 50447, 50446, 50445, 50444, 50443, 50442, 50441, 50440, 50439, 50438, 50437, 50436, 50435, 50434, 50433, 50432, 50431, 50430, 50429, 50428, 50427, 50426, 50425, 50424, 50423, 50421, 50420, 50419, 50418, 50417, 50415, 50414, 50413, 50412, 50411, 50410, 50409, 50408, 50407, 50406, 50405, 50404, 50403, 50402, 50401, 50400, 50399, 50398, 50397, 50396, 50395, 50394, 50372, 50371, 50370, 50369, 50368, 50367, 50366, 50365, 50364, 50363, 50362, 50361, 50360, 50359, 50358, 50357, 50356, 50355, 50354, 50353, 50352, 50351, 50350, 50349, 50348, 50347, 50346, 50345, 50344, 50343, 50342, 50341, 50340, 50339, 50338, 50337, 50336, 50335, 50332, 50331, 50301, 50300, 50298, 50297, 50293, 50290, 50280, 50259, 50258, 50247, 50246, 50245, 50243, 50242, 50237, 50230, 50229, 50227, 50222, 50195, 50192, 50183, 50173, 50169, 50157, 50156, 50155, 50154, 50153, 50152, 50151, 50150]
+        for run in range(50720,50776):
+#            self.set_run_status(run,"transferring")
+            did = make_did(run, "peaklets", "jgo4lftayb")
+            print(did)
+            self.add_rule(did,"UC_OSG_USERDISK","UC_DALI_USERDISK")
 
 
     def test_db_modification(self, did, new_status_name):
