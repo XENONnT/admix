@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import socket
 
 import admix.rucio
-from .utils import xe1t_runs_collection
+from . import utils
 from .rucio import list_rules, get_did_type, get_rses
 from .manager import bring_online
 from . import logger
@@ -171,7 +171,7 @@ def download(did, chunks=None, location='.',  tries=3, metadata=True,
 
 def get_did_1t(number, dtype):
     query = {'number': number}
-    cursor = xe1t_runs_collection.find_one(query, {'number': 1, 'name': 1, 'data': 1})
+    cursor = utils.xe1t_runs_collection.find_one(query, {'number': 1, 'name': 1, 'data': 1})
     for d in cursor['data']:
         if dtype == 'raw':
             if d['type'] == 'raw' and d['host'] == 'rucio-catalogue' and d['status'] == 'transferred':
@@ -199,7 +199,7 @@ def download_1t(number, dtype, location='.',  tries=3, num_threads=5, **kwargs):
 
     if dtype == 'raw':
         # get run name
-        name = xe1t_runs_collection.find_one({'number': number, 'detector': 'tpc'}, {'name': 1})['name']
+        name = utils.xe1t_runs_collection.find_one({'number': number, 'detector': 'tpc'}, {'name': 1})['name']
         location = os.path.join(location, name)
 
     os.makedirs(location, exist_ok=True)

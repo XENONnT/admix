@@ -13,9 +13,26 @@ except:
     db = None
 
 
-xent_runs_collection = xent_collection()
-xent_context_collection = xent_collection('contexts')
-xe1t_runs_collection = xe1t_collection()
+class LazyInit:
+
+    def __init__(self, function, *args, **kwargs):
+        self._instance = None
+        self.function = function
+        self.args = args
+        self.kwargs = kwargs
+
+    def _init_instance(self):
+        if self._instance is None:
+            self._instance = self.function(*self.args, **self.kwargs)
+
+    def __getattr__(self, name):
+        self._init_instance()  # Initialize only when an attribute is accessed
+        return getattr(self._instance, name)
+
+
+xent_runs_collection = LazyInit(xent_collection)
+xent_context_collection = LazyInit(xent_collection, 'contexts')
+xe1t_runs_collection = LazyInit(xe1t_collection)
 
 
 RAW_DTYPES = ['raw_records',
