@@ -88,9 +88,7 @@ def download_dids(dids, num_threads=8, **kwargs):
     # build list of did info
     did_list = []
     for did in dids:
-        did_dict = dict(did=did,
-                        **kwargs
-                        )
+        did_dict = dict(did=did, **kwargs)
         did_list.append(did_dict)
     return clients.download_client.download_dids(did_list, num_threads=num_threads)
 
