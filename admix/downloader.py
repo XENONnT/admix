@@ -28,16 +28,33 @@ class RucioDownloadError(Exception):
 def determine_rse(rse_list):
     # TODO put this in config or something?
 
-    preferred_host_rses = {'rcc': ['UC_DALI_USERDISK', 'UC_OSG_USERDISK', 'SDSC_USERDISK', 'SDSC_NSDF_USERDISK', 'SURFSARA2_USERDISK', 'NIKHEF2_USERDISK', 'CNAF_USERDISK', 'CCIN2P32_USERDISK'],
-                           'sdsc': ['SDSC_USERDISK', 'UC_OSG_USERDISK', 'UC_DALI_USERDISK', 'SDSC_NSDF_USERDISK', 'CCIN2P32_USERDISK'],
-                           'in2p3': ['CCIN2P3_USERDISK', 'NIKHEF2_USERDISK', 'CNAF_USERDISK', 'CCIN2P32_USERDISK'],
-                           'nikhef': ['NIKHEF2_USERDISK', 'SURFSARA_USERDISK', 'CNAF_USERDISK', 'CCIN2P32_USERDISK'],
-                           'surf': ['SURFSARA2_USERDISK', 'SURFSARA_USERDISK', 'NIKHEF2_USERDISK', 'CNAF_USERDISK', 'CCIN2P32_USERDISK'],
-                          }
+    preferred_host_rses = {
+        'rcc': [
+            'UC_DALI_USERDISK', 'UC_OSG_USERDISK', 'SDSC_NSDF_USERDISK', 'SDSC_USERDISK',
+            'NIKHEF2_USERDISK', 'SURFSARA2_USERDISK', 'CCIN2P32_USERDISK', 'CNAF_USERDISK',
+        ],
+        'sdsc': ['SDSC_NSDF_USERDISK', 'SDSC_USERDISK', 'UC_OSG_USERDISK', 'UC_DALI_USERDISK'],
+        'in2p3': [
+            'CCIN2P32_USERDISK', 'NIKHEF2_USERDISK', 'SURFSARA2_USERDISK', 'CNAF_USERDISK',
+            'CCIN2P3_USERDISK', 'SURFSARA_USERDISK',
+        ],
+        'nikhef': [
+            'NIKHEF2_USERDISK', 'SURFSARA2_USERDISK', 'CCIN2P32_USERDISK', 'CNAF_USERDISK',
+            'SURFSARA_USERDISK', 'CCIN2P3_USERDISK',
+        ],
+        'surf': [
+            'SURFSARA2_USERDISK', 'NIKHEF2_USERDISK', 'CCIN2P32_USERDISK', 'CNAF_USERDISK',
+            'SURFSARA_USERDISK', 'CCIN2P3_USERDISK',
+        ],
+    }
 
-    preferred_glidein_rses = {'US,CA':  ['UC_OSG_USERDISK', 'SDSC_USERDISK', 'UC_DALI_USERDISK', 'SDSC_NSDF_USERDISK'],
-                              'EUROPE,NL,IT,FR,IL': ['NIKHEF2_USERDISK', 'CNAF_USERDISK', 'SURFSARA_USERDISK', 'CCIN2P32_USERDISK']
-                              }
+    preferred_glidein_rses = {
+        'US,CA':  ['UC_OSG_USERDISK', 'UC_DALI_USERDISK', 'SDSC_NSDF_USERDISK', 'SDSC_USERDISK'],
+        'EUROPE,NL,IT,FR,IL': [
+            'NIKHEF2_USERDISK', 'SURFSARA2_USERDISK', 'CCIN2P32_USERDISK', 'CNAF_USERDISK',
+            'SURFSARA_USERDISK', 'CCIN2P3_USERDISK',
+        ],
+    }
 
     hostname = socket.getfqdn()
 
@@ -58,8 +75,8 @@ def determine_rse(rse_list):
                     if rse in rse_list:
                         return rse
 
-    # as last ditch effort, default to UC_OSG or SDSC
-    for pref_rse in ['UC_OSG_USERDISK', 'SDSC_USERDISK', 'SDSC_NSDF_USERDISK']:
+    # last ditch effort
+    for pref_rse in preferred_host_rses['rcc']:
         if pref_rse in rse_list:
             return pref_rse
 
@@ -71,15 +88,15 @@ def download_dids(dids, num_threads=8, **kwargs):
     # build list of did info
     did_list = []
     for did in dids:
-        did_dict = dict(did=did,
-                        **kwargs
-                        )
+        did_dict = dict(did=did, **kwargs)
         did_list.append(did_dict)
     return clients.download_client.download_dids(did_list, num_threads=num_threads)
 
 
-def download(did, chunks=None, location='.',  tries=3, metadata=True,
-             only_metadata=False, num_threads=5, rse=None, stage=None):
+def download(
+    did, chunks=None, location='.',  tries=3, metadata=True,
+    only_metadata=False, num_threads=5, rse=None, stage=None,
+):
     """Function download()
 
     """
