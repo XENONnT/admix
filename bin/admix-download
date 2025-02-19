@@ -78,13 +78,15 @@ def main():
         downloaded = download(
             did, chunks=chunks, location=args.dir, tries=args.tries,
             only_metadata=args.metadata, rse=args.rse, num_threads=args.threads,
-            stage = args.stage,
+            stage=args.stage,
         )
 
         print(f"Download of {len(downloaded)} files finished.")
 
     elif args.experiment == 'xe1t':
-        download_1t(args.number, args.dtype, location=args.dir, tries=args.tries, rse=args.rse,
-                    num_threads=args.threads)
+        download_1t(
+            args.number, args.dtype, location=args.dir,
+            tries=args.tries, rse=args.rse, num_threads=args.threads,
+        )
 
 main()
