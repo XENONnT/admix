@@ -15,9 +15,15 @@ from . import rucio, logger
 from . import utils
 from .utils import db
 
-import gfal2
 import time
 from datetime import timezone, datetime, timedelta
+
+try:
+    import gfal2
+
+    HAVE_GFAL2 = True
+except (ImportError, AttributeError):
+    HAVE_GFAL2 = False
 
 TAPE_RSES = ['SURFSARA_USERDISK','CNAF_TAPE3_USERDISK','CNAF_TAPE2_USERDISK','CNAF_TAPE_USERDISK','CCIN2P3_USERDISK']
 
