@@ -86,6 +86,9 @@ class Fix():
 
         self.working_path='/home/XENON/scotto/scratch'
 
+        #Let the tasks to choose if an action has to be done or just simulate it
+        self.test = False
+
     def tarball_all(self,from_rse,to_rse):
 
         print("Tarballing all rules from {0} to {1}".format(from_rse,to_rse))
@@ -101,7 +104,8 @@ class Fix():
             if 'tarball' in dsn:
                 continue
 
-            if dsn == "xnt_010490:raw_records_aqmon-rfzvpzj4mf":
+#            if dsn == "xnt_010490:raw_records_aqmon-rfzvpzj4mf":
+            if dsn == "xnt_011249:raw_records_aqmon-rfzvpzj4mf":
                 start = True
 
             if start:
@@ -116,6 +120,9 @@ class Fix():
 
 
     def tarball(self,did,from_rse,to_rse):
+
+        if self.test:
+            print("Test starts")
 
         # check from the name if the rule is already tarballed
         tar_suffix = did.split('.')[-1]
@@ -177,6 +184,10 @@ class Fix():
             return True
  
         print("Rule is OK, the number of files is {0}, its ID is {1}".format(nfiles,rule_id))
+
+        if self.test:
+            print("Test completed")
+            return True
 
 #        return
 
@@ -1102,11 +1113,6 @@ class Fix():
                     print(number,mode,d['type'],len(files),size,1,rule['rse_expression'])
 
 
-    def test(self):
-
-#        runs = self.db.db.find({'status' : "transferring"},{'number' : 1, 'data' : 1})
-        self.get_datasets_size()
-
 
     def test_db_modification(self, did, new_status_name):
 
@@ -1314,7 +1320,7 @@ def main():
     parser.add_argument("--postpone", help="To be used when an upload failed (for any reason) in a screen session and you want to free the session. Metadata on the failed dataset are copied in a directory and will be fixed by an expert", action='store_true')
     parser.add_argument("--add_rules_from_file", nargs=3, help="To be used when you want to transfer data from one RSE to another RSE, using rucio and without updating the database. The option requires a FILE containing the list of DIDs to be transferred. Each rule is copied only after the previous one is successfully completed. This is particularly suggested for tapes", metavar=('FILE','FROM_RSE','TO_RSE'))
 
-    parser.add_argument("--test", help="It's a test. Never use it",action='store_true')
+    parser.add_argument("--test", help="For some tasks, it simulates an action without making any real modification",action='store_true')
 
     args = parser.parse_args()
 
@@ -1325,6 +1331,7 @@ def main():
 
     fix.skip_rucio = args.skip_rucio
     fix.priority = args.priority
+    fix.test = args.test
 
     try:
         if args.tarball_all:
@@ -1361,9 +1368,6 @@ def main():
 
         if args.list_non_transferred_runs:
             fix.list_non_transferred_runs()
-
-        if args.test:
-            fix.test()
 
         if args.test_db_modification:
             fix.test_db_modification(args.test_db_modification[0],args.test_db_modification[1])
