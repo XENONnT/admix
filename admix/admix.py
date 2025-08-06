@@ -15,6 +15,10 @@ from admix.tasks.upload import Upload
 from admix.tasks.check_transfers import CheckTransfers
 from utilix.config import Config
 
+import certifi
+import urllib3
+
+
 def version():
     print(__version__)
 
@@ -25,6 +29,12 @@ def end_admix():
     
 
 def your_admix():
+
+    http = urllib3.PoolManager(
+        cert_reqs="CERT_REQUIRED",
+        ca_certs=certifi.where()
+    )
+
     print("advanced Data Management in XENON")
 
     parser = argparse.ArgumentParser(description="Run your favourite aDMIX")

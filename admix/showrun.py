@@ -70,6 +70,8 @@ class ShowRun():
 
     def showrun(self,arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg_latest,arg_pending):
 
+        didfile = ""
+
         # if arg_number has been given
         if arg_number != "":
 
@@ -79,13 +81,14 @@ class ShowRun():
 
             # otherwise it checks if it is a DID (containing the separator ":") and run number and other parameters are extracted from the DID
             elif ":" in arg_number:
-                arg_number, dtype, hash = get_did(arg_number)
-                arg_dtypes = [dtype]
+                arg_number, arg_dtype, hash = get_did(arg_number)
+                arg_dtypes = [arg_dtype]
             else:
             # otherwise it assumes that it is a file of the format used by the upload manager and run number and other parameters are extracted from the opened file
                 if os.path.isfile(arg_number):
                     with open(arg_number, 'r') as f:
                         try:
+                            didfile = arg_number
                             thread = json.load(f)
                             arg_number = thread['number']
                             arg_dtypes = [thread['type']]
@@ -209,10 +212,10 @@ class ShowRun():
                         continue
 
                 if eb in datum['host']:
-                    self.showdataset(run,datum)
+                    self.showdataset(run,datum,didfile)
 
 
-    def showdataset(self,run,datum):
+    def showdataset(self,run,datum,didfile=""):
 
 
         #print(dumps(datum, indent=4))
@@ -389,7 +392,10 @@ class ShowRun():
                 if rse['RucioNFiles']!=Nfiles and rse['RucioExists'] and rse['DBStatus']=="" and rse['DBentries']==0 and len(rses_with_data)==1 and ebstatus=="transferring":
                     print('\t\t Warning: the upload has been interrupted during the copy')
                     print('\t\t Hint: fix it manually with the command below to resume the upload:')
-                    print('\t\t\t admix-fix --fix_upload {0}'.format(did))
+                    if didfile=="":
+                        print('\t\t\t admix-fix --fix_upload {0}'.format(did))
+                    else:
+                        print('\t\t\t admix-fix --fix_upload {0}'.format(didfile))
             
             # analysis for all RSEs other than datamanager
             else:

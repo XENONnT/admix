@@ -104,10 +104,11 @@ class CleanEB():
 #            'number': {"$lt": 7600, "$gte": 7200},
 #            'number': {"$lt": 30000, "$gte": 7200},
 #            'number': {"$gte": 7200},
-#            'number': {"$lte": 30000},
-            'number': {"$gte": 55000},
+#            'number': {"$lte": 55000},
+#            'number': {"$lte": 105000},
+            'number': {"$gte": 70000},
 #            'number': {"$gt": 12378},
-#            'number': 20255,
+#            'number': 48158,
 #            'data' : { "$elemMatch": { "host" : {"$regex" : ".*eb.*"} , "type" : {"$in" : data_types}} },
 #            'status': 'transferred'
             'status': { '$in': ['transferred','transferring']}
@@ -188,7 +189,6 @@ class CleanEB():
                 # Phase 1 : Deleting data in EB
                 #
                 
-
 #                if datum is None:
 #                    helper.global_dictionary['logger'].Info('Data type not in eb')
 

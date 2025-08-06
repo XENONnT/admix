@@ -129,6 +129,15 @@ class ConnectMongoDB():
             ]
         return list(self.db.aggregate(agr))
 
+
+    def DeleteTagByName(self, number, tag_name):
+        run = self.db.find_one({'number' : number},{'tags':1})
+        if 'tags' in run:
+            for tag in run['tags']: 
+                if tag_name in tag['name']:
+                    self.db.update_one({"_id" : run["_id"]},{"$pull" : {"tags" : tag}})
+
+
     def GetRunsBySource(self, source=None, sort="ascending"):
 
         #check if source is a list or a string:

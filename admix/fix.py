@@ -24,6 +24,7 @@ import tarfile
 import gfal2
 from tqdm import tqdm
 from admix.utils import make_did
+import json
 
 from pymongo import ReturnDocument
 
@@ -344,9 +345,9 @@ class Fix():
             print(directory)
             number = int(scope.split('_')[-1])
             print(number)
-            if number>49000:
-                continue
-            if number<7000:
+#            if number>49000:
+#                continue
+            if number<71000:
                 continue
             self.clean_empty_directories(directory)
 
@@ -808,11 +809,26 @@ class Fix():
 
 
 
-    def fix_upload(self,did):
+    def fix_upload(self,didfile):
 
-        hash = did.split('-')[-1]
-        dtype = did.split('-')[0].split(':')[-1]
-        number = int(did.split(':')[0].split('_')[-1])
+        # if it is not a DID (not containing the separator ":"), then it assumes that it is a file of the format used by the upload manager. In this case the run number and the other parameters are extracted from the opened file
+        if ":" not in didfile:
+            if os.path.isfile(didfile):
+                with open(didfile, 'r') as f:
+                    try:
+                        thread = json.load(f)
+                        number = thread['number']
+                        dtype = thread['type']
+                        hash = thread['hash']
+                        did = make_did(number, dtype, hash)
+                    except json.decoder.JSONDecodeError:
+                        did = ""
+                    f.close()
+        else:
+            did = didfile
+            hash = did.split('-')[-1]
+            dtype = did.split('-')[0].split(':')[-1]
+            number = int(did.split(':')[0].split('_')[-1])
 
         print("Fixing the upload associated to the DID: {0}".format(did))
         print("Run number: {0}".format(number))
@@ -923,6 +939,11 @@ class Fix():
 
         # Sixth action: creating the rules abroad
         self.create_upload_rules(did)
+
+        # if the didfile variable was a filename, then the filename is deleted (since the fix succeeded)
+        if ":" not in didfile:
+            print('Deleting the file {0}'.format(didfile))
+            os.remove(didfile)
 
         return(0)
 
@@ -1319,7 +1340,7 @@ def main():
     parser.add_argument("--clean_empty_directories_rse", nargs=1, help="Removes all empty sub-directories of a given RSE", metavar=('RSE'))
 
     parser.add_argument("--reset_upload", nargs=1, help="Deletes everything related a given DID, except data in EB. The deletion includes the entries in the Rucio catalogue and the related data in the DB rundoc. This is ideal if you want to retry an upload that failed", metavar=('DID'))
-    parser.add_argument("--fix_upload", nargs=1, help="Deletes everything related a given DID, then it retries the upload", metavar=('DID'))
+    parser.add_argument("--fix_upload", nargs=1, help="Deletes everything related a given DID, then it retries the upload. Also a json file produced by the upload manager is accepted. In that case, the file is deleted if the upload is successful", metavar=('DID'))
     parser.add_argument("--upload", nargs=2, help="Uploads a dataset on a given RSE", metavar=('PATH','RSE'))
     parser.add_argument("--add_rule", nargs=3, help="Add a new replication rule of a given DID from one RSE to another one. The rundoc in DB is updated with a new datum as well", metavar=('DID','FROM_RSE','TO_RSE'))
     parser.add_argument("--add_db_rule_tar", nargs=3, help="Add a new data entry in a rundoc with the tar version of a given DID and destination TO_RSE, using FROM_RSE as base", metavar=('DID','FROM_RSE','TO_RSE'))

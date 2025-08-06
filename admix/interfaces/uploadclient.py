@@ -93,7 +93,7 @@ class UploadClient:
         :raises NoFilesUploaded: if no files were successfully uploaded
         :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
-
+        print("start upload")
         logger = self.logger
         from admix.helper import helper
         helper.global_dictionary['logger'].Info('     r: start')
@@ -141,7 +141,7 @@ class UploadClient:
             helper.global_dictionary['logger'].Info('Start')
             basename = file['basename']
             logger.info('Preparing upload for file %s' % basename)
-
+            print("file ",basename)
             no_register = file.get('no_register')
             register_after_upload = file.get('register_after_upload') and not no_register
             pfn = file.get('pfn')
@@ -185,48 +185,48 @@ class UploadClient:
             helper.global_dictionary['logger'].Info('7')
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
-#            if register_after_upload:
-#                helper.global_dictionary['logger'].Info('8')
-#                if rsemgr.exists(rse_settings, pfn if pfn else file_did):
-#                    helper.global_dictionary['logger'].Info('9')
-#                    try:
-#                        helper.global_dictionary['logger'].Info('10')
-#                        self.client.get_did(file['did_scope'], file['did_name'])
-#                        logger.info('File already registered. Skipping upload.')
-#                        trace['stateReason'] = 'File already exists'
-#                        continue
-#                    except DataIdentifierNotFound:
-#                        logger.info('File already exists on RSE. Previous left overs will be overwritten.')
-#                        delete_existing = True
-#            elif not is_deterministic and not no_register:
-#                if rsemgr.exists(rse_settings, pfn):
-#                    logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
-#                    trace['stateReason'] = 'File already exists'
-#                    continue
-#                elif rsemgr.exists(rse_settings, file_did):
-#                    logger.info('File already exists on RSE with different pfn. Skipping upload.')
-#                    trace['stateReason'] = 'File already exists'
-#                    continue
-#            else:
-#                if rsemgr.exists(rse_settings, pfn if pfn else file_did):
-#                    logger.info('File already exists on RSE. Skipping upload')
-#                    trace['stateReason'] = 'File already exists'
-#                    continue
+            if register_after_upload:
+                helper.global_dictionary['logger'].Info('8')
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did):
+                    helper.global_dictionary['logger'].Info('9')
+                    try:
+                        helper.global_dictionary['logger'].Info('10')
+                        self.client.get_did(file['did_scope'], file['did_name'])
+                        logger.info('File already registered. Skipping upload.')
+                        trace['stateReason'] = 'File already exists'
+                        continue
+                    except DataIdentifierNotFound:
+                        logger.info('File already exists on RSE. Previous left overs will be overwritten.')
+                        delete_existing = True
+            elif not is_deterministic and not no_register:
+                if rsemgr.exists(rse_settings, pfn):
+                    logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
+                    trace['stateReason'] = 'File already exists'
+                    continue
+                elif rsemgr.exists(rse_settings, file_did):
+                    logger.info('File already exists on RSE with different pfn. Skipping upload.')
+                    trace['stateReason'] = 'File already exists'
+                    continue
+            else:
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did):
+                    logger.info('File already exists on RSE. Skipping upload')
+                    trace['stateReason'] = 'File already exists'
+                    continue
 
             helper.global_dictionary['logger'].Info('11')
             # resolving local area networks
             domain = 'wan'
-#            rse_attributes = {}
-#            try:
-#                rse_attributes = self.client.list_rse_attributes(rse)
-#                helper.global_dictionary['logger'].Info('12')
-#            except:
-#                logger.warning('Attributes of the RSE: %s not available.' % rse)
-#            if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
-#                if self.client_location['site'] == rse_attributes['site']:
-#                    domain = 'lan'
+            rse_attributes = {}
+            try:
+                rse_attributes = self.client.list_rse_attributes(rse)
+                helper.global_dictionary['logger'].Info('12')
+            except:
+                logger.warning('Attributes of the RSE: %s not available.' % rse)
+            if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
+                if self.client_location['site'] == rse_attributes['site']:
+                    domain = 'lan'
 
-
+            print("   network")
             # protocol handling and upload
             protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme, domain=domain)
             helper.global_dictionary['logger'].Info('14')
@@ -235,6 +235,7 @@ class UploadClient:
             success = False
             state_reason = ''
             while not success and len(protocols):
+                print("      try success")
                 helper.global_dictionary['logger'].Info('16')
                 protocol = protocols.pop()
                 cur_scheme = protocol['scheme']
@@ -256,6 +257,7 @@ class UploadClient:
 
                 trace['protocol'] = cur_scheme
                 trace['transferStart'] = time.time()
+                print("      start file upload")
                 try:
                     helper.global_dictionary['logger'].Info('17')
                     state = rsemgr.upload(rse_settings=rse_settings,
@@ -273,10 +275,11 @@ class UploadClient:
                     logger.warning('Upload attempt failed')
                     logger.debug('Exception: %s' % str(error))
                     state_reason = str(error)
-
+                print("      end file upload")
             helper.global_dictionary['logger'].Info('19')
 
             if success:
+                print("   success")
                 num_succeeded += 1
                 trace['transferEnd'] = time.time()
                 trace['clientState'] = 'DONE'
@@ -300,6 +303,7 @@ class UploadClient:
                     replica_for_api = self._convert_file_for_api(file)
                     helper.global_dictionary['logger'].Info('Before if register2')
                     if not self.client.update_replicas_states(rse, files=[replica_for_api]):
+                        print("   replicas")
                         helper.global_dictionary['logger'].Info('Before if register3')
                         logger.warning('Failed to update replica state')
 
@@ -309,6 +313,7 @@ class UploadClient:
                     try:
                         helper.global_dictionary['logger'].Info('Before attach')
                         self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
+                        print("   attach")
                         helper.global_dictionary['logger'].Info('After attach')
                     except Exception as error:
                         helper.global_dictionary['logger'].Info('Failed to attach file to the dataset')
