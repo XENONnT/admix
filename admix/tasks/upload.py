@@ -114,7 +114,8 @@ class Upload():
         if dtype in self.HIGH_LEVEL_TYPES:
             priority = 1
         else:
-            priority = 3
+#            priority = 3
+            priority = run_number
         result = self.rc.AddConditionalRule(did, from_rse, to_rse, lifetime=lifetime, priority=priority)
         #if result == 1:
         #   return

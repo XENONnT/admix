@@ -50,9 +50,9 @@ class CleanEB():
         self.minimum_number_acceptable_rses = 1
         self.minimum_deltadays_allowed = 0 #3
         self.minimum_deltadays_allowed_heavy = 0 #1
-        self.dtype_delayed_delete = ['raw_records_aqmon','raw_records_aqmon_nv','raw_records_he','raw_records_mv','raw_records_nv','pulse_counts','pulse_counts_he','veto_regions','peaklets','peaklets_he','records_he']
-        self.dtype_delayed_delete_heavy = ['raw_records','records']
-        self.dtype_never_delete = ['event_info','lone_hits','merged_s2s','peak_basics','peaklet_classification','peak_positions_cnn', 'peak_positions_mlp', 'peak_positions_gcn', 'peak_positions']
+        self.dtype_delayed_delete = []
+        self.dtype_delayed_delete_heavy = []
+        self.dtype_never_delete = ['event_info','peak_basics','peak_positions_cnn', 'peak_positions_mlp', 'peak_positions_gcn', 'peak_positions']
 
         #Init the runDB
         self.db = ConnectMongoDB()
@@ -105,7 +105,7 @@ class CleanEB():
 #            'number': {"$lt": 30000, "$gte": 7200},
 #            'number': {"$gte": 7200},
 #            'number': {"$lte": 30000},
-            'number': {"$gte": 40000},
+            'number': {"$gte": 55000},
 #            'number': {"$gt": 12378},
 #            'number': 20255,
 #            'data' : { "$elemMatch": { "host" : {"$regex" : ".*eb.*"} , "type" : {"$in" : data_types}} },

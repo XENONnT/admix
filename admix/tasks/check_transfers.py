@@ -69,7 +69,6 @@ class CheckTransfers():
             {'status': 'transferring'},
 #            {'number': 20303},
             {'number': 1, 'data': 1, 'bootstrax': 1})
-
         cursor = list(cursor)
 
         helper.global_dictionary['logger'].Info('Check transfers : checking status of {0} runs'.format(len(cursor)))
@@ -81,7 +80,6 @@ class CheckTransfers():
             # for each run, check the status of all REPLICATING rules
             rucio_stati = []
             eb_still_to_be_uploaded = []
-
             for d in run['data']:
                 if d['host'] == 'rucio-catalogue':
 #                    if run['number']==7695 and d['status'] == 'stuck':
@@ -125,7 +123,7 @@ class CheckTransfers():
             if len(rucio_stati) > 0 and all([s in ['transferred','processing'] for s in rucio_stati]) and len(eb_still_to_be_uploaded)==0:
                 self.db.SetStatus(run['number'], 'transferred')
                 helper.global_dictionary['logger'].Info('Check transfers : Run {0} fully transferred'.format(run['number']))
-
+                self.db.DeleteTagByName(run['number'], 'prioritize')
 
 
 
