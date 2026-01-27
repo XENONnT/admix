@@ -32,6 +32,7 @@ from rucio.common.exception import NoFilesUploaded
 from rucio.common.exception import NotAllFilesUploaded
 from rucio.common.exception import DuplicateContent
 from rucio.common.exception import DuplicateRule
+from rucio.common.exception import DataIdentifierNotFound
 
 
 @Collector
@@ -310,8 +311,10 @@ class RucioAPI():
         result = []
         try:
             return list(self._rucio_client.list_did_rules(scope, name))
-        except TypeError as e:
-            print(e)
+        except DataIdentifierNotFound:
+            return result
+#        except TypeError as e:
+#            print(e)
 
         return result
 

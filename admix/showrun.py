@@ -13,6 +13,7 @@ from datetime import timezone, datetime, timedelta
 import pymongo
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
+from rucio.common.exception import DataIdentifierNotFound
 import json
 
 class ShowRun():
@@ -294,7 +295,10 @@ class ShowRun():
 
         
         # Query rucio to see how many RSEs have those data
-        rules = list(self.didclient.list_did_rules(did.split(':')[0], did.split(':')[1]))
+        try:
+            rules = list(self.didclient.list_did_rules(did.split(':')[0], did.split(':')[1]))
+        except DataIdentifierNotFound:
+            rules = []
         rses_with_data = []
         for rule in rules:
             rses_with_data.append(rule['rse_expression'])

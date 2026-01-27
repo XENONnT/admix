@@ -1153,8 +1153,6 @@ class Fix():
                     print(number,mode,d['type'],len(files),size,1,rule['rse_expression'])
 
 
-<<<<<<< HEAD
-=======
     def test(self):
 
 #        runs = self.db.db.find({'status' : "transferring"},{'number' : 1, 'data' : 1})
@@ -1166,7 +1164,6 @@ class Fix():
             print(did)
             self.add_rule(did,"UC_OSG_USERDISK","UC_DALI_USERDISK")
 
->>>>>>> 25f727993a43ed5a0eb8d9693399342732de5fc8
 
     def test_db_modification(self, did, new_status_name):
 
