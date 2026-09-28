@@ -69,7 +69,7 @@ class ShowRun():
 
 
 
-    def showrun(self,arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg_latest,arg_pending):
+    def showrun(self,arg_number,arg_to,arg_dtypes,arg_compact,arg_dumpjson,arg_status,arg_latest,arg_pending,arg_fix=False):
 
         didfile = ""
 
@@ -213,10 +213,10 @@ class ShowRun():
                         continue
 
                 if eb in datum['host']:
-                    self.showdataset(run,datum,didfile)
+                    self.showdataset(run,datum,didfile,apply_fix=arg_fix)
 
 
-    def showdataset(self,run,datum,didfile=""):
+    def showdataset(self,run,datum,didfile="",apply_fix=False):
 
 
         #print(dumps(datum, indent=4))
@@ -358,9 +358,13 @@ class ShowRun():
                     print('\t\t\t rucio add-rule {0} 1 {1}'.format(did,rse['name']))
                     print('\t\t\t admix-fix --fix_upload_db {0}'.format(did))
                     print('\t\t\t admix-fix --create_upload_rules {0}'.format(did))
-#                    os.system('rucio add-rule {0} 1 {1}'.format(did,rse['name']))
-#                    os.system('~/.local/bin/admix-fix --fix_upload_db {0}'.format(did))
-#                    os.system('~/.local/bin/admix-fix --create_upload_rules {0}'.format(did))
+                    if apply_fix:
+                        print('\t\t ==> Executing remediation...')
+                        os.system('rucio add-rule {0} 1 {1}'.format(did,rse['name']))
+                        from admix.fix import Fix
+                        fix = Fix()
+                        fix.fix_upload_db(did)
+                        fix.create_upload_rules(did)
 
                 # Case 2 : loss of Rucio connection at the end of the upload before updating the DB
                 if rse['RucioNFiles']==Nfiles and rse['RucioExists'] and rse['DBStatus']=="" and rse['DBentries']==0 and len(rses_with_data)==1:
@@ -368,38 +372,57 @@ class ShowRun():
                     print('\t\t Hint: fix it manually with the two commands:')
                     print('\t\t\t admix-fix --fix_upload_db {0}'.format(did))
                     print('\t\t\t admix-fix --create_upload_rules {0}'.format(did))
-#                    os.system('~/.local/bin/admix-fix --fix_upload_db {0}'.format(did))
-#                    os.system('~/.local/bin/admix-fix --create_upload_rules {0}'.format(did))
+                    if apply_fix:
+                        print('\t\t ==> Executing remediation...')
+                        from admix.fix import Fix
+                        fix = Fix()
+                        fix.fix_upload_db(did)
+                        fix.create_upload_rules(did)
 
                 # Case 3 : loss of Rucio connection at the end of the upload before creating the rules abroad
                 if rse['RucioNFiles']==Nfiles and rse['RucioExists'] and rse['DBStatus']=="transferred" and rse['DBentries']==1 and len(rses_with_data)==1:
                     print('\t\t Warning: the upload is completed and the DB updated, but rules have to be created abroad')
                     print('\t\t Hint: fix it manually with the command:')
                     print('\t\t\t admix-fix --create_upload_rules {0}'.format(did))
-#                    os.system('~/.local/bin/admix-fix --create_upload_rules {0}'.format(did))
+                    if apply_fix:
+                        print('\t\t ==> Executing remediation...')
+                        from admix.fix import Fix
+                        fix = Fix()
+                        fix.create_upload_rules(did)
 
                 # Case 4 : data still to be uploaded but the value if the EB status is not empty so admix cannot upload it
                 if rse['RucioNFiles']==0 and not rse['RucioExists'] and rse['DBStatus']=="" and rse['DBentries']==0 and len(rses_with_data)==0 and ebstatus not in ["","transferred","eb_ready_to_upload"]:
                     print('\t\t Warning: the upload never started but the EB status is not empty, hence admix cannot upload it')
                     print('\t\t Hint: fix it manually with the following command to allow admix upload manager to take care of it:')
                     print('\t\t\t admix-fix --set_eb_status {0} eb_ready_to_upload'.format(did))
-#                    os.system('~/.local/bin/admix-fix --set_eb_status {0} eb_ready_to_upload'.format(did))
+                    if apply_fix:
+                        print('\t\t ==> Executing remediation...')
+                        from admix.fix import Fix
+                        fix = Fix()
+                        fix.set_eb_status(did, 'eb_ready_to_upload')
 
                 # Case 5 : data already uploaded but the status has not been set as transferred
                 if rse['RucioNFiles']==Nfiles and rse['RucioExists'] and rse['DBStatus']=="transferred" and rse['DBentries']==1 and len(rses_with_data)>0 and ebstatus not in ["","transferred"]:
                     print('\t\t Warning: the upload is completed and there are also copies abroad')
                     print('\t\t Hint: fix it manually with the command below to flag the EB datum as transferred:')
                     print('\t\t\t admix-fix --set_eb_status {0} transferred'.format(did))
-#                    os.system('~/.local/bin/admix-fix --set_eb_status {0} transferred'.format(did))
+                    if apply_fix:
+                        print('\t\t ==> Executing remediation...')
+                        from admix.fix import Fix
+                        fix = Fix()
+                        fix.set_eb_status(did, 'transferred')
 
                 # Case 6 : data still to be uploaded but the value if the EB status is not empty so admix cannot upload it
                 if rse['RucioNFiles']!=Nfiles and rse['RucioExists'] and rse['DBStatus']=="" and rse['DBentries']==0 and len(rses_with_data)==1 and ebstatus=="transferring":
                     print('\t\t Warning: the upload has been interrupted during the copy')
                     print('\t\t Hint: fix it manually with the command below to resume the upload:')
-                    if didfile=="":
-                        print('\t\t\t admix-fix --fix_upload {0}'.format(did))
-                    else:
-                        print('\t\t\t admix-fix --fix_upload {0}'.format(didfile))
+                    target = did if didfile=="" else didfile
+                    print('\t\t\t admix-fix --fix_upload {0}'.format(target))
+                    if apply_fix:
+                        print('\t\t ==> Executing remediation...')
+                        from admix.fix import Fix
+                        fix = Fix()
+                        fix.fix_upload(target)
             
             # analysis for all RSEs other than datamanager
             else:
@@ -431,6 +454,7 @@ def main():
     parser.add_argument("--pending", help="Shows only pending data types", action='store_true')
     parser.add_argument("--json", help="Dumps the whole DB rundoc in pretty style", action='store_true')
     parser.add_argument("--latest", type=int, help="Shows latest runs", default=0)
+    parser.add_argument("--fix", help="Automatically executes the suggested remediation command", action='store_true')
 
     args = parser.parse_args()
 
@@ -444,7 +468,7 @@ def main():
     showrun = ShowRun()
 
     try:
-        showrun.showrun(args.number,args.to,dtypes,args.compact,args.json,args.status,args.latest,args.pending)
+        showrun.showrun(args.number,args.to,dtypes,args.compact,args.json,args.status,args.latest,args.pending,args.fix)
 
     except KeyboardInterrupt:
         return 0
