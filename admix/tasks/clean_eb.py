@@ -113,7 +113,7 @@ class CleanEB():
 #            'status': 'transferred'
             'status': { '$in': ['transferred','transferring']}
         },
-        {'_id': 1, 'number': 1, 'data': 1, 'bootstrax': 1})
+        {'_id': 1, 'number': 1, 'data': 1, 'bootstrax': 1}).sort('number', 1)
 
 
         cursor = list(cursor)
