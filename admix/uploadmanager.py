@@ -124,7 +124,7 @@ class UploadManager():
         for process in psutil.process_iter(['pid', 'name', 'cmdline']):
             if process.info['name']=='admix':
                 process_status = {}
-                if len(process.info['cmdline'])>2:
+                if process.info['cmdline'] is not None and len(process.info['cmdline'])>2:
                     process_status['task'] = process.info['cmdline'][2]
                     process_status['screen'] = process.parent().parent().parent().parent().cmdline()[-1]
                     current_threads.append(process_status)
@@ -302,6 +302,54 @@ class UploadManager():
 
         return n_dat_alert_counter, trigger_above_thr, previous_above_zero
 
+    def PrintToNodeExporter(self, n_datasets_to_upload,min_run_number,max_run_number,isCheckTransfersRunning,isCleanEBRunning,n_high,n_low):
+        """
+        Writes custom metrics to /tmp/admix_metrics.prom in Prometheus text format.
+        Args:
+        n_datasets_to_upload (int): Number of datasets to upload.
+        min_numbers (int): Minimum number.
+        max_numbers (int): Maximum number.
+        isCheckTransfersRunning (bool): Whether check transfers are running.
+        isCleanEBRunning (bool): Whether clean EB is running.
+        n_high (int): High value.
+        n_low (int): Low value.
+        """
+        # Encode booleans as 1 (True) or 0 (False)
+        check_transfers = 1 if isCheckTransfersRunning else 0
+        clean_eb = 1 if isCleanEBRunning else 0
+
+        # Write metrics to /tmp/prom/admix_metrics.prom
+        with open('/tmp/prom/admix_metrics.prom', 'w') as f:
+            f.write("# HELP admix_datasets_to_upload Number of datasets to upload\n")
+            f.write("# TYPE admix_datasets_to_upload gauge\n")
+            f.write(f"admix_datasets_to_upload {n_datasets_to_upload}\n\n")
+
+            f.write("# HELP admix_min_run_number Minimum run number\n")
+            f.write("# TYPE admix_min_run_number gauge\n")
+            f.write(f"admix_min_run_number {min_run_number}\n\n")
+
+            f.write("# HELP admix_max_run_number Maximum run number\n")
+            f.write("# TYPE admix_max_run_number gauge\n")
+            f.write(f"admix_max_run_number {max_run_number}\n\n")
+
+            f.write("# HELP admix_check_transfers_running Whether CheckTransfers is running (1=True, 0=False)\n")
+            f.write("# TYPE admix_check_transfers_running gauge\n")
+            f.write(f"admix_check_transfers_running {check_transfers}\n\n")
+
+            f.write("# HELP admix_clean_eb_running Whether CleanEB is running (1=True, 0=False)\n")
+            f.write("# TYPE admix_clean_eb_running gauge\n")
+            f.write(f"admix_clean_eb_running {clean_eb}\n\n")
+
+            f.write("# HELP admix_n_high Number of high data type transfer jobs\n")
+            f.write("# TYPE admix_n_high gauge\n")
+            f.write(f"admix_n_high {n_high}\n\n")
+
+            f.write("# HELP admix_n_low Number of low data type transfer jobs\n")
+            f.write("# TYPE admix_n_low gauge\n")
+            f.write(f"admix_n_low {n_low}\n")
+
+
+    
     def run(self):
 
         print("")
@@ -393,6 +441,16 @@ class UploadManager():
                 since = "unknown"
             print("Run: {0}, Type {1:30s}, Hash {2}, EB {3}, Priority {4}, Since {5}".format(datum['number'],datum['type'],datum['hash'],datum['eb'],datum['priority'],since))
         print("---------------------------------------------------------------------")
+
+        # Print relevant information to be sent to Grafana through node exporter
+        isCheckTransfersRunning = 0
+        isCleanEBRunning = 0
+        for thread in sorted(current_threads, key=lambda k: k['screen']):
+            if thread['task']=='CheckTransfers':
+                isCheckTransfersRunning = 1
+            if thread['task']=='CleanEB':
+                isCleanEBRunning = 1
+        self.PrintToNodeExporter(self.n_datasets_to_upload,min(numbers),max(numbers),isCheckTransfersRunning,isCleanEBRunning,n_high,n_low)
 
         # Assign datasets to Upload tasks that are currently available
         for dataset in datasets_to_upload:
