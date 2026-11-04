@@ -11,10 +11,18 @@
 # to avoid infinite loops and allow subsequent datasets to proceed.
 # ==============================================================================
 
+STOP_FILE=${STOP_FILE:-/tmp/admix-stop}
+ADMIX_FIX_BIN=$(command -v admix-fix 2>/dev/null || echo "$HOME/.local/bin/admix-fix")
+
 trap "echo -e '\n[$(date \"+%Y-%m-%d %H:%M:%S\")] aDMIX Recovery loop stopped by user.'; exit 0" SIGINT SIGTERM
+
+if [[ -e "$STOP_FILE" ]]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Stop file ${STOP_FILE} found, exiting."
+    exit 0
+fi
 
 echo "===================================================================="
 echo " Starting aDMIX Postponed Recovery Loop"
 echo "===================================================================="
 
-admix-fix --recover_postponed --loop "$@"
+"$ADMIX_FIX_BIN" --recover_postponed --loop "$@"

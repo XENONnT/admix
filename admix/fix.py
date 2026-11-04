@@ -832,9 +832,13 @@ class Fix():
                         dtype = thread['type']
                         hash = thread['hash']
                         did = make_did(number, dtype, hash)
-                    except json.decoder.JSONDecodeError:
-                        did = ""
+                    except (json.decoder.JSONDecodeError, KeyError):
+                        print("Error: Invalid or empty dataset JSON file {0}".format(didfile))
+                        return 0
                     f.close()
+            else:
+                print("Error: File {0} does not exist".format(didfile))
+                return 0
         else:
             did = didfile
             hash = did.split('-')[-1]
@@ -1332,6 +1336,16 @@ class Fix():
         new_filename = destination_path+filename.split('/')[-1]+suffix
 
         if os.path.isfile(filename) and os.path.isdir(destination_path):
+            try:
+                with open(filename, 'r') as f:
+                    datum = json.load(f)
+            except Exception:
+                datum = {}
+            if not datum or 'number' not in datum:
+                if os.path.isfile(filename):
+                    os.remove(filename)
+                print("No active dataset to postpone in {0}".format(filename))
+                return
             shutil.move(filename,new_filename)
             print("Dataset postponed by moving file {0} to {1}".format(filename,new_filename))
 
@@ -1350,6 +1364,10 @@ class Fix():
         print("Poison pill quarantine directory: {0}".format(quarantine_path))
 
         while True:
+            if os.path.exists("/tmp/admix-stop"):
+                print("Stop file /tmp/admix-stop found, exiting recovery loop.")
+                break
+
             if not os.path.isdir(destination_path):
                 print("Directory {0} does not exist. Exiting.".format(destination_path))
                 break
@@ -1390,6 +1408,10 @@ class Fix():
                 print("[{0}] No postponed datasets found in {1}.".format(time.ctime(), destination_path))
 
             if not loop:
+                break
+
+            if os.path.exists("/tmp/admix-stop"):
+                print("Stop file /tmp/admix-stop found, exiting recovery loop.")
                 break
 
             print("Waiting {0}s before next recovery check...".format(sleep_time))
