@@ -832,9 +832,13 @@ class Fix():
                         dtype = thread['type']
                         hash = thread['hash']
                         did = make_did(number, dtype, hash)
-                    except json.decoder.JSONDecodeError:
-                        did = ""
+                    except (json.decoder.JSONDecodeError, KeyError):
+                        print("Error: Invalid or empty dataset JSON file {0}".format(didfile))
+                        return 0
                     f.close()
+            else:
+                print("Error: File {0} does not exist".format(didfile))
+                return 0
         else:
             did = didfile
             hash = did.split('-')[-1]
@@ -1369,10 +1373,90 @@ class Fix():
         new_filename = destination_path+filename.split('/')[-1]+suffix
 
         if os.path.isfile(filename) and os.path.isdir(destination_path):
+            try:
+                with open(filename, 'r') as f:
+                    datum = json.load(f)
+            except Exception:
+                datum = {}
+            if not datum or 'number' not in datum:
+                if os.path.isfile(filename):
+                    os.remove(filename)
+                print("No active dataset to postpone in {0}".format(filename))
+                return
             shutil.move(filename,new_filename)
             print("Dataset postponed by moving file {0} to {1}".format(filename,new_filename))
 
+    def recover_postponed(self, max_attempts=2, loop=False, sleep_time=300):
+        destination_path = helper.get_hostconfig()['path_datasets_to_fix']
+        quarantine_path = os.path.join(destination_path, "quarantine")
+        if not os.path.isdir(quarantine_path):
+            try:
+                os.makedirs(quarantine_path)
+            except Exception:
+                pass
 
+        failed_counts = {}
+
+        print("Starting recovery of postponed datasets in {0}".format(destination_path))
+        print("Poison pill quarantine directory: {0}".format(quarantine_path))
+
+        while True:
+            if os.path.exists("/tmp/admix-stop"):
+                print("Stop file /tmp/admix-stop found, exiting recovery loop.")
+                break
+
+            if not os.path.isdir(destination_path):
+                print("Directory {0} does not exist. Exiting.".format(destination_path))
+                break
+
+            files = sorted([
+                os.path.join(destination_path, f)
+                for f in os.listdir(destination_path)
+                if f.startswith("admix-") and os.path.isfile(os.path.join(destination_path, f))
+            ])
+
+            if len(files) > 0:
+                print("\n[{0}] Found {1} postponed dataset(s) to recover:".format(time.ctime(), len(files)))
+                for file_path in files:
+                    base = os.path.basename(file_path)
+                    print("\n---> Attempting recovery for {0} <---".format(base))
+                    try:
+                        self.fix_upload(file_path)
+                    except Exception as e:
+                        print("Error during fix_upload for {0}: {1}".format(base, e))
+
+                    # admix-fix --fix_upload deletes the file on success.
+                    # If file is still present, fix failed.
+                    if os.path.isfile(file_path):
+                        failed_counts[base] = failed_counts.get(base, 0) + 1
+                        print("Recovery failed for {0} (attempt {1}/{2})".format(base, failed_counts[base], max_attempts))
+                        if failed_counts[base] >= max_attempts:
+                            print("Moving poison pill {0} to quarantine: {1}".format(base, quarantine_path))
+                            quarantine_file = os.path.join(quarantine_path, base)
+                            shutil.move(file_path, quarantine_file)
+                            del failed_counts[base]
+                    else:
+                        print("Recovery succeeded for {0}!".format(base))
+                        if base in failed_counts:
+                            del failed_counts[base]
+
+                    time.sleep(5)
+            else:
+                print("[{0}] No postponed datasets found in {1}.".format(time.ctime(), destination_path))
+
+            if not loop:
+                break
+
+            if os.path.exists("/tmp/admix-stop"):
+                print("Stop file /tmp/admix-stop found, exiting recovery loop.")
+                break
+
+            print("Waiting {0}s before next recovery check...".format(sleep_time))
+            try:
+                time.sleep(sleep_time)
+            except KeyboardInterrupt:
+                print("Recovery loop stopped by user.")
+                break
 
     
 
@@ -1410,6 +1494,10 @@ def main():
     parser.add_argument("--fix_stuck_replica", nargs=2, help="To be used to fix the replica of a DID in a given RSE that went in stuck mode for days", metavar=('DID','RSE'))
     parser.add_argument("--create_upload_rules", nargs=1, help="To be used when the upload done by Rucio has been completed but then admix crashed before creating the rules abroad", metavar=('DID'))
     parser.add_argument("--postpone", help="To be used when an upload failed (for any reason) in a screen session and you want to free the session. Metadata on the failed dataset are copied in a directory and will be fixed by an expert", action='store_true')
+    parser.add_argument("--recover_postponed", help="Scans path_datasets_to_fix and recovers postponed uploads, quarantining poison pills after max attempts", action='store_true')
+    parser.add_argument("--loop", help="With --recover_postponed, runs continuously in a loop", action='store_true')
+    parser.add_argument("--max_attempts", type=int, default=2, help="Max recovery attempts before quarantining a failed file (default: %(default)s)")
+    parser.add_argument("--sleep_time", type=int, default=300, help="Sleep time between recovery loops in seconds (default: %(default)s)")
     parser.add_argument("--add_rules_from_file", nargs=3, help="To be used when you want to transfer data from one RSE to another RSE, using rucio and without updating the database. The option requires a FILE containing the list of DIDs to be transferred. Each rule is copied only after the previous one is successfully completed. This is particularly suggested for tapes", metavar=('FILE','FROM_RSE','TO_RSE'))
 
     parser.add_argument("--test", help="For some tasks, it simulates an action without making any real modification",action='store_true')
@@ -1477,6 +1565,9 @@ def main():
 
         if args.postpone:
             fix.postpone()
+
+        if args.recover_postponed:
+            fix.recover_postponed(max_attempts=args.max_attempts, loop=args.loop, sleep_time=args.sleep_time)
 
 #        if args.action == "reset_upload" and args.did:
 #            fix.reset_upload(args.did)
