@@ -450,7 +450,10 @@ class UploadManager():
                 isCheckTransfersRunning = 1
             if thread['task']=='CleanEB':
                 isCleanEBRunning = 1
-        self.PrintToNodeExporter(self.n_datasets_to_upload,min(numbers),max(numbers),isCheckTransfersRunning,isCleanEBRunning,n_high,n_low)
+        if len(numbers)>0:
+            self.PrintToNodeExporter(self.n_datasets_to_upload,min(numbers),max(numbers),isCheckTransfersRunning,isCleanEBRunning,n_high,n_low)
+        else:
+            self.PrintToNodeExporter(self.n_datasets_to_upload,0,0,isCheckTransfersRunning,isCleanEBRunning,n_high,n_low)
 
         # Assign datasets to Upload tasks that are currently available
         for dataset in datasets_to_upload:
