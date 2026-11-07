@@ -24,8 +24,11 @@ def version():
 
 def end_admix():
     process = psutil.Process()
-    screen = process.parent().parent().parent().parent().cmdline()[-1]
+    while process is not None and "screen" not in process.name().lower():
+        process = process.parent()
+    screen = process.cmdline()[-1] if process is not None else "unknown"
     os.remove("/tmp/admix-"+screen)
+
     
 
 def your_admix():
@@ -97,9 +100,11 @@ def your_admix():
 
     #Create a tmp file named as the screen session that contains this process
     process = psutil.Process()
-    screen = process.parent().parent().parent().parent().cmdline()[-1]
-    open("/tmp/admix-"+screen, 'a').close()
-
+    while process is not None and "screen" not in process.name().lower():
+        process = process.parent()
+    screen = process.cmdline()[-1] if process is not None else "unknown"
+    open(f"/tmp/admix-{screen}", "a").close()
+    
     #Loop over the inizialization of all classes
     for i_task in task_list:
         ClassCollector[i_task].init()
