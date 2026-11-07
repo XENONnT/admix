@@ -1312,6 +1312,43 @@ class Fix():
         print('Done')
 
 
+    def fix_stuck_replica(self,did,rse):
+
+        hash = did.split('-')[-1]
+        dtype = did.split('-')[0].split(':')[-1]
+        number = int(did.split(':')[0].split('_')[-1])
+
+        scope = did.split(":")[0]
+        name = did.split(":")[1]
+        
+        print("Fixing a replica of DID {0} in the RSE {1}, by comparing it with {2}".format(did,rse,self.UPLOAD_TO))
+        print("Run number: {0}".format(number))
+        print("Data type: {0}".format(dtype))
+        print("Hash: {0}".format(hash))
+
+        file_did = {'scope': scope, 'name': name}
+        
+        # reading physical presence of all files in the origin RSE
+        replicas_origin = list(self.replicaclient.list_replicas([file_did],rse_expression=self.UPLOAD_TO))
+
+        # reading physical presence of all files in the RSE to be analysed
+        replicas_toanalyse = list(self.replicaclient.list_replicas([file_did],rse_expression=rse))
+
+        print("Original files = {0}, replica files = {1}".format(len(replicas_origin),len(replicas_toanalyse)))
+
+        ctx = gfal2.creat_context()
+        
+        for file in replicas_toanalyse:
+            gfal_filename = file['rses'][rse][0]
+            print('    Checking file ',gfal_filename)
+            try:
+                gfal_filestat = ctx.lstat(gfal_filename)
+            except gfal2.GError:
+                print("gfal2 error on file {0} from did {1} in rse {2}".format(gfal_filename,did,rse))
+                print("gfal2 error!")
+            gfal_filesize = gfal_filestat.st_size
+            if file['bytes']!=gfal_filesize:
+                print("Error! File {0} from dataset {1} is absent in {2}".format(gfal_filename,did,rse))
 
 
 
@@ -1370,6 +1407,7 @@ def main():
 
     parser.add_argument("--test_db_modification", nargs=2, help="Test how quickly a modification in DB is registered", metavar=('DID','STATUS'))
     parser.add_argument("--fix_upload_db", nargs=1, help="To be used when the upload done by Rucio has been completed but then admix crashed before updating the DB", metavar=('DID'))
+    parser.add_argument("--fix_stuck_replica", nargs=2, help="To be used to fix the replica of a DID in a given RSE that went in stuck mode for days", metavar=('DID','RSE'))
     parser.add_argument("--create_upload_rules", nargs=1, help="To be used when the upload done by Rucio has been completed but then admix crashed before creating the rules abroad", metavar=('DID'))
     parser.add_argument("--postpone", help="To be used when an upload failed (for any reason) in a screen session and you want to free the session. Metadata on the failed dataset are copied in a directory and will be fixed by an expert", action='store_true')
     parser.add_argument("--add_rules_from_file", nargs=3, help="To be used when you want to transfer data from one RSE to another RSE, using rucio and without updating the database. The option requires a FILE containing the list of DIDs to be transferred. Each rule is copied only after the previous one is successfully completed. This is particularly suggested for tapes", metavar=('FILE','FROM_RSE','TO_RSE'))
@@ -1430,6 +1468,9 @@ def main():
 
         if args.fix_upload_db:
             fix.fix_upload_db(args.fix_upload_db[0])
+
+        if args.fix_stuck_replica:
+            fix.fix_stuck_replica(args.fix_stuck_replica[0],args.fix_stuck_replica[1])
 
         if args.create_upload_rules:
             fix.create_upload_rules(args.create_upload_rules[0])
