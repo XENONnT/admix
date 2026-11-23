@@ -6,7 +6,7 @@ import socket
 import admix.rucio
 from . import utils
 from .rucio import list_rules, get_did_type, get_rses
-from .manager import bring_online
+from .manager import bring_online, TAPE_RSES
 from . import logger
 from . import clients
 try:
@@ -26,6 +26,9 @@ class RucioDownloadError(Exception):
 
 
 def determine_rse(rse_list):
+    if not rse_list:
+        return None
+
     # TODO put this in config or something?
 
     preferred_host_rses = {
@@ -80,8 +83,16 @@ def determine_rse(rse_list):
         if pref_rse in rse_list:
             return pref_rse
 
-    # if get here, return None and let rucio figure it out
-    return
+    # Fall back to any available RSE rather than returning None,
+    # preferring non-tape RSEs over known tape RSEs.
+    non_tape_rses = [
+        rse for rse in rse_list
+        if rse not in TAPE_RSES and 'TAPE' not in rse.upper()
+    ]
+    if non_tape_rses:
+        return sorted(non_tape_rses)[0]
+
+    return sorted(rse_list)[0]
 
 
 def download_dids(dids, num_threads=8, **kwargs):
@@ -165,7 +176,7 @@ def download(
     _try = 1
     success = False
     while _try <= tries and not success:
-        if _try == tries:
+        if _try == tries and tries > 1:
             rse = None
         try:
             result = download_dids(dids, base_dir=location, no_subdir=True, rse=rse, num_threads=num_threads)
@@ -227,7 +238,7 @@ def download_1t(number, dtype, location='.',  tries=3, num_threads=5, **kwargs):
     success = False
 
     while _try <= tries and not success:
-        if _try == tries:
+        if _try == tries and tries > 1:
             rse = None
         result = download_dids(did, base_dir=location, no_subdir=True, rse=rse, num_threads=num_threads)
         if isinstance(result, int):
